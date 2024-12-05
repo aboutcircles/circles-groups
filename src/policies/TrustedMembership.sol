@@ -28,9 +28,9 @@ contract TrustedMembershipPolicy is PathGuard {
         bytes calldata _data
     ) external virtual override returns (bool) {
         // only allow minting if the minter is a trusted human by this group
-        if (!hub.isTrusted(_group, _minter))
-
-        super.beforeMintPolicy(_minter, _group, _collateral, _amounts, _data);
+        if (!hub.isTrusted(_group, _minter)) {
+            super.beforeMintPolicy(_minter, _group, _collateral, _amounts, _data);
+        }
         return true;
     }
 }
