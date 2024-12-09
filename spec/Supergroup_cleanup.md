@@ -72,7 +72,7 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
     - Remove it from **List A**.
     - Increment the `n_friends_backed` counter for the top 3 backers by +1.
 
-#### Repeat Sub-Steps 4b and 4c
+#### During Sub-Steps 4b and 4c
 - Continue processing accounts while **|C| < 10,000**.
 
 ---
