@@ -37,15 +37,24 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
 ### Step 2: Filter Blacklisted
 - Check each account in **List A** against the cache/database:
   - **Blacklist Check**:
-    - If the account is blacklisted, remove it from **List A**.
+    - If the account is blacklisted, remove it from **List A** and from **List B**.
 
 ---
 
 ### Step 3: Evaluate Backing for Trusted and Not-Blacklisted Humans
-- For all accounts in **Lists A and B**, check the `LBP indexer RPC` to determine if their CRC is sufficiently backed:
+
+#### Sub-Step 3a: First Check for Backed Already Trusted Humans
+- For all accounts in **List B**, check the `LBP indexer RPC` to determine if their CRC is sufficiently backed:
   - If **backed**:
     - Add the account to **List C**.
     - Remove it from **Lists A and B**.
+- Stop if **|C| >= 10,000**, and skip to Step 5.
+
+#### Sub-Step 3b: Find Newly Backed Humans
+- For all accounts in **List A**, check the `LBP indexer RPC` to determine if their CRC is sufficiently backed:
+  - If **backed**:
+    - Add the account to **List C**.
+    - Remove it from **Lists A**.
 - Stop if **|C| >= 10,000**, and skip to Step 5.
 
 ---
