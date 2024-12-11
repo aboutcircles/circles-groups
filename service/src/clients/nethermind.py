@@ -33,5 +33,59 @@ class NethermindClient:
 
     def get_all_v2_humans(self) -> list:
         """Get a list of all v2 human accounts registered in the Hub"""
-        result = self._make_request("getAllV2Humans", [])
-        return list(result.values())
+        # todo: for now there are only 400+ humans, soon improve by caching and then appending new
+        return self.get_all_humans_with_pagination(1000)
+
+    def get_all_humans_with_pagination(self, limit: int = 1000) -> list:
+        """Get a paginated list of all human accounts registered in the Hub."""
+        if limit > 1000:
+            raise ValueError("Limit exceeds maximum allowed value of 1000.")
+
+        params = [
+            {
+                "Namespace": "V_CrcV2",
+                "Table": "Avatars",
+                "Limit": limit,
+                "Columns": [],
+                "Filter": [{
+                    "Type": "FilterPredicate",
+                    "FilterType": "Equals",
+                    "Column": "type",
+                    "Value": "CrcV2_RegisterHuman"
+                }],
+                "Order": [
+                    {
+                        "Column": "blockNumber",
+                        "SortOrder": "DESC"
+                    },
+                    {
+                        "Column": "transactionIndex",
+                        "SortOrder": "DESC"
+                    },
+                    {
+                        "Column": "logIndex",
+                        "SortOrder": "DESC"
+                    }
+                ]
+            }
+        ]
+        result = self._make_request("circles_query", params)
+
+        # Extract the keys and rows from the result
+        if 'columns' not in result or 'rows' not in result:
+            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+
+        keys = result['columns']
+        rows = result['rows']
+
+        try:
+            avatar_index = keys.index('avatar')
+            print(f"Avatar index found at: {avatar_index}")
+        except ValueError as e:
+            print("Avatar key not found in keys.")
+            raise e
+
+        # Extract just the avatar values
+        human_addresses = [row[avatar_index] for row in rows]
+
+        return human_addresses
