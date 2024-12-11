@@ -1,10 +1,11 @@
 import pytest
 from src.clients.nethermind import NethermindClient
+from src.config.settings import settings
 
 @pytest.fixture(scope="module")
 def nethermind_client():
     """Fixture to create a NethermindClient instance."""
-    client = NethermindClient("https://rpc.aboutcircles.com")
+    client = NethermindClient(settings.nethermind_rpc_url)
     yield client
 
 def test_get_all_humans_with_pagination(nethermind_client):
