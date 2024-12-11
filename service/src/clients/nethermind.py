@@ -30,3 +30,8 @@ class NethermindClient:
         """Get the current list of trusted accounts for a given address"""
         result = self._make_request("getTrustedAccounts", [address])
         return list(result.values())
+
+    def get_all_v2_humans(self) -> list:
+        """Get a list of all v2 human accounts registered in the Hub"""
+        result = self._make_request("getAllV2Humans", [])
+        return list(result.values())

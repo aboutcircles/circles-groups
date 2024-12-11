@@ -11,12 +11,7 @@ class ScreeningClient:
         response.raise_for_status()
         return response.json()
 
-    def screen_address(self, address: str) -> dict:
-        """Screen an address."""
-        result = self._make_request(f"screen/{address}")
-        return result
-
-    def get_screening_report(self, report_id: str) -> dict:
-        """Get a screening report by ID."""
-        result = self._make_request(f"reports/{report_id}")
-        return result
+    def get_blacklisted_accounts(self) -> list:
+        """Get the list of blacklisted accounts."""
+        result = self._make_request("getBlacklisted")
+        return list(result.values())

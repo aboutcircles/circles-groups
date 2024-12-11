@@ -1,6 +1,6 @@
 import time
 import random
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 from web3 import Web3
 from clients.nethermind import NethermindClient
 from clients.lbp_indexer import LBPIndexerClient
@@ -32,3 +32,20 @@ class TrustManagementAlgorithm:
         max_offset = settings.update_max_offset
         while True:
             random_offset = random.randint(- max_offset, max_offset)
+            time.sleep(settings.update_interval + random_offset)
+            self._update_trusted_list()
+
+    def _update_trusted_list(self):
+        self.current_iteration += 1
+
+        # Step 1: Fethc All Humans
+        list_a = set(self.nethermind_client.get_all_v2_humans())
+
+        # Step 2: Filter Blacklisted
+        #
+
+    def _filter_blacklisted(self, list_a: Set[str], list_b: Set[str]) -> Tuple[Set[str], Set[str]]:
+        blacklisted_accounts = set(self.screening_client.get_blacklisted_accounts())
+        list_a -= blacklisted_accounts
+        list_b -= blacklisted_accounts
+        return list_a, list_b
