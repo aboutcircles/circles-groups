@@ -11,12 +11,15 @@ class LBPIndexerClient:
         response.raise_for_status()
         return response.json()
 
-    def get_pools(self) -> list:
-        """Get a list of pools."""
-        result = self._make_request("pools")
-        return list(result.values())
+    def is_crc_sufficiently_backed(self, account: str) -> bool:
+        """Check if the CRC of an account is sufficiently backed."""
+        result = self._make_request(f"lbp/{account}")
+        depth_dollars = result.get('depth_dollars', 0)
+        depth_crc = result.get('depth_crc', 0)
+        price = result.get('price', 0)
+        return depth_dollars >= 100 and depth_crc >= 48 and price >= 0.01
 
-    def get_pool_details(self, pool_id: str) -> dict:
-        """Get details for a specific pool."""
-        result = self._make_request(f"pools/{pool_id}")
-        return result
+    def get_backers(self, account: str) -> list:
+        """Get the backers for a given account."""
+        result = self._make_request(f"lbp/backers/{account}")
+        return list(result.values())

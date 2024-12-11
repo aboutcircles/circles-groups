@@ -42,10 +42,24 @@ class TrustManagementAlgorithm:
         list_a = set(self.nethermind_client.get_all_v2_humans())
 
         # Step 2: Filter Blacklisted
-        #
+        list_a, list_b = self._filter_blacklisted(list_a, self.trusted_accounts)
+
+        # Step 3: Evaluate Backing for Trusted and Not-Blacklisted Humans
+
+        # Sub-Step 3a: First Check for Backed, Already Trusted Humans
+        list_c = set()
+        list_a, list_b, list_c = self._check_backed_trusted(list_a, list_b, list_c)
 
     def _filter_blacklisted(self, list_a: Set[str], list_b: Set[str]) -> Tuple[Set[str], Set[str]]:
         blacklisted_accounts = set(self.screening_client.get_blacklisted_accounts())
         list_a -= blacklisted_accounts
         list_b -= blacklisted_accounts
         return list_a, list_b
+
+    def _check_backed_trusted(self, list_a: Set[str], list_b: Set[str], list_c: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
+        for account in list_b.copy():
+            if self.lbp_indexer_client.is_crc_sufficiently_backed(account):
+                list_c.add(account)
+                list_a.remove(account)
+                list_b.remove(account)
+        return list_a, list_b, list_c
