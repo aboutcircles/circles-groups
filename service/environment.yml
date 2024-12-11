@@ -1,6 +1,0 @@
-name: circles-supergroup-service
-channels:
-  - defaults
-dependencies:
-  - python=3.13
-  - requests

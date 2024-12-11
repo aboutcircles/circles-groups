@@ -14,7 +14,8 @@ def main():
     algorithm = TrustManagementAlgorithm(
         nethermind_client,
         lbp_indexer_client,
-        screening_client
+        screening_client,
+        settings.supergroup_address
     )
 
     algorithm.initialize()

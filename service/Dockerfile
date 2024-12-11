@@ -1,10 +1,10 @@
-FROM python:3.13-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY service/src /app/src
+COPY src /app/src
 
 CMD ["python", "-m", "src.main"]

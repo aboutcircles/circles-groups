@@ -14,7 +14,7 @@ class LBPIndexerClient:
     def get_pools(self) -> list:
         """Get a list of pools."""
         result = self._make_request("pools")
-        return result
+        return list(result.values())
 
     def get_pool_details(self, pool_id: str) -> dict:
         """Get details for a specific pool."""

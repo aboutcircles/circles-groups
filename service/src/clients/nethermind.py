@@ -16,12 +16,17 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
-    def get_block_number(self) -> int:
-        """Get the current block number."""
-        result = self._make_request("eth_blockNumber", [])
-        return int(result, 16)
+    # def get_block_number(self) -> int:
+    #     """Get the current block number."""
+    #     result = self._make_request("eth_blockNumber", [])
+    #     return int(result, 16)
 
-    def get_transaction(self, transaction_hash: str) -> dict:
-        """Get a transaction by hash."""
-        result = self._make_request("eth_getTransactionByHash", [transaction_hash])
-        return result
+    # def get_transaction(self, transaction_hash: str) -> dict:
+    #     """Get a transaction by hash."""
+    #     result = self._make_request("eth_getTransactionByHash", [transaction_hash])
+    #     return result
+
+    def get_trusted_accounts(self, address : str) -> list:
+        """Get the current list of trusted accounts for a given address"""
+        result = self._make_request("getTrustedAccounts", [address])
+        return list(result.values())

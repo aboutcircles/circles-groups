@@ -1,4 +1,5 @@
 import os
+from web3 import Web3
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -22,6 +23,12 @@ class Settings:
         self.update_interval = int(self._get_env('UPDATE_INTERVAL', '1800'))  # 30 minutes
         self.update_max_offset = int(self._get_env('UPDATE_MAX_OFFSET', '300'))  # 5 minutes
 
+        # Supergroup address
+        supergroup_address = self._get_env('SUPERGROUP_ADDRESS')
+        if not Web3().is_address(supergroup_address):
+            raise ValueError(f"Invalid Ethereum address: {supergroup_address}")
+        self.supergroup_address = Web3.to_checksum_address(supergroup_address)
+
     def _get_env(self, key: str, default: Optional[str] = None) -> str:
         """Get environment variable with optional default"""
         value = os.getenv(key)
@@ -43,7 +50,8 @@ class Settings:
             'max_trusted': self.max_trusted,
             'change_threshold': self.change_threshold,
             'update_interval': self.update_interval,
-            'update_max_offset': self.update_max_offset
+            'update_max_offset': self.update_max_offset,
+            'supergroup_address': self.supergroup_address
         }
 
 # Create a global settings instance

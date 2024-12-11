@@ -1,12 +1,11 @@
 # Supergroup service
 
-## Getting started with conda
+## Getting started with venv
 
 ```sh
-conda env create --file=service/environment.yml
-conda activate circles-supergroup-service
-```
-
-```sh
-conda env update --file=service/environment.yml --prune
+cd service/
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
