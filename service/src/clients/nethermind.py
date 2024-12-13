@@ -1,3 +1,4 @@
+import time
 import requests
 
 class NethermindClient:
@@ -27,7 +28,7 @@ class NethermindClient:
     #     return result
 
     def get_trusted_accounts(self, address : str) -> list:
-        """Get the current list of trusted accounts for a given address"""
+        """Get the current list of accounts that trust a given address"""
         result = self._make_request("getTrustedAccounts", [address])
         return list(result.values())
 
@@ -38,8 +39,10 @@ class NethermindClient:
 
     def get_all_humans_with_pagination(self, limit: int = 1000) -> list:
         """Get a paginated list of all human accounts registered in the Hub."""
-        if limit > 1000:
-            raise ValueError("Limit exceeds maximum allowed value of 1000.")
+        if limit > 1000 | limit < 0:
+            raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
+
+        # todo: handle caching and pagination
 
         params = [
             {
@@ -89,3 +92,70 @@ class NethermindClient:
         human_addresses = [row[avatar_index] for row in rows]
 
         return human_addresses
+
+    def _compose_get_trusted_accounts(self, address: str, limit: int = 1000):
+        """Get a paginated list of all trusters who trust the given address as trustee."""
+        if limit > 1000 | limit < 0:
+            raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
+
+        # warning: this is FAULTY if more than one page is needed
+
+        params = [
+            {
+                "Namespace": "V_CrcV2",
+                "Table": "TrustRelations",  # Changed from "Trust" to "TrustRelations"
+                "Limit": limit,
+                "Columns": [],
+                "Filter": [{
+                    "Type": "FilterPredicate",
+                    "FilterType": "Equals",
+                    "Column": "trustee",
+                    "Value": address.lower()
+                }],
+                "Order": [
+                    {
+                        "Column": "blockNumber",
+                        "SortOrder": "DESC"
+                    },
+                    {
+                        "Column": "transactionIndex",
+                        "SortOrder": "DESC"
+                    },
+                    {
+                        "Column": "logIndex",
+                        "SortOrder": "DESC"
+                    }
+                ]
+            }
+        ]
+        result = self._make_request("circles_query", params)
+
+        # Extract the keys and rows from the result
+        if 'columns' not in result or 'rows' not in result:
+            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+
+        keys = result['columns']
+        rows = result['rows']
+
+        try:
+            truster_index = keys.index('truster')
+            expiry_index = keys.index('expiryTime')
+            print(f"Truster index found at: {truster_index}, Expiry index found at: {expiry_index}")
+        except ValueError as e:
+            print("Required columns not found in keys.")
+            raise e
+
+        # Process rows to get current timestamp
+        current_timestamp = int(time.time())
+
+        # Filter for active trust relationships and extract unique trusters
+        active_trusters = set()
+        for row in rows:
+            truster = row[truster_index]
+            expiry_time = int(row[expiry_index])
+
+            # Only include trusters whose trust hasn't expired and who aren't the trustee themselves
+            if expiry_time > current_timestamp and truster.lower() != address.lower():
+                active_trusters.add(truster)
+
+        return list(active_trusters)

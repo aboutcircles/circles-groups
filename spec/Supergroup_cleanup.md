@@ -2,7 +2,7 @@
 
 ## Objective
 
-To periodically update the trust list of a supergroup by evaluating whether CRC are backed in a Liquidity Bootstrapping Pool (LBP) (aka. "backers") or trusted by people who backed their CRC (aka "friends"). Because this algorithm recalculates the whole trust list, ensure that trust connections are stable over iterations.
+To periodically update the trust list of a supergroup by evaluating whether CRC are backed in a Liquidity Bootstrapping Pool (LBP) (aka. "backers") or trusted by people who backed their CRC (aka "friends"). Because this algorithm recalculates the whole trust list, ensure that trust connections are stable over iterations. Additionally with an `append-only` flag defaulted to true, once a person is trusted, they remain trusted unless they get blacklisted.
 
 ## Prelimenaries
 
@@ -14,10 +14,10 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
 
 #### Working (pseudocode) lists
 
-- **List A**: The list of all plausible candidates to be trusted in this round (i.e., all humans minus blacklisted ones).  
+- **List A**: The list of all plausible candidates to be trusted in this round (i.e., all humans minus blacklisted ones).
 - **List B**: A copy of the list of previously trusted humans from the last iteration. (On start of service, first query Nethermind for current list of trusted accounts by group.)
 - **List C**: The newly built proposal for the trusted list in the current round.
-
+- **List D**: The list of currently backing humans, for determining new friends.
 
 ## Algorithm Steps
 
@@ -46,16 +46,19 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
 #### Sub-Step 3a: First Check for Backed Already Trusted Humans
 - For all accounts in **List B**, check the `LBP indexer RPC` to determine if their CRC is sufficiently backed:
   - If **backed**:
-    - Add the account to **List C**.
+    - Add the account to **List D** and **List C**.
     - Remove it from **Lists A and B**.
-- Stop if **|C| >= 10,000**, and skip to Step 5.
+  - else if `APPEND_ONLY`:
+    - Add the account to **List C**.
+    - Remove it from **List A**.
+  - Stop if **|C| >= 10,000**, and skip to Step 5.
 
 #### Sub-Step 3b: Find Newly Backed Humans
 - For all accounts in **List A**, check the `LBP indexer RPC` to determine if their CRC is sufficiently backed:
   - If **backed**:
-    - Add the account to **List C**.
+    - Add the account to **List D** and **List C**.
     - Remove it from **Lists A**.
-- Stop if **|C| >= 10,000**, and skip to Step 5.
+  - Stop if **|C| >= 10,000**, and skip to Step 5.
 
 ---
 
@@ -64,14 +67,15 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
 #### Sub-Step 4a: Filter for at least 3 Trust Connections
 - For each account in **List A**:
   - Use **Nethermind RPC** to retrieve their `trusted_by` list.
-  - Check if the intersection of their `trusted_by` list with **List C** contains **≥ 3 trusted connections**:
+  - Check if the intersection of their `trusted_by` list with **List D** contains **≥ 3 trusted connections**:
     - If not, remove the account from **List A**.
 
 #### Sub-Step 4b: Reconsider First Previously Trusted Accounts
-- For each account in **List B** that is also in **List A**:
-  - Add the account to **List C**.
-  - Remove it from **Lists B and A**.
-  - Sort the account’s backers by ascending `n_friends_backed` and increment the top 3 backers by +1 on their `n_friends_backed` counter (ie. the least backing so far).
+- If not `APPEND_ONLY`:
+  - For each account in **List B** that is also in **List A**:
+    - Add the account to **List C**.
+    - Remove it from **Lists B and A**.
+    - Sort the account’s backers by ascending `n_friends_backed` and increment the top 3 backers by +1 on their `n_friends_backed` counter (ie. the least backing so far).
 
 #### Sub-Step 4c: Add New Friends trusted by Backers
 - For each remaining account in **List A**:
@@ -99,4 +103,3 @@ To periodically update the trust list of a supergroup by evaluating whether CRC 
 3. **Update Supergroup and Cache/Database**:
    - Apply the new trust list on-chain
    - Update **List B** (or cache/database) with the results.
-

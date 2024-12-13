@@ -18,6 +18,8 @@ class Settings:
         # Algorithm settings
         self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
         self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))
+        # Append-only flag: prevents untrusting previously trusted humans unless they are blacklisted
+        self.append_only = bool(self._get_env('APPEND_ONLY', 'true'))
 
         # Service settings
         self.update_interval = int(self._get_env('UPDATE_INTERVAL', '1800'))  # 30 minutes
@@ -51,7 +53,8 @@ class Settings:
             'change_threshold': self.change_threshold,
             'update_interval': self.update_interval,
             'update_max_offset': self.update_max_offset,
-            'supergroup_address': self.supergroup_address
+            'supergroup_address': self.supergroup_address,
+            'append_only': self.append_only
         }
 
 # Create a global settings instance

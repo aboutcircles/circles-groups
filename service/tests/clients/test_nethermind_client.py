@@ -32,3 +32,15 @@ def test_get_all_v2_humans(nethermind_client):
     assert isinstance(human_addresses, list), "Result should be a list"
     assert len(human_addresses) > 0, "Should return at least one human account"
     assert all(isinstance(address, str) for address in human_addresses), "All elements should be strings"
+
+def test_get_trusted_accounts(nethermind_client):
+    """Test the get_trusted_accounts method."""
+    address = "0x14c16ce62d26Fd51582A646e2e30a3267b1E6D7E"
+    trusted_by_accounts = nethermind_client._compose_get_trusted_accounts(address, 1000)
+
+    print(f"Trusted by accounts {trusted_by_accounts}")
+
+    print(f"Number of accounts: {len(trusted_by_accounts)}")
+
+    # assert isinstance(trusted_accounts, list), "Result should be a list"
+    # assert all(isinstance(account, str) for account in trusted_accounts), "All elements should be strings"
