@@ -24,7 +24,7 @@ class TrustManagementAlgorithm:
 
     def initialize(self):
         # Fetch the current list of trusted accounts by the supergroup from Nethermind
-        self.trusted_accounts = set(self.nethermind_client.get_trusted_accounts(
+        self.trusted_accounts = set(self.nethermind_client.get_trusted_by_accounts(
             self.supergroup_address))
         self.current_iteration += 1
 
@@ -68,7 +68,7 @@ class TrustManagementAlgorithm:
         # Step 4: Trust "Unbacked" Friends
 
         # Sub-Step 4a: Filter the remaining humans for at least 3 Trust Connections
-        #              to the set of current backers
+        #   to the set of current backers
         list_a = self._filter_at_least_three_trust_connections(list_a, list_d)
 
     def _filter_blacklisted(self, list_a: Set[str], list_b: Set[str]) -> Tuple[Set[str], Set[str]]:

@@ -27,7 +27,7 @@ class Settings:
 
         # Supergroup address
         supergroup_address = self._get_env('SUPERGROUP_ADDRESS')
-        if not Web3().is_address(supergroup_address):
+        if not Web3.is_address(supergroup_address):
             raise ValueError(f"Invalid Ethereum address: {supergroup_address}")
         self.supergroup_address = Web3.to_checksum_address(supergroup_address)
 

@@ -1,5 +1,7 @@
 import time
 import requests
+from typing import Set
+from web3 import Web3
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
@@ -27,17 +29,17 @@ class NethermindClient:
     #     result = self._make_request("eth_getTransactionByHash", [transaction_hash])
     #     return result
 
-    def get_trusted_accounts(self, address : str) -> list:
+    def get_trusted_by_accounts(self, address : str) -> Set[str]:
         """Get the current list of accounts that trust a given address"""
-        result = self._make_request("getTrustedAccounts", [address])
-        return list(result.values())
+        # todo: add pagination to ensure this is a complete list
+        return self._compose_get_trusted_by_accounts(address, 1000)
 
-    def get_all_v2_humans(self) -> list:
+    def get_all_v2_humans(self) -> Set[str]:
         """Get a list of all v2 human accounts registered in the Hub"""
         # todo: for now there are only 400+ humans, soon improve by caching and then appending new
         return self.get_all_humans_with_pagination(1000)
 
-    def get_all_humans_with_pagination(self, limit: int = 1000) -> list:
+    def get_all_humans_with_pagination(self, limit: int = 1000) -> Set[str]:
         """Get a paginated list of all human accounts registered in the Hub."""
         if limit > 1000 | limit < 0:
             raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
@@ -91,12 +93,19 @@ class NethermindClient:
         # Extract just the avatar values
         human_addresses = [row[avatar_index] for row in rows]
 
-        return human_addresses
+        # Validate each address and raise an error if any is not a valid Web3 Ethereum address
+        invalid_addresses = [address for address in human_addresses if not Web3.is_address(address)]
+        if invalid_addresses:
+            raise ValueError(f"Invalid Ethereum addresses found: {invalid_addresses}")
 
-    def _compose_get_trusted_accounts(self, address: str, limit: int = 1000):
+        return set(human_addresses)
+
+    def _compose_get_trusted_by_accounts(self, address: str, limit: int = 1000) -> Set[str]:
         """Get a paginated list of all trusters who trust the given address as trustee."""
         if limit > 1000 | limit < 0:
             raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
+
+        address = address.lower()
 
         # warning: this is FAULTY if more than one page is needed
 
@@ -110,7 +119,7 @@ class NethermindClient:
                     "Type": "FilterPredicate",
                     "FilterType": "Equals",
                     "Column": "trustee",
-                    "Value": address.lower()
+                    "Value": address
                 }],
                 "Order": [
                     {
@@ -145,17 +154,20 @@ class NethermindClient:
             print("Required columns not found in keys.")
             raise e
 
-        # Process rows to get current timestamp
+        # Current timestamp determines whether trust has expired past expiryTime
         current_timestamp = int(time.time())
 
         # Filter for active trust relationships and extract unique trusters
         active_trusters = set()
         for row in rows:
-            truster = row[truster_index]
+            truster = row[truster_index].lower()
             expiry_time = int(row[expiry_index])
 
+            if not Web3.is_address(truster):
+                raise ValueError(f"Invalid Ethereum address: {truster}")
+
             # Only include trusters whose trust hasn't expired and who aren't the trustee themselves
-            if expiry_time > current_timestamp and truster.lower() != address.lower():
+            if expiry_time > current_timestamp and truster != address:
                 active_trusters.add(truster)
 
-        return list(active_trusters)
+        return set(active_trusters)
