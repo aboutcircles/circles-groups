@@ -68,8 +68,12 @@ class TrustManagementAlgorithm:
         # Step 4: Trust "Unbacked" Friends
 
         # Sub-Step 4a: Filter the remaining humans for at least 3 Trust Connections
-        #   to the set of current backers
         list_a = self._filter_at_least_three_trust_connections(list_a, list_d)
+
+        # Sub-Step 4b: Reconsider First Previously Trusted Accounts as possible friends (list A)
+        if not settings.append_only:
+            # with append_only we have already included all not-blacklisted, previously trusted humans
+            list_a, list_b, list_c = self._reconsider_previously_trusted_as_friends(list_a, list_b, list_c)
 
     def _filter_blacklisted(self, list_a: Set[str], list_b: Set[str]) -> Tuple[Set[str], Set[str]]:
         blacklisted_accounts = set(self.screening_client.get_blacklisted_accounts())
@@ -100,11 +104,19 @@ class TrustManagementAlgorithm:
         return list_a, list_c, list_d
 
     def _filter_at_least_three_trust_connections(self, list_a: Set[str], list_d: Set[str]) -> Set[str]:
+        # initialize a dictionary to tally
         for account in list_a.copy():
             trusted_by = self.nethermind_client.get_trusted_by_accounts(account)
             if len(trusted_by.intersection(list_d)) < 3:
                 list_a.discard(account)
         return list_a
+
+    def _reconsider_previously_trusted_as_friends(self, list_a: Set[str], list_b: Set[str], list_c: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
+        for account in list_b.intersection(list_a):
+            list_c.add(account)
+            list_a.discard(account)
+            list_b.discard(account)
+        return list_a, list_b, list_c
 
     def _finalize_trust_list(self, list_c: Set[str]):
         # Determine changes

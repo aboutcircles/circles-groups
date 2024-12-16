@@ -6,6 +6,7 @@ from web3 import Web3
 class NethermindClient:
     def __init__(self, rpc_url: str):
         self.rpc_url = rpc_url
+        self.cache_trusted_by = {}
 
     def _make_request(self, method: str, params: list) -> dict:
         """Make a JSON-RPC request to the Nethermind node."""
@@ -19,20 +20,12 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
-    # def get_block_number(self) -> int:
-    #     """Get the current block number."""
-    #     result = self._make_request("eth_blockNumber", [])
-    #     return int(result, 16)
-
-    # def get_transaction(self, transaction_hash: str) -> dict:
-    #     """Get a transaction by hash."""
-    #     result = self._make_request("eth_getTransactionByHash", [transaction_hash])
-    #     return result
-
     def get_trusted_by_accounts(self, address : str) -> Set[str]:
         """Get the current list of accounts that trust a given address"""
         # todo: add pagination to ensure this is a complete list
-        return self._compose_get_trusted_by_accounts(address, 1000)
+        if address not in self.cache_trusted_by:
+            self.cache_trusted_by[address] = self._compose_get_trusted_by_accounts(address, 1000)
+        return self.cache_trusted_by[address]
 
     def get_all_v2_humans(self) -> Set[str]:
         """Get a list of all v2 human accounts registered in the Hub"""
