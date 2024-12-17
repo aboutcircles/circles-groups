@@ -38,6 +38,12 @@ class TrustManagementAlgorithm:
     def _update_trusted_list(self):
         self.current_iteration += 1
 
+        set_c = set() # Build the list of accounts to trust in the new iteration
+        set_d = set() # Keep a list of humans who are currently backing their CRC, for determining new friends
+
+        # initialize a dictionary to track
+        dict_credits = {}
+
         # Step 1: Fethc All Humans
         set_a = set(self.nethermind_client.get_all_v2_humans())
 
@@ -47,8 +53,6 @@ class TrustManagementAlgorithm:
         # Step 3: Evaluate Backing for Trusted and Not-Blacklisted Humans
 
         # Sub-Step 3a: First Check for Backed, Already Trusted Humans
-        set_c = set() # Build the list of accounts to trust in the new iteration
-        set_d = set() # Keep a list of humans who are currently backing their CRC, for determining new friends
         set_a, set_b, set_c, set_d = self._check_backed_trusted(
             set_a, set_b, set_c, set_d)
 
@@ -116,6 +120,8 @@ class TrustManagementAlgorithm:
             set_c.add(account)
             set_a.discard(account)
             set_b.discard(account)
+            # client caches this result to reduce repeating the RPC call
+            trusted_by = self.nethermind_client.get_trusted_by_accounts(account)
 
         return set_a, set_b, set_c
 
