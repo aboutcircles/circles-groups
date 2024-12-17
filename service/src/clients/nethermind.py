@@ -8,6 +8,12 @@ class NethermindClient:
         self.rpc_url = rpc_url
         self.cache_trusted_by = {}
 
+    def flush(self):
+        self.cache_trusted_by = {}
+
+    def reset(self):
+        self.flush()
+
     def _make_request(self, method: str, params: list) -> dict:
         """Make a JSON-RPC request to the Nethermind node."""
         payload = {

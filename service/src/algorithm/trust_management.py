@@ -39,90 +39,91 @@ class TrustManagementAlgorithm:
         self.current_iteration += 1
 
         # Step 1: Fethc All Humans
-        list_a = set(self.nethermind_client.get_all_v2_humans())
+        set_a = set(self.nethermind_client.get_all_v2_humans())
 
         # Step 2: Filter Blacklisted
-        list_a, list_b = self._filter_blacklisted(list_a, self.trusted_accounts)
+        set_a, set_b = self._filter_blacklisted(set_a, self.trusted_accounts)
 
         # Step 3: Evaluate Backing for Trusted and Not-Blacklisted Humans
 
         # Sub-Step 3a: First Check for Backed, Already Trusted Humans
-        list_c = set() # Build the list of accounts to trust in the new iteration
-        list_d = set() # Keep a list of humans who are currently backing their CRC, for determining new friends
-        list_a, list_b, list_c, list_d = self._check_backed_trusted(
-            list_a, list_b, list_c, list_d)
+        set_c = set() # Build the list of accounts to trust in the new iteration
+        set_d = set() # Keep a list of humans who are currently backing their CRC, for determining new friends
+        set_a, set_b, set_c, set_d = self._check_backed_trusted(
+            set_a, set_b, set_c, set_d)
 
         # Stop if we've reached the max trusted limit
-        if len(list_c) >= settings.max_trusted:
-            self._finalize_trust_list(list_c)
+        if len(set_c) >= settings.max_trusted:
+            self._finalize_trust_list(set_c)
             return
 
         # Sub-Step 3b: Find Newly Backed Humans (in list A)
-        list_a, list_c, list_d = self._check_backed_newly(list_a, list_c, list_d)
+        set_a, set_c, set_d = self._check_backed_newly(set_a, set_c, set_d)
 
         # Stop if we've reached the max trusted limit
-        if len(list_c) >= settings.max_trusted:
-            self._finalize_trust_list(list_c)
+        if len(set_c) >= settings.max_trusted:
+            self._finalize_trust_list(set_c)
             return
 
         # Step 4: Trust "Unbacked" Friends
 
         # Sub-Step 4a: Filter the remaining humans for at least 3 Trust Connections
-        list_a = self._filter_at_least_three_trust_connections(list_a, list_d)
+        set_a = self._filter_at_least_three_trust_connections(set_a, set_d)
 
         # Sub-Step 4b: Reconsider First Previously Trusted Accounts as possible friends (list A)
         if not settings.append_only:
             # with append_only we have already included all not-blacklisted, previously trusted humans
-            list_a, list_b, list_c = self._reconsider_previously_trusted_as_friends(list_a, list_b, list_c)
+            set_a, set_b, set_c = self._reconsider_previously_trusted_as_friends(set_a, set_b, set_c)
 
-    def _filter_blacklisted(self, list_a: Set[str], list_b: Set[str]) -> Tuple[Set[str], Set[str]]:
+    def _filter_blacklisted(self, set_a: Set[str], set_b: Set[str]) -> Tuple[Set[str], Set[str]]:
         blacklisted_accounts = set(self.screening_client.get_blacklisted_accounts())
-        list_a -= blacklisted_accounts
-        list_b -= blacklisted_accounts
-        return list_a, list_b
+        set_a -= blacklisted_accounts
+        set_b -= blacklisted_accounts
+        return set_a, set_b
 
-    def _check_backed_trusted(self, list_a: Set[str], list_b: Set[str], list_c: Set[str], list_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
+    def _check_backed_trusted(self, set_a: Set[str], set_b: Set[str], set_c: Set[str], set_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
         # copy list b to avoid modifying the list in place while looping
-        for account in list_b.copy():
+        for account in set_b.copy():
             if self.lbp_indexer_client.is_crc_sufficiently_backed(account):
-                list_c.add(account)
-                list_d.add(account)
-                list_a.discard(account)
-                list_b.discard(account)
+                set_c.add(account)
+                set_d.add(account)
+                set_a.discard(account)
+                set_b.discard(account)
             elif settings.append_only:
                 # when append-only always re-include the existing trust connections (list b)
-                list_c.add(account)
-                list_a.discard(account)
-        return list_a, list_b, list_c, list_d
+                set_c.add(account)
+                set_a.discard(account)
+        return set_a, set_b, set_c, set_d
 
-    def _check_backed_newly(self, list_a: Set[str], list_c: Set[str], list_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
-        for account in list_a.copy():
+    def _check_backed_newly(self, set_a: Set[str], set_c: Set[str], set_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
+        for account in set_a.copy():
             if self.lbp_indexer_client.is_crc_sufficiently_backed(account):
-                list_c.add(account)
-                list_d.add(account)
-                list_a.discard(account)
-        return list_a, list_c, list_d
+                set_c.add(account)
+                set_d.add(account)
+                set_a.discard(account)
+        return set_a, set_c, set_d
 
-    def _filter_at_least_three_trust_connections(self, list_a: Set[str], list_d: Set[str]) -> Set[str]:
+    def _filter_at_least_three_trust_connections(self, set_a: Set[str], set_d: Set[str]) -> Set[str]:
         # initialize a dictionary to tally
-        for account in list_a.copy():
+        for account in set_a.copy():
             trusted_by = self.nethermind_client.get_trusted_by_accounts(account)
-            if len(trusted_by.intersection(list_d)) < 3:
-                list_a.discard(account)
-        return list_a
+            if len(trusted_by.intersection(set_d)) < 3:
+                set_a.discard(account)
+        return set_a
 
-    def _reconsider_previously_trusted_as_friends(self, list_a: Set[str], list_b: Set[str], list_c: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
-        for account in list_b.intersection(list_a):
-            list_c.add(account)
-            list_a.discard(account)
-            list_b.discard(account)
-        return list_a, list_b, list_c
+    def _reconsider_previously_trusted_as_friends(self, set_a: Set[str], set_b: Set[str], set_c: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
+        for account in set_b.intersection(set_a):
+            set_c.add(account)
+            set_a.discard(account)
+            set_b.discard(account)
 
-    def _finalize_trust_list(self, list_c: Set[str]):
+        return set_a, set_b, set_c
+
+    def _finalize_trust_list(self, set_c: Set[str]):
         # Determine changes
         current_trusted_set = self.trusted_accounts
-        delta_joiners = list_c - current_trusted_set
-        delta_leavers = current_trusted_set - list_c
+        delta_joiners = set_c - current_trusted_set
+        delta_leavers = current_trusted_set - set_c
 
         # Apply threshold
         # TODO continue to apply and execute
