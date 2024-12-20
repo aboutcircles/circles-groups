@@ -5,4 +5,6 @@ class Credits:
         # initialize an empty dictionary to track credits allocated
         self.credits = {}
 
-    # def get_credit(backer: str)
+    def get_credit(self, backer: str):
+
+        return
