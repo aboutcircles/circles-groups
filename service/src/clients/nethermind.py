@@ -36,9 +36,15 @@ class NethermindClient:
     def get_all_v2_humans(self) -> Set[str]:
         """Get a list of all v2 human accounts registered in the Hub"""
         # todo: for now there are only 400+ humans, soon improve by caching and then appending new
-        return self.get_all_humans_with_pagination(1000)
+        return self._get_all_humans_with_pagination(1000)
 
-    def get_all_humans_with_pagination(self, limit: int = 1000) -> Set[str]:
+    def get_all_trusted_accounts(self, address : str) -> Set[str]:
+
+        return
+
+    # private functions
+
+    def _get_all_humans_with_pagination(self, limit: int = 1000) -> Set[str]:
         """Get a paginated list of all human accounts registered in the Hub."""
         if limit > 1000 | limit < 0:
             raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
