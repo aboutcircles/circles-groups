@@ -50,13 +50,7 @@ contract Supergroup is BaseGroupPolicy, ISupergroupProxyErrors {
     ) external virtual override returns (bool) {
         // only allow minting if the minter is a trusted human by this group
         if (!hub.isTrusted(_group, _minter)) {
-            super.beforeMintPolicy(
-                _minter,
-                _group,
-                _collateral,
-                _amounts,
-                _data
-            );
+            super.beforeMintPolicy(_minter, _group, _collateral, _amounts, _data);
         }
         return true;
     }
