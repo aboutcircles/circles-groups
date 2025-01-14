@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.24;
+pragma solidity >=0.8.28;
 
-interface IGuardsErrors {
-    error CirclesPathGuardOnlyExplicitGroupMint(uint8 code);
+interface ISupergroupProxyErrors {
+    /// @notice Supergroup proxy is already initialised
+    error SupergroupProxyAlreadyInitialised();
 }

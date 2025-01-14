@@ -6,5 +6,4 @@ update to original prototype:
   - there is a ceiling on the number of spots but it can be raised to allow more spots to open up
   - when a person is blacklisted by the blacklist service, they are untrusted, but this does not free-up the spot/counter
 
-
-- get all trust relations of the super
+- get all trust relations of the supergroup
