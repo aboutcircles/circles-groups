@@ -4,8 +4,9 @@ pragma solidity >=0.8.28;
 import "src/circles/Core.sol";
 import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
+import "src/operator/OperatorRequest.sol";
 
-contract SupergroupOperator is CirclesCoreAddresses, CirclesTypes, ISupergroupErrors {
+contract SupergroupOperator is OperatorRequest, CirclesCoreAddresses, CirclesTypes, ISupergroupErrors {
     // State variables
 
     /// @notice Supergroup is the explicit group this operator is deployed for.

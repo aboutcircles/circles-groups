@@ -8,10 +8,21 @@ abstract contract OperatorRequest is ISupergroupOperatorErrors {
     // Using transient storage for request validation
     uint256 internal constant REQUEST_TSTORAGE_SLOT = 0x11223344; // Arbitrary unique slot
 
-    function _initiateRequest(address policy, uint256 policyId, uint256 tokenId, uint256 amount)
-        internal
-        returns (bytes memory)
-    {
+    // External functions
+
+    /// @notice Validate request hash returns true if the request was initiated
+    ///         by this operator.
+    function validateRequest(bytes32 _requestHash) external view returns (bool) {
+        bytes32 storedRequestHash;
+        assembly {
+            storedRequestHash := tload(REQUEST_TSTORAGE_SLOT)
+        }
+        return storedRequestHash == _requestHash;
+    }
+
+    // Internal functions
+
+    function _initiateRequest(uint256 _policyId, uint256 _tokenId, uint256 _amount) internal returns (bytes memory) {
         // check the storage slot is empty first
         bytes32 currentRequest;
         assembly {
@@ -23,9 +34,9 @@ abstract contract OperatorRequest is ISupergroupOperatorErrors {
 
         PolicyTypes.OperatorRequest memory request = PolicyTypes.OperatorRequest({
             operator: address(this),
-            policyId: policyId,
-            tokenId: tokenId,
-            amount: amount,
+            policyId: _policyId,
+            tokenId: _tokenId,
+            amount: _amount,
             nonce: 0 // using transient storage and a lock instead
         });
 
