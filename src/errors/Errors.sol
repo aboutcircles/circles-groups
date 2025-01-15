@@ -6,6 +6,8 @@ interface ISupergroupErrors {
     error SupergroupProxyAlreadyInitialised();
     /// @notice Only Hub can call
     error SupergroupOnlyHub();
+    /// @notice Only authorized operator can call
+    error SupergroupOnlyAuthorizedOperator();
     /// @notice Supergroup must have been registered
     error SupergroupMustBeRegistered();
     /// @notice For security reasons we enforce explicitly that a supergroup registers with the standard treasury only.
@@ -14,7 +16,7 @@ interface ISupergroupErrors {
     error SupergroupInvalidCallingParameters();
 }
 
-interface ISupergroupOperatorErrors {
+interface ISupergroupRequestErrors {
     /// @notice Operator request is already in progress
     error SupergroupOperatorRequestInProgress();
 }
