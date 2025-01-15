@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "circles-contracts-v2/groups/Definitions.sol";
 import "src/circles/Core.sol";
+import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
 
-contract SupergroupOperator is CirclesCoreAddresses, ISupergroupErrors {
+contract SupergroupOperator is CirclesCoreAddresses, CirclesTypes, ISupergroupErrors {
     // State variables
 
     /// @notice Supergroup is the explicit group this operator is deployed for.
     address public immutable supergroup;
-    /// @notice feeCollection address where the supergroup collects mint fees
-    address public immutable feeCollection;
 
     // Modifiers
 
@@ -25,9 +23,12 @@ contract SupergroupOperator is CirclesCoreAddresses, ISupergroupErrors {
 
     // Constructor
 
-    constructor(address _feeCollection) {
-        supergroup = msg.sender;
-        feeCollection = _feeCollection;
+    constructor(address _supergroup) {
+        if (_supergroup == address(0)) {
+            // supergroup address must not be zero
+            revert SupergroupInvalidCallingParameters();
+        }
+        supergroup = _supergroup;
         // supergroup must have registered in hub before constructing this operator
         address collateralTreasury = hub.treasuries(supergroup);
         // calling hub.isGroup is a redundant check, but check it nonetheless for readability
@@ -61,9 +62,8 @@ contract SupergroupOperator is CirclesCoreAddresses, ISupergroupErrors {
             revert SupergroupInvalidCallingParameters();
         }
 
-        bytes memory userData =
-            abi.encode(BaseMintPolicyDefinitions.BaseRedemptionPolicy(redemptionIds, redemptionValues));
-        // todo: continue here
+        bytes memory userData = abi.encode(BaseRedemptionPolicy(redemptionIds, redemptionValues));
+        bytes memory data = abi.encode(Metadata(METADATATYPE_GROUPREDEEM, "", userData));
     }
 
     /// @notice Following the behaviour of
@@ -73,10 +73,10 @@ contract SupergroupOperator is CirclesCoreAddresses, ISupergroupErrors {
         returns (bytes4)
     {}
 
-    function onERC1155BatchReceived(address _operator, address _from, uint256 _id, uint256 _value, bytes calldata _data)
-        public
-        override
-        onlyHub
-        returns (bytes4)
-    {}
+    // function onERC1155BatchReceived(address _operator, address _from, uint256 _id, uint256 _value, bytes calldata _data)
+    //     public
+    //     override
+    //     onlyHub
+    //     returns (bytes4)
+    // {}
 }
