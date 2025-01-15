@@ -2,20 +2,16 @@
 pragma solidity >=0.8.28;
 
 import "circles-contracts-v2/groups/Definitions.sol";
-import "src/circles/IHub.sol";
+import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
 
-contract SupergroupOperator is ISupergroupErrors {
+contract SupergroupOperator is CirclesCoreAddresses, ISupergroupErrors {
     // State variables
 
     /// @notice Supergroup is the explicit group this operator is deployed for.
     address public immutable supergroup;
-    /// @notice hub address
-    IHub public immutable hub;
     /// @notice feeCollection address where the supergroup collects mint fees
     address public immutable feeCollection;
-    /// @notice group treasury where collateral is stored
-    address public immutable collateralTreasury;
 
     // Modifiers
 
@@ -29,15 +25,18 @@ contract SupergroupOperator is ISupergroupErrors {
 
     // Constructor
 
-    constructor(IHub _hub, address _feeCollection) {
+    constructor(address _feeCollection) {
         supergroup = msg.sender;
-        hub = _hub;
         feeCollection = _feeCollection;
         // supergroup must have registered in hub before constructing this operator
-        collateralTreasury = hub.treasuries(supergroup);
+        address collateralTreasury = hub.treasuries(supergroup);
         // calling hub.isGroup is a redundant check, but check it nonetheless for readability
         if (collateralTreasury == address(0) || !hub.isGroup(supergroup)) {
             revert SupergroupMustBeRegistered();
+        }
+        // We want to encourage people to only use the standard treasury, so enforce explicitly.
+        if (collateralTreasury != standardTreasury) {
+            revert SupergroupMustUseStandardTreasury();
         }
     }
 
@@ -52,36 +51,32 @@ contract SupergroupOperator is ISupergroupErrors {
     /// @notice Redeem is a helper function to construct the data for redeeming
     ///         the collateral from the supergroup. The caller must have authorized
     ///         this operator.
-    function redeem(
-        address group,
-        uint256[] calldata redemptionIds,
-        uint256[] calldata redemptionValues
-    ) external {
+    function redeem(address group, uint256[] calldata redemptionIds, uint256[] calldata redemptionValues) external {
         // sanity check as the operator for groups might get mixed up
         // once many groups and their operators are authorized.
         if (group != supergroup) {
-            revert
+            revert SupergroupInvalidCallingParameters();
         }
-        if (redemptionIds.
-            redemptionIds.length != redemptionValues.length)
+        if (redemptionIds.length != redemptionValues.length) {
+            revert SupergroupInvalidCallingParameters();
+        }
 
-        bytes memory userData = abi.encode(BaseMintPolicyDefinitions.BaseRedemptionPolicy(redemptionIds, redemptionValues));
+        bytes memory userData =
+            abi.encode(BaseMintPolicyDefinitions.BaseRedemptionPolicy(redemptionIds, redemptionValues));
+        // todo: continue here
     }
 
     /// @notice Following the behaviour of
-    function onERC1155Received(
-        address _operator,
-        address _from,
-        uint256 _id,
-        uint256 _value,
-        bytes calldata _data
-    ) public onlyHub returns (bytes4) {}
+    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes calldata _data)
+        public
+        onlyHub
+        returns (bytes4)
+    {}
 
-    function onERC1155BatchReceived(
-        address _operator,
-        address _from,
-        uint256 _id,
-        uint256 _value,
-        bytes calldata _data
-    ) public override onlyHub returns (bytes4) {}
+    function onERC1155BatchReceived(address _operator, address _from, uint256 _id, uint256 _value, bytes calldata _data)
+        public
+        override
+        onlyHub
+        returns (bytes4)
+    {}
 }

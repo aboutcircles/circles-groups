@@ -9,22 +9,17 @@ abstract contract BaseGroupPolicy is IMintPolicy {
 
     /// @notice Simple mint policy that always returns true
     function beforeMintPolicy(
-        address /*_minter*/,
-        address /*_group*/,
-        uint256[] calldata /*_collateral*/,
-        uint256[] calldata /*_amounts*/,
+        address, /*_minter*/
+        address, /*_group*/
+        uint256[] calldata, /*_collateral*/
+        uint256[] calldata, /*_amounts*/
         bytes calldata /*_data*/
     ) external virtual returns (bool) {
         return true;
     }
 
     /// @notice Simple burn policy that always returns true
-    function beforeBurnPolicy(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external virtual returns (bool) {
+    function beforeBurnPolicy(address, address, uint256, bytes calldata) external virtual returns (bool) {
         return true;
     }
 
@@ -32,10 +27,10 @@ abstract contract BaseGroupPolicy is IMintPolicy {
     ///         the redemption ids and values as requested in the data
     /// @param _data Optional data bytes passed to redeem policy
     function beforeRedeemPolicy(
-        address /*_operator*/,
-        address /*_redeemer*/,
-        address /*_group*/,
-        uint256 /*_value*/,
+        address, /*_operator*/
+        address, /*_redeemer*/
+        address, /*_group*/
+        uint256, /*_value*/
         bytes calldata _data
     )
         external
@@ -49,8 +44,8 @@ abstract contract BaseGroupPolicy is IMintPolicy {
         )
     {
         // simplest policy is to return the collateral as the caller requests it in data
-        BaseMintPolicyDefinitions.BaseRedemptionPolicy memory redemption = abi
-            .decode(_data, (BaseMintPolicyDefinitions.BaseRedemptionPolicy));
+        BaseMintPolicyDefinitions.BaseRedemptionPolicy memory redemption =
+            abi.decode(_data, (BaseMintPolicyDefinitions.BaseRedemptionPolicy));
 
         // and no collateral gets burnt upon redemption
         _burnIds = new uint256[](0);
@@ -60,16 +55,10 @@ abstract contract BaseGroupPolicy is IMintPolicy {
         // to the amount of group Circles redeemed
         // so we can simply decode and pass the request back to treasury.
         // The redemption will fail if it does not contain (sufficient of) these Circles
-        return (
-            redemption.redemptionIds,
-            redemption.redemptionValues,
-            _burnIds,
-            _burnValues
-        );
+        return (redemption.redemptionIds, redemption.redemptionValues, _burnIds, _burnValues);
     }
 
     // Helper fucntions
 
     /// @notice To redeem group Circles, the owner must send
-    function
 }

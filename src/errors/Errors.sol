@@ -8,6 +8,8 @@ interface ISupergroupErrors {
     error SupergroupOnlyHub();
     /// @notice Supergroup must have been registered
     error SupergroupMustBeRegistered();
+    /// @notice For security reasons we enforce explicitly that a supergroup registers with the standard treasury only.
+    error SupergroupMustUseStandardTreasury();
     /// @notice Sanity check error on calling parameters
     error SupergroupInvalidCallingParameters();
 }
