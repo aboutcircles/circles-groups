@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/operator/SupergroupOperator.sol";
+import "src/operator/IOperator.sol";
 import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
-import "./BaseGroupPolicy.sol";
+import "src/policies/PolicyTypes.sol";
+import "src/supergroup/BaseGroupPolicy.sol";
 
 /// @notice Supergroups are opinionated liquidity clusters of valued Circles
 /// Supergroups follow a pattern where the group avatar is a contract address
@@ -43,6 +44,13 @@ contract Supergroup is BaseGroupPolicy, CirclesCoreAddresses, ISupergroupErrors 
     ///         a person has backed their Circles. This is a specific opinion on what
     ///         a supergroup can be, so (todo) in later work, factor this out better.
     address public launchpad;
+    /// @notice Exclusive operator is the only authorized operator that can request a group mint
+    ///         when a fee is enabled.
+    /// @dev Because the path transfer does not pass `data` to the mint policy call,
+    ///      we only have the parameters of the mint policy hook to identify a request
+    ///      and this does not include an operator address, so for now resign to a single
+    ///      operator, so the policy knows which operator to validate a request against.
+    IOperator public exclusiveOperator;
     /// @notice fee levied upon group minting can be between zero and MAX_FEE (1/12th)
     ///         of the amount minted. Setting the fee to zero disables the fee charge.
     ///         When the fee is charged, group mint MUST happen over (an) authorized
@@ -91,8 +99,18 @@ contract Supergroup is BaseGroupPolicy, CirclesCoreAddresses, ISupergroupErrors 
         feeCollection = _feeCollection;
     }
 
-    function authorizeOperator(address _operator) external {
-        hub.setApprovalForAll(_operator, true);
+    function setExclusiveOperator(address _operator, bool _authorized) external {
+        if (_operator == address(0)) revert SupergroupInvalidCallingParameters();
+
+        if (address(exclusiveOperator) != _operator && address(exclusiveOperator) != address(0)) {
+            // disable existing exclusive operator
+            hub.setApprovalForAll(address(exclusiveOperator), false);
+        }
+
+        // store exclusive operator (unfortunately)
+        exclusiveOperator = _authorized ? IOperator(_operator) : IOperator(address(0));
+        hub.setApprovalForAll(_operator, _authorized);
+        // event is already emitted and indexed for ERC1155 hub
     }
 
     function beforeMintPolicy(
@@ -116,5 +134,17 @@ contract Supergroup is BaseGroupPolicy, CirclesCoreAddresses, ISupergroupErrors 
             // So for clarity, we use the same pattern for both.
         }
         return true;
+    }
+
+    // Internal functions
+
+    /// @dev validate operator request checks that the data decodes to an operator request
+    function _validateOperatorRequest(bytes memory _data) internal view returns (bool) {
+        PolicyTypes.OperatorRequest memory request = abi.decode(_data, (PolicyTypes.OperatorRequest));
+
+        // verify the operator is authorized
+        if (!hub.isApprovedForAll(address(this), request.operator)) {
+            return false;
+        }
     }
 }
