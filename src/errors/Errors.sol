@@ -13,3 +13,8 @@ interface ISupergroupErrors {
     /// @notice Sanity check error on calling parameters
     error SupergroupInvalidCallingParameters();
 }
+
+interface ISupergroupOperatorErrors {
+    /// @notice Operator request is already in progress
+    error SupergroupOperatorRequestInProgress();
+}
