@@ -4,3 +4,6 @@
 [submodule "lib/circles-contracts-v2"]
 	path = lib/circles-contracts-v2
 	url = https://github.com/aboutcircles/circles-contracts-v2
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
