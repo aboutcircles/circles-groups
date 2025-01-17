@@ -50,13 +50,15 @@ contract Supergroup is BaseGroupPolicy, OperatorRequest, CirclesCoreAddresses, I
     ///         Also when a fee is charged, this must be enforced by the operator, so
     ///         setting a fee will enable this requirement for operators to gatekeep the groupmint.
     bool public requireOperator = false;
+
+    bool public returnGroupCirclesToSender = true;
     /// @notice fee levied upon group minting can be between zero and MAX_FEE (1/12th)
     ///         of the amount minted. Setting the fee to zero disables the fee charge.
     ///         When the fee is charged, group mint MUST happen over (an) authorized
     ///         operator - and the owner must ensure that all authorized operators
     ///         enforce the fee (as the hub won't charge a fee).
     uint256 public fee = 0;
-    /// @notice fee collection contract collects group minting fees when enabled
+    /// @notice fee collection address collects group minting fees when enabled
     address public feeCollection;
     /// @dev We take Hub address from core constants, so we need a minimal variable to
     ///      track whether this state (mastercopy or proxy) has been constructed or setup.
@@ -130,6 +132,10 @@ contract Supergroup is BaseGroupPolicy, OperatorRequest, CirclesCoreAddresses, I
         return true;
     }
 
+    /// @notice Authorized operators can register a request to mint group currency within the same transaction,
+    ///         by preregistering the parameters of the request (before initiating the hub either explicitly or over a path).
+    ///         This can be called multiple times for multiple group mints along a path (eg. different collateral arriving at the group)
+    ///         but the parameters need to be unique within the transaction.
     function registerOperatorRequest(
         address _minter,
         address _group,

@@ -8,8 +8,8 @@ import "./IHub.sol";
 contract CirclesCoreAddresses {
     // Constants
 
-    // these constants can be verified
-    // on https://gnosis.blockscout.com/address/0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8?tab=contract
+    // these constants can be verified on
+    // https://gnosis.blockscout.com/address/0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8?tab=contract
     /// @dev Hub contract address
     IHub internal constant hub = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
     /// @dev Standard Treasury

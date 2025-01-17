@@ -25,6 +25,8 @@ abstract contract OperatorRequest is ISupergroupRequestErrors {
         return isValid;
     }
 
+    /// @dev Submit request stores the hash of the request in the transient storage of the supergroup. This will allow
+    ///      within the same transaction a path transfer to pass the mint policy check once for each unique request.
     function _submitRequest(address minter, address group, uint256[] calldata collateral, uint256[] calldata amounts)
         internal
     {
@@ -41,6 +43,7 @@ abstract contract OperatorRequest is ISupergroupRequestErrors {
         }
     }
 
+    /// @dev Calculates a deterministic transient storage slot within a 32bit range based on the request hash to store the request hash.
     function _getTransientStorageSlot(bytes32 _requestHash) internal pure returns (uint256) {
         return REQUEST_BASE_SLOT + (uint256(_requestHash) & SLOT_MASK);
     }
