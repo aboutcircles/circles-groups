@@ -5,10 +5,6 @@ import "src/errors/Errors.sol";
 import "src/policies/PolicyTypes.sol";
 
 abstract contract OperatorRequest is ISupergroupRequestErrors {
-    // Using transient storage for request validation
-    uint256 internal constant REQUEST_BASE_SLOT = 0x11223344; // Arbitrary unique slot
-    uint256 internal constant SLOT_MASK = 0xFFFFFFFF; // 32 bits mask to truncate slot range
-
     // Internal functions
 
     /// @notice Validate request hash returns true if the request was registered and not yet consumed.
@@ -43,8 +39,8 @@ abstract contract OperatorRequest is ISupergroupRequestErrors {
         }
     }
 
-    /// @dev Calculates a deterministic transient storage slot within a 32bit range based on the request hash to store the request hash.
+    /// @dev Simply use the request hash as
     function _getTransientStorageSlot(bytes32 _requestHash) internal pure returns (uint256) {
-        return REQUEST_BASE_SLOT + (uint256(_requestHash) & SLOT_MASK);
+        return uint256(_requestHash);
     }
 }

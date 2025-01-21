@@ -16,10 +16,18 @@ interface ISupergroupErrors {
     error SupergroupInvalidCallingParameters();
     /// @notice Group only accepts ERC1155 acceptance call if it was for
     ///         minting group circles and returning the resulting gCRC.
-    error SupergroupInvalidERC1155AcceptanceConditions();
+    error SupergroupBlockNormalERC1155Transfers();
+    /// @notice Group should always block acceptance call for its own id
+    ///         or that of untrusted avatars
+    error SupergroupAlwaysBlockUntrustedIds();
 }
 
 interface ISupergroupRequestErrors {
     /// @notice Operator request is already in progress
     error SupergroupOperatorRequestInProgress();
+}
+
+interface ISupergroupPolicyFingerprintsErrors {
+    /// @notice Throws when during acceptance call more is
+    error FingerprintUnderflow(); // 0x03f3903a
 }

@@ -133,8 +133,8 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
         if (_group != address(this)) {
             return false;
         }
-        // if a fee is enabled, only authorized operators
-        // can initiate a group mint request and must have registered a request
+        // if minting is required to go via operators, then the operator must have
+        // registered its request to initiate a group mint.
         if (requireOperator) {
             // for explicit groupmint from the operator, we could short-cut
             // because the _minter is the operator address,
@@ -145,6 +145,11 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
             if (!_validateRequest(requestHash)) {
                 return false;
             }
+        }
+        // next register the executed fingerprints to match them during potential acceptance calls
+        uint256 length = _collateral.length;
+        for (uint256 i = 0; i < length; i++) {
+            _storeFingerprint(_group, _collateral[i], _amounts[i]);
         }
         return true;
     }
@@ -170,6 +175,18 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
     }
 
     // ERC1155 Acceptance Call handlers
+
+    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
+        public
+        virtual
+        override
+        onlyHub
+        returns (bytes4)
+    {
+        return bytes4(0);
+    }
+
+    //
     //
     // note: it is not a recommended pattern for the group itself to handle this in the acceptance call
     //       instead it is much cleaner, easier and more transparant to handle this in operators only.
@@ -204,61 +221,61 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
     ///         - the group's balance of the Circles id in the acceptance call is actually zero
     ///           (ie. it is in the groups treasury and in exchange the group holds at least this many gCRC)
     ///     This evaluation function will under these conditions not revert.
-    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
-        public
-        override virtual
-        onlyHub
-        returns (bytes4)
-    {
-        // Likely redundant sanity-check to always block ids that are not trusted or our own id.
-        if (_id == _groupId || !hub.isTrusted(address(this), address(uint160(_id)))) {
-            revert SupergroupAlwaysBlockUntrustedIds();
-        }
-        // check that the tokens from the acceptance call are in fact in the treasury, not held by the group.
-        uint256 balanceMustBeZero = hub.balanceOf(address(this), _id);
-        if (balanceMustBeZero != uint256(0)) {
-            revert SupergroupBlockNormalERC1155Transfers();
-        }
-        // the supergroup MUST never hold balances beyond temporarily during transactions,
-        // as this construction is not a recommended pattern.
-        // The only recommended pattern is the use of operators, to handle things like "return gCRC to Alice"
-        hub.safeTransferFrom(address(this), _from, _groupId(), _value, "");
-        return this.onERC1155Received.selector;
-    }
+    // function onERC1155ReceivedBAD(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
+    //     public
+    //     virtual
+    //     onlyHub
+    //     returns (bytes4)
+    // {
+    //     // Likely redundant sanity-check to always block ids that are not trusted or our own id.
+    //     if (_id == _groupId() || !hub.isTrusted(address(this), address(uint160(_id)))) {
+    //         revert SupergroupAlwaysBlockUntrustedIds();
+    //     }
+    //     // check that the tokens from the acceptance call are in fact in the treasury, not held by the group.
+    //     uint256 balanceMustBeZero = hub.balanceOf(address(this), _id);
+    //     if (balanceMustBeZero != uint256(0)) {
+    //         revert SupergroupBlockNormalERC1155Transfers();
+    //     }
+    //     // the supergroup MUST never hold balances beyond temporarily during transactions,
+    //     // as this construction is not a recommended pattern.
+    //     // The only recommended pattern is the use of operators, to handle things like "return gCRC to Alice"
+    //     hub.safeTransferFrom(address(this), _from, _groupId(), _value, "");
+    //     return this.onERC1155Received.selector;
+    // }
 
-    function onERC1155BatchReceived(
-        address _operator,
-        address _from,
-        uint256[] memory _ids,
-        uint256[] memory _values,
-        bytes memory _data
-    ) public override virtual onlyHub returns (bytes4) {
-        uint256 groupCrcValue = 0;
-        uint256 length = _ids.length;
-        address[] memory copiesOfMe = new address[](_ids.length);
-        for (uint256 i = 0; i < length; i++) {
-            copiesOfMe[i] = address(this);
-            if (_ids[i] == _groupId || !hub.isTrusted(address(this), address(uint160(_ids[i])))) {
-                revert SupergroupAlwaysBlockUntrustedIds();
-            }
-        }
-        uint256[] memory balancesMustBeZero = hub.balanceOfBatch(copiesOfMe, _ids);
-        for (uint256 i = 0; i < balancesMustBeZero.length; i++) {
-            // check that the tokens received are all in the treasury and not held by the group.
-            if (balancesMustBeZero[i] != uint256(0)) {
-                revert SupergroupBlockNormalERC1155Transfers();
-            }
-            // and track the total of collateral received, for the total amount of gCRC
-            groupCrcValue += _values[i];
-        }
-        // the group MUST never hold balances so that this can only send gCRC it minted.
-        hub.safeTransferFrom(address(this), _from, _groupId(), groupCrcValue, "");
-        return this.onERC1155BatchReceived.selector;
-    }
+    // function onERC1155BatchReceivedBad(
+    //     address _operator,
+    //     address _from,
+    //     uint256[] memory _ids,
+    //     uint256[] memory _values,
+    //     bytes memory _data
+    // ) public virtual onlyHub returns (bytes4) {
+    //     uint256 groupCrcValue = 0;
+    //     uint256 length = _ids.length;
+    //     address[] memory copiesOfMe = new address[](_ids.length);
+    //     for (uint256 i = 0; i < length; i++) {
+    //         copiesOfMe[i] = address(this);
+    //         if (_ids[i] == _groupId() || !hub.isTrusted(address(this), address(uint160(_ids[i])))) {
+    //             revert SupergroupAlwaysBlockUntrustedIds();
+    //         }
+    //     }
+    //     uint256[] memory balancesMustBeZero = hub.balanceOfBatch(copiesOfMe, _ids);
+    //     for (uint256 i = 0; i < balancesMustBeZero.length; i++) {
+    //         // check that the tokens received are all in the treasury and not held by the group.
+    //         if (balancesMustBeZero[i] != uint256(0)) {
+    //             revert SupergroupBlockNormalERC1155Transfers();
+    //         }
+    //         // and track the total of collateral received, for the total amount of gCRC
+    //         groupCrcValue += _values[i];
+    //     }
+    //     // the group MUST never hold balances so that this can only send gCRC it minted.
+    //     hub.safeTransferFrom(address(this), _from, _groupId(), groupCrcValue, "");
+    //     return this.onERC1155BatchReceived.selector;
+    // }
 
     // Internal functions
 
-    function _groupId() internal pure returns uint256 {
+    function _groupId() internal view returns (uint256) {
         return uint256(uint160(address(this)));
     }
 }
