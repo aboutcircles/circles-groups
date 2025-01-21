@@ -9,16 +9,16 @@ abstract contract PolicyFingerprints is ISupergroupPolicyFingerprintsErrors {
 
     function _subtractFromFingerprint(address _group, uint256 _collateral, uint256 _amount) internal {
         bytes32 fingerprintHash = PolicyTypes.hashFingerprint(_group, _collateral);
+        uint256 currentAmount;
+
         assembly {
-            let currentAmount := tload(fingerprintHash) // load current amount from transient storage
-
-            // check if subtraction would underflow
-            if lt(currentAmount, _amount) {
-                // Revert with error FingerprintUnderflow()
-                mstore(0x00, 0x03f3903a)
-                revert(0x00, 0x04)
-            }
-
+            currentAmount := tload(fingerprintHash) // load current amount from transient storage
+        }
+        // do this outside of assembly to avoid errors on error identifiers
+        if (currentAmount < _amount) {
+            revert SupergroupFingerprintUnderflow();
+        }
+        assembly {
             let newAmount := sub(currentAmount, _amount)
             tstore(fingerprintHash, newAmount)
         }

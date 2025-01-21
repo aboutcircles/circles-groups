@@ -29,5 +29,5 @@ interface ISupergroupRequestErrors {
 
 interface ISupergroupPolicyFingerprintsErrors {
     /// @notice Throws when during acceptance call more is
-    error FingerprintUnderflow(); // 0x03f3903a
+    error SupergroupFingerprintUnderflow();
 }
