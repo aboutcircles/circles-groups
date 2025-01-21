@@ -8,6 +8,7 @@ import "src/errors/Errors.sol";
 import "src/operator/IOperator.sol";
 import "src/policies/PolicyTypes.sol";
 import "src/supergroup/OperatorRequest.sol";
+import "src/supergroup/PolicyFingerprints.sol";
 
 /// @notice Supergroups are opinionated liquidity clusters of valued Circles
 ///         Supergroups follow a pattern where the group avatar is a contract address
@@ -16,7 +17,14 @@ import "src/supergroup/OperatorRequest.sol";
 ///         Furthermore, this supergroup contract is intended to be used as an implementation
 ///         for a (renounceable) proxy contract, so the constructor blocks
 ///         the mastercopy deployment, and the proxy should call setup to configure the state.
-contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAddresses, ISupergroupErrors {
+contract Supergroup is
+    MintPolicy,
+    PolicyFingerprints,
+    OperatorRequest,
+    ERC1155Holder,
+    CirclesCoreAddresses,
+    ISupergroupErrors
+{
     // Constants
 
     /// @notice Max fee is set to 2 out of 24, stored as a percentage.
@@ -149,7 +157,7 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
         // next register the executed fingerprints to match them during potential acceptance calls
         uint256 length = _collateral.length;
         for (uint256 i = 0; i < length; i++) {
-            _storeFingerprint(_group, _collateral[i], _amounts[i]);
+            _addToFingerprint(_group, _collateral[i], _amounts[i]);
         }
         return true;
     }

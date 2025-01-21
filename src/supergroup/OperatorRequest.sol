@@ -7,35 +7,32 @@ import "src/policies/PolicyTypes.sol";
 abstract contract OperatorRequest is ISupergroupRequestErrors {
     // Internal functions
 
-    /// @notice Validate request hash returns true if the request was registered and not yet consumed.
+    /// @dev Validate request subtracts from the counter stored under the request hash
+    ///      and returns false if no such request is available (anymore).
     function _validateRequest(bytes32 _requestHash) internal returns (bool) {
         uint256 slot = _getTransientStorageSlot(_requestHash);
         bool isValid;
         assembly {
-            let storedHash := tload(slot)
-            // Check if hashes match
-            isValid := eq(storedHash, _requestHash)
-            // Verify and consume the request
-            if isValid { tstore(slot, 0) } // Clear the slot if consumed to prevent double consumption
+            let counter := tload(slot)
+            // Check if counter is greater than zero
+            isValid := gt(counter, 0)
+            // if valid, decrement the counter
+            if isValid { tstore(slot, sub(counter, 1)) }
         }
         return isValid;
     }
 
-    /// @dev Submit request stores the hash of the request in the transient storage of the supergroup. This will allow
-    ///      within the same transaction a path transfer to pass the mint policy check once for each unique request.
+    /// @dev Submit request updates a counter under the request hash in the transient storage
+    ///      of the supergroup. This allows an operator to preregister within the same transaction
+    ///      in the mint policy a request for minting during a path transfer.
     function _submitRequest(address minter, address group, uint256[] calldata collateral, uint256[] calldata amounts)
         internal
     {
         bytes32 requestHash = PolicyTypes.hashRequest(minter, group, collateral, amounts);
-        uint256 slot = _getTransientStorageSlot(requestHash);
-
         assembly {
-            let currentValue := tload(slot)
-            if currentValue {
-                // If slot is not empty (non-zero)
-                revert(0, 0)
-            }
-            tstore(slot, requestHash)
+            let currentCounter := tload(requestHash)
+            let newCounter := add(currentCounter, 1)
+            tstore(requestHash, newCounter)
         }
     }
 
