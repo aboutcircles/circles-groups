@@ -14,6 +14,9 @@ interface ISupergroupErrors {
     error SupergroupMustUseStandardTreasury();
     /// @notice Sanity check error on calling parameters
     error SupergroupInvalidCallingParameters();
+    /// @notice Group only accepts ERC1155 acceptance call if it was for
+    ///         minting group circles and returning the resulting gCRC.
+    error SupergroupInvalidERC1155AcceptanceConditions();
 }
 
 interface ISupergroupRequestErrors {

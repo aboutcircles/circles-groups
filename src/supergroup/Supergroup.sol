@@ -169,27 +169,11 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
         return true;
     }
 
-    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
-        public
-        override
-        onlyHub
-        returns (bytes4)
-    {
-        //
-        return this.onERC1155Received.selector;
-    }
-
-    function onERC1155BatchReceived(
-        address _operator,
-        address _from,
-        uint256[] memory _ids,
-        uint256[] memory _values,
-        bytes memory _data
-    ) public override onlyHub returns (bytes4) {
-        return this.onERC1155BatchReceived.selector;
-    }
-
-    // Internal functions
+    // ERC1155 Acceptance Call handlers
+    //
+    // note: it is not a recommended pattern for the group itself to handle this in the acceptance call
+    //       instead it is much cleaner, easier and more transparant to handle this in operators only.
+    //       However,
 
     /// @dev There two scenarios under which a group registered in the hub
     ///      can receive the `onERC1155(Batch)Received` acceptance call from Circles hub:
@@ -209,9 +193,72 @@ contract Supergroup is MintPolicy, OperatorRequest, ERC1155Holder, CirclesCoreAd
     ///     Note that when an explicit group mint is performed over `hub.groupMint()` the group Circles minted are given
     ///     directly to the caller, and there is no acceptance call for the group.
     ///
-    ///     To protect that the acceptance handler never sends more tokens out than were minted during a given transaction
-    ///     transient storage accounts the newly minted group tokens and subtracts any returns.
-    function _evaluateAcceptanceCall(address _from, uint256) internal {
-        //
+    ///     To protect that the acceptance handler never sends out tokens other than those that were minted
+    ///     during a given transaction (which can be composed of normal ERC1155 transfers to the group and path transfers)
+    ///     transient storage can account for the newly minted group tokens and subtract any returns in acceptance call.
+    ///     This way this handler can also work in situations where the group holds Circles balances itself.
+    ///
+    ///     To simplify the implementation here, we require that:
+    ///         - the group must not hold any Circles balance (outside the scope of a transaction) and
+    ///         - the received id is trusted (probably redundant)
+    ///         - the group's balance of the Circles id in the acceptance call is actually zero
+    ///           (ie. it is in the groups treasury and in exchange the group holds at least this many gCRC)
+    ///     This evaluation function will under these conditions not revert.
+    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
+        public
+        override virtual
+        onlyHub
+        returns (bytes4)
+    {
+        // Likely redundant sanity-check to always block ids that are not trusted or our own id.
+        if (_id == _groupId || !hub.isTrusted(address(this), address(uint160(_id)))) {
+            revert SupergroupAlwaysBlockUntrustedIds();
+        }
+        // check that the tokens from the acceptance call are in fact in the treasury, not held by the group.
+        uint256 balanceMustBeZero = hub.balanceOf(address(this), _id);
+        if (balanceMustBeZero != uint256(0)) {
+            revert SupergroupBlockNormalERC1155Transfers();
+        }
+        // the supergroup MUST never hold balances beyond temporarily during transactions,
+        // as this construction is not a recommended pattern.
+        // The only recommended pattern is the use of operators, to handle things like "return gCRC to Alice"
+        hub.safeTransferFrom(address(this), _from, _groupId(), _value, "");
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address _operator,
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) public override virtual onlyHub returns (bytes4) {
+        uint256 groupCrcValue = 0;
+        uint256 length = _ids.length;
+        address[] memory copiesOfMe = new address[](_ids.length);
+        for (uint256 i = 0; i < length; i++) {
+            copiesOfMe[i] = address(this);
+            if (_ids[i] == _groupId || !hub.isTrusted(address(this), address(uint160(_ids[i])))) {
+                revert SupergroupAlwaysBlockUntrustedIds();
+            }
+        }
+        uint256[] memory balancesMustBeZero = hub.balanceOfBatch(copiesOfMe, _ids);
+        for (uint256 i = 0; i < balancesMustBeZero.length; i++) {
+            // check that the tokens received are all in the treasury and not held by the group.
+            if (balancesMustBeZero[i] != uint256(0)) {
+                revert SupergroupBlockNormalERC1155Transfers();
+            }
+            // and track the total of collateral received, for the total amount of gCRC
+            groupCrcValue += _values[i];
+        }
+        // the group MUST never hold balances so that this can only send gCRC it minted.
+        hub.safeTransferFrom(address(this), _from, _groupId(), groupCrcValue, "");
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    // Internal functions
+
+    function _groupId() internal pure returns uint256 {
+        return uint256(uint160(address(this)));
     }
 }
