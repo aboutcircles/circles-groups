@@ -47,13 +47,6 @@ contract Supergroup is
     ///         For simplicity and readability we duplicate owner with ERC1967 admin,
     ///         even if for the intended deployment they are the same address.
     address public owner;
-    /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
-    address public service;
-    /// @notice Launchpad enables people to back their personal CRC in an LBP pool.
-    ///         This first supergroup will explicitly check the launchpad whether
-    ///         a person has backed their Circles. This is a specific opinion on what
-    ///         a supergroup can be, so (todo) in later work, factor this out better.
-    address public launchpad;
     /// @notice Require an authorized operator to register group mint requests ahead,
     ///         so that advanced checks can be performed by the operator.
     ///         Also when a fee is charged, this must be enforced by the operator, so
@@ -74,6 +67,10 @@ contract Supergroup is
     /// @dev We take Hub address from core constants, so we need a minimal variable to
     ///      track whether this state (mastercopy or proxy) has been constructed or setup.
     ProxyStatus public proxyStatus = ProxyStatus.Uninitialised;
+
+    // Events
+
+    event FeeSet(uint256 fee);
 
     // Modifiers
 
@@ -110,14 +107,12 @@ contract Supergroup is
 
     // Setup
 
-    function setup(address _service, address _launchpad, uint256 _fee, address _feeCollection) external {
+    function setup(uint256 _fee, address _feeCollection) external virtual {
         if (proxyStatus != ProxyStatus.Uninitialised) {
             // contract state already initialised.
             revert SupergroupProxyAlreadyInitialised();
         }
-        if (_service == address(0) || _launchpad == address(0)) {
-            revert SupergroupInvalidCallingParameters();
-        }
+
         if (_fee > 0 && _feeCollection == address(0)) {
             // if a fee is levied, collection address cannot be zero
             revert SupergroupInvalidCallingParameters();
@@ -126,11 +121,6 @@ contract Supergroup is
         // set the owner to the same address (msg.sender) as ERC1967 ADMIN_SLOT
         // in Renounceable proxy
         owner = msg.sender;
-
-        // set the service key
-        service = _service;
-        // set the launchpad address (immutable in this impl)
-        launchpad = _launchpad;
 
         // set the fee and fee collection address
         fee = _fee;

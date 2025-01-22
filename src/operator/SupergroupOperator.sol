@@ -64,6 +64,8 @@ contract SupergroupOperator is CirclesCoreAddresses, CirclesTypes, ISupergroupEr
 
         bytes memory userData = abi.encode(BaseRedemptionPolicy(redemptionIds, redemptionValues));
         bytes memory data = abi.encode(Metadata(METADATATYPE_GROUPREDEEM, "", userData));
+
+        // todo: continue
     }
 
     /// @notice Following the behaviour of
