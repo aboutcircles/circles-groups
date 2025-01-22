@@ -10,6 +10,11 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
     /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
     address public service;
 
+    /// @notice Track service address changes
+    /// @param oldService Previous service address.
+    /// @param newService New service address.
+    event ServiceUpdated(address indexed oldService, address indexed newService);
+
     // Modifiers
 
     /// @notice Only owner or service can call
@@ -84,7 +89,15 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
         }
     }
 
+    /// @notice Change the service address. Service account is able to trust/untrust backers alongside the owner.
+    /// @param _service Updated service address to give trustBatch privilege to.
+    /// @dev The service account must be a non-zero address. Only owner can change the service address.
     function setService(address _service) external onlyOwner {
+        if (_service == address(0)) {
+            revert SupergroupInvalidCallingParameters();
+        }
+        address oldService = service;
         service = _service;
+        emit ServiceUpdated(oldService, _service);
     }
 }

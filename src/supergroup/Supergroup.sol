@@ -179,6 +179,12 @@ contract Supergroup is
         _trust(_trustReceiver, _expiry);
     }
 
+    // todo:
+    //  - nameregistry update metadataDigest
+    //  - name registr short name, shorrname with nonce
+    //  - hub.safeTransfer/Batch
+    //  - hub.setAdvancedUsageFlags
+
     /// @notice beforeMintPolicy returns true always, unless it is required to act over
     ///         an authorized operator of the supergroup, in which case the operator
     ///         must first have asserted potential requirements and registered an operator
@@ -215,6 +221,55 @@ contract Supergroup is
         return true;
     }
 
+    function beforeRedeemPolicy(
+        address, /*_operator*/
+        address, /*_redeemer*/
+        address _group,
+        uint256, /*_value*/
+        bytes calldata _data
+    )
+        external
+        virtual
+        override
+        returns (
+            uint256[] memory _ids,
+            uint256[] memory _values,
+            uint256[] memory _burnIds,
+            uint256[] memory _burnValues
+        )
+    {
+        // redundant sanity-check that group is this group
+        if (_group != address(this)) {
+            revert SupergroupLogicAssertion();
+        }
+        // simplest policy is to return the collateral as the caller requests it in data
+        BaseMintPolicyDefinitions.BaseRedemptionPolicy memory redemption =
+            abi.decode(_data, (BaseMintPolicyDefinitions.BaseRedemptionPolicy));
+
+        if (redemptionBurnRatio > 0) {
+            uint256 length = redemption.redemptionIds.length;
+            _burnIds = new uint256[](length);
+            _burnValues = new uint256[](length);
+
+            for (uint256 i = 0; i < length; i++) {
+                _burnIds[i] = redemption.redemptionIds[i];
+                (uint256 returnAmount, uint256 burnAmount) =
+                    _splitAmountInReturnAndFee(redemption.redemptionValues[i], redemptionBurnRatio);
+                redemption.redemptionValues[i] = returnAmount;
+                _burnValues[i] = burnAmount;
+            }
+        } else {
+            _burnIds = new uint256[](0);
+            _burnValues = new uint256[](0);
+        }
+
+        // standard treasury checks whether the total sums add up to the amount of group Circles redeemed
+        // so we can simply decode, update for potential return and burn, and
+        // pass the request back to treasury.
+        // The redemption will fail if it does not contain (sufficient of) these Circles
+        return (redemption.redemptionIds, redemption.redemptionValues, _burnIds, _burnValues);
+    }
+
     /// @notice Authorized operators can register a request to mint group currency
     ///         within the same transaction, by preregistering the parameters of the request
     ///         before initiating the hub either explicitly or over a path.
@@ -236,6 +291,13 @@ contract Supergroup is
 
     // ERC1155 Acceptance Call handlers
 
+    /// @notice Handler for receiving single ERC1155 token transfers
+    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns
+    /// @param _from Address that initiated the transfer
+    /// @param _id Token ID being transferred
+    /// @param _value Amount of tokens being transferred
+    /// @param _data Additional data passed with transfer
+    /// @return bytes4 Function selector to confirm transfer acceptance
     function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
         public
         virtual
@@ -277,6 +339,14 @@ contract Supergroup is
         return this.onERC1155Received.selector;
     }
 
+    /// @notice Handler for receiving batch ERC1155 token transfers
+    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns.
+    ///      First parameter _operator is unused.
+    /// @param _from Address that initiated the transfer
+    /// @param _ids Array of token IDs being transferred
+    /// @param _values Array of amounts being transferred for each token ID
+    /// @param _data Additional data passed with transfer
+    /// @return bytes4 Function selector to confirm transfer acceptance
     function onERC1155BatchReceived(
         address, /*_operator*/
         address _from,
@@ -350,6 +420,11 @@ contract Supergroup is
         hub.trust(_trustReceiver, _expiry);
     }
 
+    /// @notice Internal function to add or remove an operator from both the linked list and hub authorization
+    /// @dev Uses a linked list structure to maintain operator list, with SENTINEL as guard node
+    /// @param _operator The address of the operator to authorize or revoke
+    /// @param _authorized True to authorize the operator, false to revoke authorization
+    /// @custom:throws SupergroupInvalidOperator if operator is zero address or SENTINEL
     function _setAuthorizedOperator(address _operator, bool _authorized) internal {
         if (_operator == address(0) || _operator == SENTINEL) {
             revert SupergroupInvalidOperator(_operator);
