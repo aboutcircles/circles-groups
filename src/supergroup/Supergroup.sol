@@ -232,13 +232,13 @@ contract Supergroup is
         return this.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceivedBad(
+    function onERC1155BatchReceived(
         address, /*_operator*/
         address _from,
         uint256[] memory _ids,
         uint256[] memory _values,
         bytes memory _data
-    ) public virtual onlyHub returns (bytes4) {
+    ) public virtual override onlyHub returns (bytes4) {
         uint256 length = _ids.length;
         uint256 value = 0;
         for (uint256 i = 0; i < length; i++) {
