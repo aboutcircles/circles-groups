@@ -24,6 +24,8 @@ interface ISupergroupErrors {
     /// @notice Group should always block acceptance call for its own id
     ///         or that of untrusted avatars
     error SupergroupAlwaysBlockUntrustedIds();
+    /// @notice Reserved addresses cannot be set as operator
+    error SupergroupInvalidOperator(address operator);
 }
 
 interface ISupergroupRequestErrors {

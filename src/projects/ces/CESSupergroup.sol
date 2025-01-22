@@ -14,11 +14,27 @@ contract CESSupergroup is Supergroup {
     ///         a supergroup can be, so (todo) in later work, factor this out better.
     address public launchpad;
 
+    // Modifiers
+
+    /// @notice Only owner or service can call
+    modifier onlyOwnerOrService() {
+        if (msg.sender != owner && msg.sender != service) {
+            revert SupergroupOnlyOwner();
+        }
+        _;
+    }
+
     // Constructor
 
-    function setup(address _service, address _launchpad, uint256 _fee, address _feeCollection) external virtual override {
+    function setup(
+        address _service,
+        address _launchpad,
+        uint256 _fee,
+        address _feeCollection,
+        uint256 _redemptionBurnRate
+    ) external {
         // first call setup on Supergroup
-        super.setup(_fee, _feeCollection);
+        super.setup(_fee, _feeCollection, _redemptionBurnRate);
 
         if (_service == address(0) || _launchpad == address(0)) {
             revert SupergroupInvalidCallingParameters();

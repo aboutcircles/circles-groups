@@ -27,9 +27,12 @@ contract Supergroup is
 {
     // Constants
 
-    /// @notice Max fee is set to 2 out of 24, stored as a percentage.
+    /// @notice Max ratio for minting fee or redemption burn ratio
+    ///         is set to 2 out of 24, stored as a percentage.
     ///         With 18 decimals; 2/24 * 10**18 = 0,08333.. * 10**18
-    uint256 public constant MAX_FEE = 83333333333333333;
+    uint256 public constant MAX_RATIO = 83333333333333333;
+    /// @dev The sentinel value used as the first element in the linked list of operators
+    address private constant SENTINEL = address(0x1);
 
     // Enum
 
@@ -49,28 +52,40 @@ contract Supergroup is
     address public owner;
     /// @notice Require an authorized operator to register group mint requests ahead,
     ///         so that advanced checks can be performed by the operator.
-    ///         Also when a fee is charged, this must be enforced by the operator, so
-    ///         setting a fee will enable this requirement for operators to gatekeep the groupmint.
+    ///         If operators are not required, then direct mint access over the Circles
+    ///         hub - either as a direct call or over a path transfer - will all
+    ///         be allowed (if the collateral is trusted by the group).
     bool public requireOperator = false;
     /// @notice Return group Circles to sender, when true, will send group Circles
     ///         back to the original sender of a path, if collateral was sent to the group
-    ///         as an end-receiver
+    ///         as an end-receiver of that path.
     bool public returnGroupCirclesToSender = true;
     /// @notice fee levied upon group minting can be between zero and MAX_FEE (1/12th)
     ///         of the amount minted. Setting the fee to zero disables the fee charge.
-    ///         When the fee is charged, group mint MUST happen over (an) authorized
-    ///         operator - and the owner must ensure that all authorized operators
-    ///         enforce the fee (as the hub won't charge a fee).
-    uint256 public fee = 0;
+    uint256 public mintFee = 0;
     /// @notice fee collection address collects group minting fees when enabled
     address public feeCollection;
-    /// @dev We take Hub address from core constants, so we need a minimal variable to
-    ///      track whether this state (mastercopy or proxy) has been constructed or setup.
+    /// @notice redemption burn ratio will burn this ratio (expressed per 10**18). This amount
+    ///         will be burnt and is not sent to a collection address.
+    uint256 public redemptionBurnRatio = 0;
+    /// @notice We take Hub address from core constants, so we need a minimal variable to
+    ///         track whether this state (mastercopy or proxy) has been constructed or setup.
     ProxyStatus public proxyStatus = ProxyStatus.Uninitialised;
+    /// @notice Mapping of operator addresses to the next operator in the linked list
+    mapping(address => address) public operators;
+    /// @dev Number of active operators
+    uint256 internal numOperators;
 
     // Events
 
-    event FeeSet(uint256 fee);
+    /// @notice Emitted when fee, and collection address updated
+    event MintFeeSet(address indexed feeCollection, uint256 fee);
+
+    /// @notice Emitted when the operator requirement is updated
+    event OperatorsRequired(bool required);
+
+    /// @notice Emitted when the redemption burn rate is updated
+    event RedemptionBurnRateUpdated(uint256 redemptionRate);
 
     // Modifiers
 
@@ -90,14 +105,6 @@ contract Supergroup is
         _;
     }
 
-    /// @notice Only owner or service can call
-    modifier onlyOwnerOrService() {
-        if (msg.sender != owner && msg.sender != service) {
-            revert SupergroupOnlyOwner();
-        }
-        _;
-    }
-
     // Constructor
 
     constructor() {
@@ -107,14 +114,18 @@ contract Supergroup is
 
     // Setup
 
-    function setup(uint256 _fee, address _feeCollection) external virtual {
+    function setup(uint256 _mintFee, address _feeCollection, uint256 _redemptionBurnRatio) public virtual {
         if (proxyStatus != ProxyStatus.Uninitialised) {
             // contract state already initialised.
             revert SupergroupProxyAlreadyInitialised();
         }
 
-        if (_fee > 0 && _feeCollection == address(0)) {
+        if (_mintFee > 0 && _feeCollection == address(0)) {
             // if a fee is levied, collection address cannot be zero
+            revert SupergroupInvalidCallingParameters();
+        }
+
+        if (_mintFee > MAX_RATIO || _redemptionBurnRatio > MAX_RATIO) {
             revert SupergroupInvalidCallingParameters();
         }
 
@@ -123,14 +134,59 @@ contract Supergroup is
         owner = msg.sender;
 
         // set the fee and fee collection address
-        fee = _fee;
+        mintFee = _mintFee;
         feeCollection = _feeCollection;
+
+        // set redemption burn ratio
+        redemptionBurnRatio = _redemptionBurnRatio;
+
+        emit MintFeeSet(feeCollection, mintFee);
+        emit RedemptionBurnRateUpdated(redemptionBurnRatio);
     }
 
+    /// @notice Set authorized operator for this group in Circles hub, and also
+    ///         mirror this state in the supergroup, so one can query which operators
+    ///         exist for this group (without indexing).
+    /// @param _operator Address of the operator
+    /// @param _authorized True to authorize, false to revoke
     function setAuthorizedOperator(address _operator, bool _authorized) external onlyOwner {
-        hub.setApprovalForAll(_operator, _authorized);
-        // event is already emitted and indexed for ERC1155 hub
+        if (_operator == address(0) || _operator == SENTINEL) {
+            revert SupergroupInvalidOperator(_operator);
+        }
+
+        // Initialize the linked list if it hasn't been already
+        if (operators[SENTINEL] == address(0)) {
+            operators[SENTINEL] = SENTINEL;
+        }
+
+        // Current states
+        bool isInLinkedList = operators[_operator] != address(0);
+        bool isAuthorizedInHub = hub.isApprovedForAll(address(this), _operator);
+
+        // If desired state matches both current states, no action needed
+        if (_authorized == isInLinkedList && _authorized == isAuthorizedInHub) {
+            return;
+        }
+
+        // Update linked list to match desired state
+        if (_authorized && !isInLinkedList) {
+            // Add to linked list
+            operators[_operator] = operators[SENTINEL];
+            operators[SENTINEL] = _operator;
+        } else if (!_authorized && isInLinkedList) {
+            // Remove from linked list
+            _removeOperator(_operator);
+        }
+
+        // Update hub authorization if it doesn't match desired state
+        if (_authorized != isAuthorizedInHub) {
+            hub.setApprovalForAll(_operator, _authorized);
+        }
     }
+
+    function setMintFee(uint256 _fee, address _feeCollection) external onlyOwner {}
+
+    function setRedemptionBurn(uint256 _burnRedemptionRate) external onlyOwner {}
 
     /// @notice beforeMintPolicy returns true always, unless it is required to act over
     ///         an authorized operator of the supergroup, in which case the operator
@@ -243,7 +299,62 @@ contract Supergroup is
         return this.onERC1155BatchReceived.selector;
     }
 
+    // External view functions
+
+    /// @notice Gets all authorized operators
+    /// @return Array of operator addresses
+    function getOperators() external view returns (address[] memory) {
+        // Count operators first
+        uint256 count = 0;
+        address current = operators[SENTINEL];
+        while (current != SENTINEL && current != address(0)) {
+            count++;
+            current = operators[current];
+        }
+
+        // Create and populate array
+        address[] memory result = new address[](count);
+        current = operators[SENTINEL];
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = current;
+            current = operators[current];
+        }
+
+        return result;
+    }
+
+    /// @notice Checks if an address is an authorized operator
+    /// @param _operator Address to check
+    /// @return True if authorized, false otherwise
+    function isAuthorizedOperator(address _operator) public view returns (bool) {
+        return operators[_operator] != address(0);
+    }
+
     // Internal functions
+
+    /// @dev Splits a given amount into return and fee based on the provided fee ratio.
+    function _splitAmountInReturnAndFee(uint256 _amount, uint256 _feeRatio)
+        internal
+        pure
+        returns (uint256 _returnAmount, uint256 _fee)
+    {
+        _returnAmount = (_amount * _feeRatio) / 1 ether;
+        _fee = _amount - _returnAmount;
+    }
+
+    /// @dev Removes an operator from the linked list
+    /// @param _operator Address of the operator to remove
+    function _removeOperator(address _operator) internal {
+        address current = SENTINEL;
+        while (operators[current] != SENTINEL) {
+            if (operators[current] == _operator) {
+                operators[current] = operators[_operator];
+                operators[_operator] = address(0);
+                return;
+            }
+            current = operators[current];
+        }
+    }
 
     function _groupId() internal view returns (uint256) {
         return uint256(uint160(address(this)));
