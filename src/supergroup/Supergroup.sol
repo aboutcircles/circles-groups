@@ -152,9 +152,6 @@ contract Supergroup is
 
         // set redemption burn ratio
         _setRedemptionBurn(_redemptionBurnRatio);
-
-        emit MintFeeSet(feeCollection, mintFee);
-        emit RedemptionBurnRateUpdated(redemptionBurnRatio);
     }
 
     /// @notice Set authorized operator for this group in Circles hub, and also
@@ -176,6 +173,10 @@ contract Supergroup is
 
     function setRequireOperators(bool _required) external onlyOwner {
         _requireOperator(_required);
+    }
+
+    function trust(address _trustReceiver, uint96 _expiry) external onlyOwner {
+        _trust(_trustReceiver, _expiry);
     }
 
     /// @notice beforeMintPolicy returns true always, unless it is required to act over
@@ -344,6 +345,10 @@ contract Supergroup is
     }
 
     // Internal functions
+
+    function _trust(address _trustReceiver, uint96 _expiry) internal {
+        hub.trust(_trustReceiver, _expiry);
+    }
 
     function _setAuthorizedOperator(address _operator, bool _authorized) internal {
         if (_operator == address(0) || _operator == SENTINEL) {

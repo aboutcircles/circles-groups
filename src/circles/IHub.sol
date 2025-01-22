@@ -7,6 +7,8 @@ interface IHub is IHubV2 {
     /// @notice registers group with Circles hub
     function registerGroup(address policy, string calldata name, string calldata symbol, bytes32 metadataDigest)
         external;
+    /// @notice trust sets the trust of the caller for the receiver with an expiry time.
+    function trust(address _trustReceiver, uint96 _expiry) external;
     /// @notice isTrusted returns true if the expiry time of the trust relation is in the future
     function isTrusted(address truster, address trustee) external returns (bool);
     /// @notice treasuries returns the collateral treasury of the group
