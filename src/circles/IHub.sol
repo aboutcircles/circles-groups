@@ -13,4 +13,6 @@ interface IHub is IHubV2 {
     function isTrusted(address truster, address trustee) external returns (bool);
     /// @notice treasuries returns the collateral treasury of the group
     function treasuries(address) external returns (address);
+    /// @notice sets advanced usage flags
+    function setAdvancedUsageFlag(bytes32 flag) external;
 }

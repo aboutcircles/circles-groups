@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "./IHub.sol";
+import "src/circles/IHub.sol";
+import "src/circles/INameRegistry.sol";
 
 /// @notice Circles Core Addresses list the constant addresses
 ///         of the deployed core contracts of Circles on Gnosis Chain.
@@ -15,7 +16,8 @@ contract CirclesCoreAddresses {
     /// @dev Standard Treasury
     address internal constant standardTreasury = address(0x08F90aB73A515308f03A718257ff9887ED330C6e);
     /// @dev Name Registry
-    address internal constant nameRegistry = address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474);
+    INameRegistryExtended internal constant nameRegistry =
+        INameRegistryExtended(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
     /// @dev Migration contract to migrate Circles from Hub v1 to Hub v2
     address internal constant migration = address(0xD44B8dcFBaDfC78EA64c55B705BFc68199B56376);
     /// @dev Lift ERC20 helps lift ERC1155 Circles out into an ERC20 wrapper contract
