@@ -19,7 +19,7 @@ contract CESSupergroup is Supergroup {
     /// @notice Only owner or service can call
     modifier onlyOwnerOrService() {
         if (msg.sender != owner && msg.sender != service) {
-            revert SupergroupOnlyOwner();
+            revert SupergroupOnlyOwnerOrService();
         }
         _;
     }

@@ -116,7 +116,10 @@ contract Supergroup is
         uint256 _mintFee,
         address _feeCollection,
         uint256 _redemptionBurnRatio,
-        address[] calldata _operators
+        address[] calldata _operators,
+        string calldata _name,
+        string calldata _symbol,
+        bytes32 _metadataDigest
     ) public virtual {
         if (proxyStatus != ProxyStatus.Uninitialised) {
             // contract state already initialised.
@@ -129,6 +132,9 @@ contract Supergroup is
         // set the owner to the same address (msg.sender) as ERC1967 ADMIN_SLOT
         // in Renounceable proxy
         owner = msg.sender;
+
+        // register group in hub and set the mint policy to this address
+        hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
         // authorize operators
         uint256 length = _operators.length;
