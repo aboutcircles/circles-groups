@@ -1,6 +1,0 @@
-python-dotenv
-requests
-web3
-
-# for tests
-pytest
