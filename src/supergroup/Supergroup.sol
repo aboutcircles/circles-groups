@@ -40,7 +40,7 @@ contract Supergroup is
     enum ProxyStatus {
         Uninitialised,
         Mastercopy,
-        Setup
+        SetUp
     }
 
     // State variables
@@ -73,8 +73,6 @@ contract Supergroup is
     ProxyStatus public proxyStatus = ProxyStatus.Uninitialised;
     /// @notice Mapping of operator addresses to the next operator in the linked list
     mapping(address => address) public operators;
-    /// @dev Number of active operators
-    uint256 internal numOperators;
 
     // Events
 
@@ -114,31 +112,40 @@ contract Supergroup is
 
     // Setup
 
-    function setup(uint256 _mintFee, address _feeCollection, uint256 _redemptionBurnRatio) public virtual {
+    function setup(
+        uint256 _mintFee,
+        address _feeCollection,
+        uint256 _redemptionBurnRatio,
+        address[] calldata _operators
+    ) public virtual {
         if (proxyStatus != ProxyStatus.Uninitialised) {
             // contract state already initialised.
             revert SupergroupProxyAlreadyInitialised();
         }
 
-        if (_mintFee > 0 && _feeCollection == address(0)) {
-            // if a fee is levied, collection address cannot be zero
-            revert SupergroupInvalidCallingParameters();
-        }
-
-        if (_mintFee > MAX_RATIO || _redemptionBurnRatio > MAX_RATIO) {
-            revert SupergroupInvalidCallingParameters();
-        }
+        // mark this proxy as set up
+        proxyStatus = ProxyStatus.SetUp;
 
         // set the owner to the same address (msg.sender) as ERC1967 ADMIN_SLOT
         // in Renounceable proxy
         owner = msg.sender;
 
+        // authorize operators
+        uint256 length = _operators.length;
+        for (uint256 i = 0; i < length; i++) {
+            // authorize each operator
+            _setAuthorizedOperator(_operators[i], true);
+        }
+        // sanity check
+        if (length != countOperators()) {
+            revert SupergroupLogicAssertion();
+        }
+
         // set the fee and fee collection address
-        mintFee = _mintFee;
-        feeCollection = _feeCollection;
+        _setMintFee(_mintFee, _feeCollection);
 
         // set redemption burn ratio
-        redemptionBurnRatio = _redemptionBurnRatio;
+        _setRedemptionBurn(_redemptionBurnRatio);
 
         emit MintFeeSet(feeCollection, mintFee);
         emit RedemptionBurnRateUpdated(redemptionBurnRatio);
@@ -150,43 +157,20 @@ contract Supergroup is
     /// @param _operator Address of the operator
     /// @param _authorized True to authorize, false to revoke
     function setAuthorizedOperator(address _operator, bool _authorized) external onlyOwner {
-        if (_operator == address(0) || _operator == SENTINEL) {
-            revert SupergroupInvalidOperator(_operator);
-        }
-
-        // Initialize the linked list if it hasn't been already
-        if (operators[SENTINEL] == address(0)) {
-            operators[SENTINEL] = SENTINEL;
-        }
-
-        // Current states
-        bool isInLinkedList = operators[_operator] != address(0);
-        bool isAuthorizedInHub = hub.isApprovedForAll(address(this), _operator);
-
-        // If desired state matches both current states, no action needed
-        if (_authorized == isInLinkedList && _authorized == isAuthorizedInHub) {
-            return;
-        }
-
-        // Update linked list to match desired state
-        if (_authorized && !isInLinkedList) {
-            // Add to linked list
-            operators[_operator] = operators[SENTINEL];
-            operators[SENTINEL] = _operator;
-        } else if (!_authorized && isInLinkedList) {
-            // Remove from linked list
-            _removeOperator(_operator);
-        }
-
-        // Update hub authorization if it doesn't match desired state
-        if (_authorized != isAuthorizedInHub) {
-            hub.setApprovalForAll(_operator, _authorized);
-        }
+        _setAuthorizedOperator(_operator, _authorized);
     }
 
-    function setMintFee(uint256 _fee, address _feeCollection) external onlyOwner {}
+    function setMintFee(uint256 _mintFee, address _feeCollection) external onlyOwner {
+        _setMintFee(_mintFee, _feeCollection);
+    }
 
-    function setRedemptionBurn(uint256 _burnRedemptionRate) external onlyOwner {}
+    function setRedemptionBurn(uint256 _burnRedemptionRate) external onlyOwner {
+        _setRedemptionBurn(_burnRedemptionRate);
+    }
+
+    function setRequireOperators(bool _required) external onlyOwner {
+        _requireOperator(_required);
+    }
 
     /// @notice beforeMintPolicy returns true always, unless it is required to act over
     ///         an authorized operator of the supergroup, in which case the operator
@@ -272,8 +256,16 @@ contract Supergroup is
         _subtractFromFingerprint(address(this), _id, _value);
 
         if (returnGroupCirclesToSender) {
-            // return the same amount as gCRC to the sender
-            hub.safeTransferFrom(address(this), _from, _groupId(), _value, _data);
+            if (mintFee > 0) {
+                (uint256 returnAmount, uint256 fee) = _splitAmountInReturnAndFee(_value, mintFee);
+                // return the return amount to sender
+                hub.safeTransferFrom(address(this), _from, _groupId(), returnAmount, _data);
+                // send the fee to fee collection address
+                hub.safeTransferFrom(address(this), feeCollection, _groupId(), fee, "");
+            } else {
+                // return the same amount as gCRC to the sender
+                hub.safeTransferFrom(address(this), _from, _groupId(), _value, _data);
+            }
         }
         return this.onERC1155Received.selector;
     }
@@ -293,8 +285,16 @@ contract Supergroup is
             value += _values[i];
         }
         if (returnGroupCirclesToSender) {
-            // return the same amount as gCRC to the sender
-            hub.safeTransferFrom(address(this), _from, _groupId(), value, _data);
+            if (mintFee > 0) {
+                (uint256 returnAmount, uint256 fee) = _splitAmountInReturnAndFee(value, mintFee);
+                // return the return amount to sender
+                hub.safeTransferFrom(address(this), _from, _groupId(), returnAmount, _data);
+                // send the fee to fee collection address
+                hub.safeTransferFrom(address(this), feeCollection, _groupId(), fee, "");
+            } else {
+                // return the same amount as gCRC to the sender
+                hub.safeTransferFrom(address(this), _from, _groupId(), value, _data);
+            }
         }
         return this.onERC1155BatchReceived.selector;
     }
@@ -305,16 +305,11 @@ contract Supergroup is
     /// @return Array of operator addresses
     function getOperators() external view returns (address[] memory) {
         // Count operators first
-        uint256 count = 0;
-        address current = operators[SENTINEL];
-        while (current != SENTINEL && current != address(0)) {
-            count++;
-            current = operators[current];
-        }
+        uint256 count = countOperators();
 
         // Create and populate array
         address[] memory result = new address[](count);
-        current = operators[SENTINEL];
+        address current = operators[SENTINEL];
         for (uint256 i = 0; i < count; i++) {
             result[i] = current;
             current = operators[current];
@@ -330,7 +325,97 @@ contract Supergroup is
         return operators[_operator] != address(0);
     }
 
+    // Public functions
+
+    function countOperators() public view returns (uint256) {
+        uint256 count = 0;
+        address current = operators[SENTINEL];
+        while (current != SENTINEL && current != address(0)) {
+            count++;
+            current = operators[current];
+        }
+        return count;
+    }
+
     // Internal functions
+
+    function _setAuthorizedOperator(address _operator, bool _authorized) internal {
+        if (_operator == address(0) || _operator == SENTINEL) {
+            revert SupergroupInvalidOperator(_operator);
+        }
+
+        // Initialize the linked list if it hasn't been already
+        if (operators[SENTINEL] == address(0)) {
+            operators[SENTINEL] = SENTINEL;
+        }
+
+        // Current states
+        bool isInLinkedList = operators[_operator] != address(0);
+        bool isAuthorizedInHub = hub.isApprovedForAll(address(this), _operator);
+
+        // If desired state matches both current states, no action needed
+        if (_authorized == isInLinkedList && _authorized == isAuthorizedInHub) {
+            return;
+        }
+
+        // Update linked list to match desired state
+        if (_authorized && !isInLinkedList) {
+            // Add to linked list
+            operators[_operator] = operators[SENTINEL];
+            operators[SENTINEL] = _operator;
+        } else if (!_authorized && isInLinkedList) {
+            // Remove from linked list
+            _removeOperator(_operator);
+        }
+
+        // Update hub authorization if it doesn't match desired state
+        if (_authorized != isAuthorizedInHub) {
+            hub.setApprovalForAll(_operator, _authorized);
+        }
+    }
+
+    function _setMintFee(uint256 _mintFee, address _feeCollection) internal {
+        if (_mintFee > 0 && _feeCollection == address(0)) {
+            // if a fee is levied, collection address cannot be zero
+            revert SupergroupInvalidCallingParameters();
+        }
+
+        if (_mintFee > MAX_RATIO) {
+            revert SupergroupInvalidCallingParameters();
+        }
+
+        if (_mintFee > 0) {
+            // if a minting fee is set, then operators are required,
+            // because explicit hub.groupMint could by-pass the fee
+            // when not done over operators.
+            _requireOperator(true);
+        }
+
+        mintFee = _mintFee;
+        feeCollection = _feeCollection;
+
+        emit MintFeeSet(feeCollection, mintFee);
+    }
+
+    function _setRedemptionBurn(uint256 _burnRedemptionRate) internal {
+        if (_burnRedemptionRate > MAX_RATIO) {
+            revert SupergroupInvalidCallingParameters();
+        }
+
+        emit RedemptionBurnRateUpdated(redemptionBurnRatio);
+    }
+
+    function _requireOperator(bool _required) internal {
+        if (_required) {
+            if (countOperators() > 0) {
+                revert SupergroupMustHaveOperatorsActivated();
+            }
+        }
+
+        requireOperator = _required;
+
+        emit OperatorsRequired(_required);
+    }
 
     /// @dev Splits a given amount into return and fee based on the provided fee ratio.
     function _splitAmountInReturnAndFee(uint256 _amount, uint256 _feeRatio)
@@ -353,6 +438,10 @@ contract Supergroup is
                 return;
             }
             current = operators[current];
+        }
+        // only check after removal because _operator might not be included
+        if (requireOperator && countOperators() == 0) {
+            revert SupergroupMustHaveOperatorsActivated();
         }
     }
 

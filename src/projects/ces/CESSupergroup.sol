@@ -31,10 +31,11 @@ contract CESSupergroup is Supergroup {
         address _launchpad,
         uint256 _fee,
         address _feeCollection,
-        uint256 _redemptionBurnRate
+        uint256 _redemptionBurnRate,
+        address[] calldata _operators
     ) external {
         // first call setup on Supergroup
-        super.setup(_fee, _feeCollection, _redemptionBurnRate);
+        super.setup(_fee, _feeCollection, _redemptionBurnRate, _operators);
 
         if (_service == address(0) || _launchpad == address(0)) {
             revert SupergroupInvalidCallingParameters();

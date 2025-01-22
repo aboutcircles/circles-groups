@@ -26,6 +26,10 @@ interface ISupergroupErrors {
     error SupergroupAlwaysBlockUntrustedIds();
     /// @notice Reserved addresses cannot be set as operator
     error SupergroupInvalidOperator(address operator);
+    /// @notice when operators are required, at least one operator must be activated
+    error SupergroupMustHaveOperatorsActivated();
+    /// @notice logic assertion
+    error SupergroupLogicAssertion();
 }
 
 interface ISupergroupRequestErrors {
