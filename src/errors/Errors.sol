@@ -6,6 +6,10 @@ interface ISupergroupErrors {
     error SupergroupProxyAlreadyInitialised();
     /// @notice Only Hub can call
     error SupergroupOnlyHub();
+    /// @notice Only owner can call
+    error SupergroupOnlyOwner();
+    /// @notice Only owner or service can call
+    error SupergroupOnlyOwnerOrService();
     /// @notice Only authorized operator can call
     error SupergroupOnlyAuthorizedOperator();
     /// @notice Supergroup must have been registered

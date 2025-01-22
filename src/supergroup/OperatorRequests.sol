@@ -4,7 +4,7 @@ pragma solidity >=0.8.28;
 import "src/errors/Errors.sol";
 import "src/policies/PolicyTypes.sol";
 
-abstract contract OperatorRequest is ISupergroupRequestErrors {
+abstract contract OperatorRequests is ISupergroupRequestErrors {
     // Internal functions
 
     /// @dev Validate request subtracts from the counter stored under the request hash

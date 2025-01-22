@@ -7,7 +7,7 @@ import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
 import "src/operator/IOperator.sol";
 import "src/policies/PolicyTypes.sol";
-import "src/supergroup/OperatorRequest.sol";
+import "src/supergroup/OperatorRequests.sol";
 import "src/supergroup/PolicyFingerprints.sol";
 
 /// @notice Supergroups are opinionated liquidity clusters of valued Circles
@@ -20,7 +20,7 @@ import "src/supergroup/PolicyFingerprints.sol";
 contract Supergroup is
     MintPolicy,
     PolicyFingerprints,
-    OperatorRequest,
+    OperatorRequests,
     ERC1155Holder,
     CirclesCoreAddresses,
     ISupergroupErrors
@@ -85,6 +85,22 @@ contract Supergroup is
         _;
     }
 
+    /// @notice Only owner can call
+    modifier onlyOwner() {
+        if (msg.sender != owner) {
+            revert SupergroupOnlyOwner();
+        }
+        _;
+    }
+
+    /// @notice Only owner or service can call
+    modifier onlyOwnerOrService() {
+        if (msg.sender != owner && msg.sender != service) {
+            revert SupergroupOnlyOwner();
+        }
+        _;
+    }
+
     // Constructor
 
     constructor() {
@@ -121,7 +137,7 @@ contract Supergroup is
         feeCollection = _feeCollection;
     }
 
-    function setAuthorizedOperator(address _operator, bool _authorized) external {
+    function setAuthorizedOperator(address _operator, bool _authorized) external onlyOwner {
         hub.setApprovalForAll(_operator, _authorized);
         // event is already emitted and indexed for ERC1155 hub
     }
@@ -164,10 +180,9 @@ contract Supergroup is
 
     /// @notice Authorized operators can register a request to mint group currency
     ///         within the same transaction, by preregistering the parameters of the request
-    ///         before initiating the hub either explicitly or over a path).
+    ///         before initiating the hub either explicitly or over a path.
     ///         This can be called multiple times for multiple group mints along a path
-    ///         (eg. different collateral arriving at the group) but the parameters
-    ///         need to be unique within the transaction.
+    ///         (eg. different collateral arriving at the group).
     function registerOperatorRequest(
         address _minter,
         address _group,
@@ -184,102 +199,59 @@ contract Supergroup is
 
     // ERC1155 Acceptance Call handlers
 
-    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
+    function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
         public
         virtual
         override
         onlyHub
         returns (bytes4)
     {
-        return bytes4(0);
+        // check the fingerprint whether value has been accounted for during beforeMintPolicy calls
+        // If this value is not accounted for in during beforeMintPolicy calls,
+        // then this will revert.
+        // Note that this is still a "treacherous pattern", and the only recommended pattern is
+        // to use operators exclusively.
+        //
+        // An example of an unintented manipulation that is unavoidable (when explictly
+        // not wanting to use operators): imagine the group has 1 gCRC, and aCRC is valid collateral
+        // one can call hub.groupMint(1 aCRC), which will register a fingerprint for 1 gCRC for aCRC,
+        // but does not trigger an acceptance call; in the same transaction someone can now
+        // send 1 aCRC to the group with hub.safeTransfer, and in that acceptance call,
+        // if `returnGroupCirclesToSender` is true, this acceptance handler will send the groups'
+        // 1 gCRC to the sender, accepting the 1 aCRC (which was necessarily valid collateral).
+        //
+        // However, this is exactly already possible with a path transfer, because the group trusts
+        // aCRC, so an easier way to achieve the same is using a path and swapping the groups' gCRC
+        // for aCRC directly.
+        _subtractFromFingerprint(address(this), _id, _value);
+
+        if (returnGroupCirclesToSender) {
+            // return the same amount as gCRC to the sender
+            hub.safeTransferFrom(address(this), _from, _groupId(), _value, _data);
+        }
+        return this.onERC1155Received.selector;
     }
 
-    //
-    //
-    // note: it is not a recommended pattern for the group itself to handle this in the acceptance call
-    //       instead it is much cleaner, easier and more transparant to handle this in operators only.
-    //       However,
-
-    /// @dev There two scenarios under which a group registered in the hub
-    ///      can receive the `onERC1155(Batch)Received` acceptance call from Circles hub:
-    ///         1. when some does a standard ERC1155 `safe(Batch)TransferFrom` of any Circles id, including the groups own id.
-    ///            The group should not accept tokens in general to prevent tokens accidentally getting locked.
-    ///            The ERC1155 standard requires us to revert acceptance handler (not simply return the tokens to sender).
-    ///         2. when a path transfer has a stream which terminates at the group, then hub will perform an acceptance call
-    ///            `onERC1155(Batch)Received` with the terminal edges that sum to the total amount received.
-    ///            However, during a path transfer, when an edge transfers tokens to a group it is interpreted as a request
-    ///            to group mint the collateral. So by the time the acceptance call is performed, the group does not hold
-    ///            the separate collateral ids from the acceptance call, but the sum as newly minted group Circles
-    ///            - the collateral was transfered to the treasury for the group rather than to the group.
-    ///     In the first case, the group should revert the acceptance call to avoid tokens being locked;
-    ///     in the second situation we should automatically return the newly minted group Circles to the original sender
-    ///     of the stream, if `returnGroupCirclesToSender` is true.
-    ///
-    ///     Note that when an explicit group mint is performed over `hub.groupMint()` the group Circles minted are given
-    ///     directly to the caller, and there is no acceptance call for the group.
-    ///
-    ///     To protect that the acceptance handler never sends out tokens other than those that were minted
-    ///     during a given transaction (which can be composed of normal ERC1155 transfers to the group and path transfers)
-    ///     transient storage can account for the newly minted group tokens and subtract any returns in acceptance call.
-    ///     This way this handler can also work in situations where the group holds Circles balances itself.
-    ///
-    ///     To simplify the implementation here, we require that:
-    ///         - the group must not hold any Circles balance (outside the scope of a transaction) and
-    ///         - the received id is trusted (probably redundant)
-    ///         - the group's balance of the Circles id in the acceptance call is actually zero
-    ///           (ie. it is in the groups treasury and in exchange the group holds at least this many gCRC)
-    ///     This evaluation function will under these conditions not revert.
-    // function onERC1155ReceivedBAD(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
-    //     public
-    //     virtual
-    //     onlyHub
-    //     returns (bytes4)
-    // {
-    //     // Likely redundant sanity-check to always block ids that are not trusted or our own id.
-    //     if (_id == _groupId() || !hub.isTrusted(address(this), address(uint160(_id)))) {
-    //         revert SupergroupAlwaysBlockUntrustedIds();
-    //     }
-    //     // check that the tokens from the acceptance call are in fact in the treasury, not held by the group.
-    //     uint256 balanceMustBeZero = hub.balanceOf(address(this), _id);
-    //     if (balanceMustBeZero != uint256(0)) {
-    //         revert SupergroupBlockNormalERC1155Transfers();
-    //     }
-    //     // the supergroup MUST never hold balances beyond temporarily during transactions,
-    //     // as this construction is not a recommended pattern.
-    //     // The only recommended pattern is the use of operators, to handle things like "return gCRC to Alice"
-    //     hub.safeTransferFrom(address(this), _from, _groupId(), _value, "");
-    //     return this.onERC1155Received.selector;
-    // }
-
-    // function onERC1155BatchReceivedBad(
-    //     address _operator,
-    //     address _from,
-    //     uint256[] memory _ids,
-    //     uint256[] memory _values,
-    //     bytes memory _data
-    // ) public virtual onlyHub returns (bytes4) {
-    //     uint256 groupCrcValue = 0;
-    //     uint256 length = _ids.length;
-    //     address[] memory copiesOfMe = new address[](_ids.length);
-    //     for (uint256 i = 0; i < length; i++) {
-    //         copiesOfMe[i] = address(this);
-    //         if (_ids[i] == _groupId() || !hub.isTrusted(address(this), address(uint160(_ids[i])))) {
-    //             revert SupergroupAlwaysBlockUntrustedIds();
-    //         }
-    //     }
-    //     uint256[] memory balancesMustBeZero = hub.balanceOfBatch(copiesOfMe, _ids);
-    //     for (uint256 i = 0; i < balancesMustBeZero.length; i++) {
-    //         // check that the tokens received are all in the treasury and not held by the group.
-    //         if (balancesMustBeZero[i] != uint256(0)) {
-    //             revert SupergroupBlockNormalERC1155Transfers();
-    //         }
-    //         // and track the total of collateral received, for the total amount of gCRC
-    //         groupCrcValue += _values[i];
-    //     }
-    //     // the group MUST never hold balances so that this can only send gCRC it minted.
-    //     hub.safeTransferFrom(address(this), _from, _groupId(), groupCrcValue, "");
-    //     return this.onERC1155BatchReceived.selector;
-    // }
+    function onERC1155BatchReceivedBad(
+        address, /*_operator*/
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) public virtual onlyHub returns (bytes4) {
+        uint256 length = _ids.length;
+        uint256 value = 0;
+        for (uint256 i = 0; i < length; i++) {
+            // account for all the accepting ids and values
+            _subtractFromFingerprint(address(this), _ids[i], _values[i]);
+            value += _values[i];
+        }
+        if (returnGroupCirclesToSender) {
+            // return the same amount as gCRC to the sender
+            hub.safeTransferFrom(address(this), _from, _groupId(), value, _data);
+        }
+        return this.onERC1155BatchReceived.selector;
+    }
 
     // Internal functions
 
