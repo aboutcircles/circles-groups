@@ -44,7 +44,16 @@ contract SupergroupOperator is CirclesCoreAddresses, CirclesTypes, ISupergroupEr
     // External functions
 
     /// @notice Explicit group mint
-    function groupMint() external {}
+    function groupMint(
+        address _group,
+        uint256[] calldata _collateralIds,
+        uint256[] calldata _amounts,
+        bytes calldata _data
+    ) external {
+        // transfer the collateral to this operator
+        hub.safeBatchTransferFrom(msg.sender, address(this), _collateralIds, _amounts, "");
+        // hub.groupMint
+    }
 
     /// @notice OperateFlowMatrix
     function operateFlowMatrix() external {}

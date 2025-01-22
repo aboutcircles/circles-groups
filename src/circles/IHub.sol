@@ -15,4 +15,11 @@ interface IHub is IHubV2 {
     function treasuries(address) external returns (address);
     /// @notice sets advanced usage flags
     function setAdvancedUsageFlag(bytes32 flag) external;
+    /// @notice groupMint allows the holder of collateral to directly group mint
+    function groupMint(
+        address group,
+        address[] calldata collateralAvatars,
+        uint256[] calldata amounts,
+        bytes calldata data
+    ) external;
 }

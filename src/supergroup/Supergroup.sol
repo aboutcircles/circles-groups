@@ -85,6 +85,10 @@ contract Supergroup is
     /// @notice Emitted when the redemption burn rate is updated
     event RedemptionBurnRateUpdated(uint256 redemptionRate);
 
+    /// @notice Emitted when the flag whether to return group Circles to sender
+    ///         is updated
+    event ReturnGroupCirclesToSender(bool returnGroupCircles);
+
     // Modifiers
 
     /// @notice Only the Circles Hub can call this function
@@ -154,27 +158,6 @@ contract Supergroup is
         _setRedemptionBurn(_redemptionBurnRatio);
     }
 
-    /// @notice Set authorized operator for this group in Circles hub, and also
-    ///         mirror this state in the supergroup, so one can query which operators
-    ///         exist for this group (without indexing).
-    /// @param _operator Address of the operator
-    /// @param _authorized True to authorize, false to revoke
-    function setAuthorizedOperator(address _operator, bool _authorized) external onlyOwner {
-        _setAuthorizedOperator(_operator, _authorized);
-    }
-
-    function setMintFee(uint256 _mintFee, address _feeCollection) external onlyOwner {
-        _setMintFee(_mintFee, _feeCollection);
-    }
-
-    function setRedemptionBurn(uint256 _burnRedemptionRate) external onlyOwner {
-        _setRedemptionBurn(_burnRedemptionRate);
-    }
-
-    function setRequireOperators(bool _required) external onlyOwner {
-        _requireOperator(_required);
-    }
-
     function trust(address _trustReceiver, uint96 _expiry) external onlyOwner {
         _trust(_trustReceiver, _expiry);
     }
@@ -190,7 +173,7 @@ contract Supergroup is
         uint256[] calldata _amounts,
         bytes calldata /*_data*/
     ) external override onlyHub returns (bool) {
-        // redundant sanity-check that group is this group
+        // sanity-check that group is this group
         if (_group != address(this)) {
             return false;
         }
@@ -232,7 +215,7 @@ contract Supergroup is
             uint256[] memory _burnValues
         )
     {
-        // redundant sanity-check that group is this group
+        // sanity-check that group is this group
         if (_group != address(this)) {
             revert SupergroupLogicAssertion();
         }
@@ -281,6 +264,33 @@ contract Supergroup is
         }
         _submitRequest(_minter, _group, _collateral, _amounts);
         return true;
+    }
+
+    /// @notice Set authorized operator for this group in Circles hub, and also
+    ///         mirror this state in the supergroup, so one can query which operators
+    ///         exist for this group (without indexing).
+    /// @param _operator Address of the operator
+    /// @param _authorized True to authorize, false to revoke
+    function setAuthorizedOperator(address _operator, bool _authorized) external onlyOwner {
+        _setAuthorizedOperator(_operator, _authorized);
+    }
+
+    function setMintFee(uint256 _mintFee, address _feeCollection) external onlyOwner {
+        _setMintFee(_mintFee, _feeCollection);
+    }
+
+    function setRedemptionBurn(uint256 _burnRedemptionRate) external onlyOwner {
+        _setRedemptionBurn(_burnRedemptionRate);
+    }
+
+    function setRequireOperators(bool _required) external onlyOwner {
+        _requireOperator(_required);
+    }
+
+    function setReturnGroupCirclesToSender(bool _returnGroupCircles) external onlyOwner {
+        returnGroupCirclesToSender = _returnGroupCircles;
+
+        emit ReturnGroupCirclesToSender(_returnGroupCircles);
     }
 
     // ERC1155 Acceptance Call handlers
