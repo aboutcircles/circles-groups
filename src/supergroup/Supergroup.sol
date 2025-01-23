@@ -9,6 +9,7 @@ import "src/operator/IOperator.sol";
 import "src/policies/PolicyTypes.sol";
 import "src/supergroup/OperatorRequests.sol";
 import "src/supergroup/PolicyFingerprints.sol";
+import "src/supergroup/ISupergroup.sol";
 
 /// @notice Supergroups are opinionated liquidity clusters of valued Circles
 ///         Supergroups follow a pattern where the group avatar is a contract address
@@ -23,6 +24,7 @@ contract Supergroup is
     OperatorRequests,
     ERC1155Holder,
     CirclesCoreAddresses,
+    ISupergroup,
     ISupergroupErrors
 {
     // Constants
@@ -258,6 +260,7 @@ contract Supergroup is
         uint256[] calldata _collateral,
         uint256[] calldata _amounts
     ) external returns (bool) {
+        // todo: this check can now use the locally stored operators - after tests written
         // the operator must be authorized by the supergroup to register request
         if (!hub.isApprovedForAll(address(this), msg.sender)) {
             revert SupergroupOnlyAuthorizedOperator();

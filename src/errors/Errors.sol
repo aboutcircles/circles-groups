@@ -41,3 +41,15 @@ interface ISupergroupPolicyFingerprintsErrors {
     /// @notice Throws when during acceptance call more is
     error SupergroupFingerprintUnderflow();
 }
+
+interface ISupergroupOperatorErrors {
+    error SupergroupOperatorUnservicedGroup(address group);
+    /// @notice the action requires that an authorized operator performs it,
+    ///         and this operator is currently not authorized for this supergroup.
+    error SupergroupOperatorNotAuthorizedAndAuthorizationRequired(address group);
+}
+
+interface ISupergroupOperatorCompletionErrors {
+    /// @notice
+    error ExpectationAlreadySet(bytes32 expectation);
+}
