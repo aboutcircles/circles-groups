@@ -149,6 +149,39 @@ contract SupergroupOperator is
         hub.safeTransferFrom(msg.sender, standardTreasury, supergroupId, value, data);
     }
 
+    // ERC1155 acceptance handlers
+
+    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
+        public
+        override
+        onlyHub
+        returns (bytes4)
+    {
+        // Check expectation and get final receiver
+        address finalReceiver = _checkExpectationSingleAcceptanceCall(_operator, _from, _id, _value, _data);
+
+        // Forward tokens to final receiver
+        hub.safeTransferFrom(address(this), finalReceiver, _id, _value, _data);
+
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address _operator,
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) public override onlyHub returns (bytes4) {
+        // Check expectation and get final receiver
+        address finalReceiver = _checkExpectationBatchAcceptanceCall(_operator, _from, _ids, _values, _data);
+
+        // Forward tokens to final receiver
+        hub.safeBatchTransferFrom(address(this), finalReceiver, _ids, _values, _data);
+
+        return this.onERC1155BatchReceived.selector;
+    }
+
     // Internal functions
 
     function _amIAuthorized() internal view returns (bool) {

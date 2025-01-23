@@ -9,8 +9,8 @@ contract CompletionHandler is ERC1155Holder, ISupergroupOperatorCompletionErrors
 
     /// @dev single transient slot where to store expected acceptance call
     bytes32 internal constant EXPECTATION_SLOT = keccak256("EXPECTATION_SLOT");
-    /// @dev transient slot to store planned receiver of funds
-    bytes32 internal constant PLANNED_RECEIVER = keccak256("PLANNED_RECEIVER_SLOT");
+    /// @dev transient slot to store planned final receiver of funds
+    bytes32 internal constant FINAL_RECEIVER_SLOT = keccak256("FINAL_RECEIVER_SLOT");
 
     /// @dev Domain separator for expecting a single transfer acceptance call
     bytes32 internal constant DOMAIN_SEPARATOR_SINGLE_ACCEPTANCE =
@@ -22,54 +22,139 @@ contract CompletionHandler is ERC1155Holder, ISupergroupOperatorCompletionErrors
     // Internal functions
 
     /// @notice Sets expectation for a single acceptance call if no other expectation is active
-    /// @param operator The address performing the transfer
-    /// @param from The address tokens are being transferred from
-    /// @param id The token id being transferred
-    /// @param value The amount being transferred
-    /// @param data Additional data passed with transfer
+    /// @param _finalReceiver The address of the final receiver
+    /// @param _operator The address performing the transfer
+    /// @param _from The address tokens are being transferred from
+    /// @param _id The token id being transferred
+    /// @param _value The amount being transferred
+    /// @param _data Additional data passed with transfer
     function _setExpectationSingleAcceptanceCall(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 value,
-        bytes calldata data
+        address _finalReceiver,
+        address _operator,
+        address _from,
+        uint256 _id,
+        uint256 _value,
+        bytes memory _data
     ) internal {
         // Check if slot is empty
         bytes32 currentExpectation;
         // assembly does not like the constants
-        bytes32 slot = EXPECTATION_SLOT;
+        bytes32 expectationSlot = EXPECTATION_SLOT;
+        bytes32 receiverSlot = FINAL_RECEIVER_SLOT;
         assembly {
-            currentExpectation := tload(slot)
+            currentExpectation := tload(expectationSlot)
         }
         if (currentExpectation != bytes32(0)) {
             revert ExpectationAlreadySet(currentExpectation);
         }
 
         // Generate and store the acceptance hash
-        bytes32 acceptanceHash = _hashSingleAcceptanceCall(operator, from, id, value, data);
+        bytes32 acceptanceHash = _hashSingleAcceptanceCall(_operator, _from, _id, _value, _data);
 
         assembly {
-            tstore(slot, acceptanceHash)
+            tstore(expectationSlot, acceptanceHash)
+            tstore(receiverSlot, _finalReceiver)
         }
     }
 
+    function _checkExpectationSingleAcceptanceCall(
+        address _operator,
+        address _from,
+        uint256 _id,
+        uint256 _value,
+        bytes memory _data
+    ) internal returns (address) {
+        // Check if expectation exists
+        bytes32 currentExpectation;
+        address finalReceiver;
+        bytes32 expectationSlot = EXPECTATION_SLOT;
+        bytes32 receiverSlot = FINAL_RECEIVER_SLOT;
+
+        assembly {
+            currentExpectation := tload(expectationSlot)
+            finalReceiver := tload(receiverSlot)
+        }
+
+        if (currentExpectation == bytes32(0)) {
+            revert NoExpectationSet();
+        }
+
+        // Generate hash from actual parameters
+        bytes32 acceptanceHash = _hashSingleAcceptanceCall(_operator, _from, _id, _value, _data);
+
+        // Verify hash matches expectation
+        if (acceptanceHash != currentExpectation) {
+            revert ExpectationMismatch(currentExpectation, acceptanceHash);
+        }
+
+        // Clear expectation after successful check
+        assembly {
+            tstore(expectationSlot, 0)
+            tstore(receiverSlot, 0)
+        }
+
+        return finalReceiver;
+    }
+
+    function _checkExpectationBatchAcceptanceCall(
+        address _operator,
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) internal returns (address) {
+        // Check if expectation exists
+        bytes32 currentExpectation;
+        address finalReceiver;
+        bytes32 expectationSlot = EXPECTATION_SLOT;
+        bytes32 receiverSlot = FINAL_RECEIVER_SLOT;
+
+        assembly {
+            currentExpectation := tload(expectationSlot)
+            finalReceiver := tload(receiverSlot)
+        }
+
+        if (currentExpectation == bytes32(0)) {
+            revert NoExpectationSet();
+        }
+
+        // Generate hash from actual parameters
+        bytes32 acceptanceHash = _hashBatchAcceptanceCall(_operator, _from, _ids, _values, _data);
+
+        // Verify hash matches expectation
+        if (acceptanceHash != currentExpectation) {
+            revert ExpectationMismatch(currentExpectation, acceptanceHash);
+        }
+
+        // Clear expectation after successful check
+        assembly {
+            tstore(expectationSlot, 0)
+            tstore(receiverSlot, 0)
+        }
+
+        return finalReceiver;
+    }
+
     /// @notice Sets expectation for a batch acceptance call if no other expectation is active
-    /// @param operator The address performing the transfer
-    /// @param from The address tokens are being transferred from
-    /// @param ids Array of token ids being transferred
-    /// @param values Array of amounts being transferred
-    /// @param data Additional data passed with transfer
+    /// @param _finalReceiver The address of the final receiver
+    /// @param _operator The address performing the transfer
+    /// @param _from The address tokens are being transferred from
+    /// @param _ids Array of token ids being transferred
+    /// @param _values Array of amounts being transferred
+    /// @param _data Additional data passed with transfer
     function _setExpectationBatchAcceptanceCall(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
+        address _finalReceiver,
+        address _operator,
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
     ) internal {
         // Check if slot is empty
         bytes32 currentExpectation;
         // assembly does not like the constants
         bytes32 slot = EXPECTATION_SLOT;
+        bytes32 receiverSlot = FINAL_RECEIVER_SLOT;
         assembly {
             currentExpectation := tload(slot)
         }
@@ -78,10 +163,11 @@ contract CompletionHandler is ERC1155Holder, ISupergroupOperatorCompletionErrors
         }
 
         // Generate and store the acceptance hash
-        bytes32 acceptanceHash = _hashBatchAcceptanceCall(operator, from, ids, values, data);
+        bytes32 acceptanceHash = _hashBatchAcceptanceCall(_operator, _from, _ids, _values, _data);
 
         assembly {
             tstore(slot, acceptanceHash)
+            tstore(receiverSlot, _finalReceiver)
         }
     }
 
@@ -91,7 +177,7 @@ contract CompletionHandler is ERC1155Holder, ISupergroupOperatorCompletionErrors
     /// @param id The token id being transferred
     /// @param value The amount being transferred
     /// @param data Additional data passed with transfer
-    function _hashSingleAcceptanceCall(address operator, address from, uint256 id, uint256 value, bytes calldata data)
+    function _hashSingleAcceptanceCall(address operator, address from, uint256 id, uint256 value, bytes memory data)
         internal
         pure
         returns (bytes32)
@@ -108,9 +194,9 @@ contract CompletionHandler is ERC1155Holder, ISupergroupOperatorCompletionErrors
     function _hashBatchAcceptanceCall(
         address operator,
         address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
+        uint256[] memory ids,
+        uint256[] memory values,
+        bytes memory data
     ) internal pure returns (bytes32) {
         return keccak256(abi.encode(DOMAIN_SEPARATOR_BATCH_ACCEPTANCE, operator, from, ids, values, keccak256(data)));
     }

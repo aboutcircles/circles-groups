@@ -50,6 +50,10 @@ interface ISupergroupOperatorErrors {
 }
 
 interface ISupergroupOperatorCompletionErrors {
-    /// @notice
+    /// @notice An expectation for a completion call is already set
     error ExpectationAlreadySet(bytes32 expectation);
+    /// @notice No expectation was set when checking completion call
+    error NoExpectationSet();
+    /// @notice The actual completion call parameters did not match the expected ones
+    error ExpectationMismatch(bytes32 expected, bytes32 actual);
 }
