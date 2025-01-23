@@ -56,4 +56,6 @@ interface ISupergroupOperatorCompletionErrors {
     error NoExpectationSet();
     /// @notice The actual completion call parameters did not match the expected ones
     error ExpectationMismatch(bytes32 expected, bytes32 actual);
+    /// @notice only expect supergroup id on single receive
+    error ExpectationSingleReceiveOnlySupergroupId(uint256 id);
 }

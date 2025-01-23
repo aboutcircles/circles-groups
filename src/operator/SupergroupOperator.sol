@@ -18,7 +18,7 @@ contract SupergroupOperator is
 
     /// @notice Supergroup is the explicit group this operator is deployed for.
     ISupergroup public immutable supergroup;
-    /// @dev supergroup id
+    /// @notice supergroup id
     uint256 public immutable supergroupId;
 
     // Modifiers
@@ -103,16 +103,10 @@ contract SupergroupOperator is
         // transfer resulting group Circles back to caller, possibly withholding fee
         uint256 mintFee = supergroup.mintFee();
         if (mintFee > 0) {
-            // calculate fee and send respective amounts back to caller and collection
             address feeCollection = supergroup.feeCollection();
-            (uint256 returnAmount, uint256 fee) = _splitAmountInReturnAndFee(value, mintFee);
-            // send the return amount to caller
-            hub.safeTransferFrom(address(this), msg.sender, supergroupId, returnAmount, _data);
-            // send the minting fee to collection
-            hub.safeTransferFrom(address(this), feeCollection, supergroupId, fee, _data);
+            _setExpectationSingleAcceptanceCall(msg.sender, supergroupId, value, _data, mintFee, feeCollection);
         } else {
-            // simply return all group Circles to the caller
-            hub.safeTransferFrom(address(this), msg.sender, supergroupId, value, _data);
+            _setExpectationSingleAcceptanceCall(msg.sender, supergroupId, value, _data, 0, address(0));
         }
     }
 
@@ -145,39 +139,78 @@ contract SupergroupOperator is
         bytes memory userData = abi.encode(BaseRedemptionPolicy(_redemptionIds, _redemptionValues));
         bytes memory data = abi.encode(Metadata(METADATATYPE_GROUPREDEEM, "", userData));
 
+        // the redemption will return the collateral to the operator, and in the on(Batch)Received handler
+        // can forward the returned collateral to the caller, so first set the expectation in our own transient
+        // storage
+        if (length == 1) {
+            // _setExpectationSingleAcceptanceCall(msg.sender, )
+        }
+
         // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
         hub.safeTransferFrom(msg.sender, standardTreasury, supergroupId, value, data);
     }
 
     // ERC1155 acceptance handlers
 
-    function onERC1155Received(address _operator, address _from, uint256 _id, uint256 _value, bytes memory _data)
-        public
-        override
-        onlyHub
-        returns (bytes4)
-    {
-        // Check expectation and get final receiver
-        address finalReceiver = _checkExpectationSingleAcceptanceCall(_operator, _from, _id, _value, _data);
+    function onERC1155Received(
+        address, /*_operator*/
+        address, /*_from*/
+        uint256 _id,
+        uint256 _value,
+        bytes memory _data
+    ) public override onlyHub returns (bytes4) {
+        // current operator only supports a single supergroup, so add sanity check
+        if (_id != supergroupId) {
+            revert ExpectationSingleReceiveOnlySupergroupId(_id);
+        }
+        // Check expectation and get final receiver, and possible fee and collection address
+        (address finalReceiver, uint256 mintFee, address feeCollection) =
+            _checkExpectationSingleAcceptanceCall(_id, _value, _data);
 
-        // Forward tokens to final receiver
-        hub.safeTransferFrom(address(this), finalReceiver, _id, _value, _data);
+        if (mintFee > 0) {
+            // calculate fee and send respective amounts to finalReceiver and collection
+            (uint256 returnAmount, uint256 fee) = _splitAmountInReturnAndFee(_value, mintFee);
+            // send the return amount to finalReceiver
+            hub.safeTransferFrom(address(this), finalReceiver, supergroupId, returnAmount, _data);
+            // send the minting fee to collection
+            hub.safeTransferFrom(address(this), feeCollection, supergroupId, fee, _data);
+        } else {
+            // simply return all group Circles to the finalReceiver
+            hub.safeTransferFrom(address(this), finalReceiver, supergroupId, _value, _data);
+        }
 
         return this.onERC1155Received.selector;
     }
 
     function onERC1155BatchReceived(
-        address _operator,
-        address _from,
+        address, /*_operator*/
+        address, /*_from*/
         uint256[] memory _ids,
         uint256[] memory _values,
         bytes memory _data
     ) public override onlyHub returns (bytes4) {
-        // Check expectation and get final receiver
-        address finalReceiver = _checkExpectationBatchAcceptanceCall(_operator, _from, _ids, _values, _data);
+        // Check expectation and get final receiver, and possible fee and collection address
+        (address finalReceiver, uint256 redemptionFee, address feeCollection) =
+            _checkExpectationBatchAcceptanceCall(_ids, _values, _data);
 
-        // Forward tokens to final receiver
-        hub.safeBatchTransferFrom(address(this), finalReceiver, _ids, _values, _data);
+        uint256 length = _values.length;
+        if (redemptionFee > 0) {
+            // Calculate return amounts and fees for each value
+            uint256[] memory returnAmounts = new uint256[](length);
+            uint256[] memory fees = new uint256[](length);
+
+            for (uint256 i = 0; i < length; i++) {
+                (returnAmounts[i], fees[i]) = _splitAmountInReturnAndFee(_values[i], redemptionFee);
+            }
+
+            // Send return amounts to finalReceiver
+            hub.safeBatchTransferFrom(address(this), finalReceiver, _ids, returnAmounts, _data);
+            // Send fees to collection
+            hub.safeBatchTransferFrom(address(this), feeCollection, _ids, fees, _data);
+        } else {
+            // Simply return all group Circles to the finalReceiver
+            hub.safeBatchTransferFrom(address(this), finalReceiver, _ids, _values, _data);
+        }
 
         return this.onERC1155BatchReceived.selector;
     }
