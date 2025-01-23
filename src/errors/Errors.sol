@@ -47,6 +47,8 @@ interface ISupergroupOperatorErrors {
     /// @notice the action requires that an authorized operator performs it,
     ///         and this operator is currently not authorized for this supergroup.
     error SupergroupOperatorNotAuthorizedAndAuthorizationRequired(address group);
+    /// @notice error to indicate this operator does not implement this (yet).
+    error SupergroupOperatorDoesNotImplement();
 }
 
 interface ISupergroupOperatorCompletionErrors {
