@@ -87,7 +87,7 @@ contract SupergroupOperator is
             value += _amounts[i];
         }
         // transfer the collateral to this operator, without the data
-        // (because hub.groupMint transfers it from the caller ... learning mistakes)
+        // (because hub.groupMint pulls the collateral from the caller ... learning mistakes)
         hub.safeBatchTransferFrom(msg.sender, address(this), collateralIds, _amounts, "");
 
         if (supergroup.requireOperator()) {
@@ -98,8 +98,6 @@ contract SupergroupOperator is
             supergroup.registerOperatorRequest(address(this), address(supergroup), collateralIds, _amounts);
         }
 
-        // group mint on behalf of caller
-        hub.groupMint(_group, _collateralAvatars, _amounts, _data);
         // transfer resulting group Circles back to caller, possibly withholding fee
         uint256 mintFee = supergroup.mintFee();
         if (mintFee > 0) {
@@ -108,6 +106,10 @@ contract SupergroupOperator is
         } else {
             _setExpectationSingleAcceptanceCall(msg.sender, supergroupId, value, _data, 0, address(0));
         }
+        // after setting the expectations for the acceptance call handler, group mint on behalf of caller
+        hub.groupMint(_group, _collateralAvatars, _amounts, _data);
+
+        // the acceptence call handler will handle returning the gCRC to caller, withholding fee if necessary
     }
 
     /// @notice OperateFlowMatrix
