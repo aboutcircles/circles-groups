@@ -119,6 +119,7 @@ contract Supergroup is
     // Setup
 
     function setup(
+        address _owner,
         uint256 _mintFee,
         address _feeCollection,
         uint256 _redemptionBurnRatio,
@@ -137,7 +138,7 @@ contract Supergroup is
 
         // set the owner to the same address (msg.sender) as ERC1967 ADMIN_SLOT
         // in Renounceable proxy
-        owner = msg.sender;
+        owner = _owner;
 
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);

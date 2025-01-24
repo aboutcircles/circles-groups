@@ -11,9 +11,8 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
     address public service;
 
     /// @notice Track service address changes
-    /// @param oldService Previous service address.
     /// @param newService New service address.
-    event ServiceUpdated(address indexed oldService, address indexed newService);
+    event ServiceUpdated(address indexed newService);
 
     // Modifiers
 
@@ -28,8 +27,9 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
     // Constructor
 
     function setup(
+        address _owner,
         address _service,
-        uint256 _fee,
+        uint256 _mintFee,
         address _feeCollection,
         uint256 _redemptionBurnRate,
         address[] calldata _operators,
@@ -38,7 +38,7 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
         bytes32 _metadataDigest
     ) external {
         // first call setup on Supergroup
-        super.setup(_fee, _feeCollection, _redemptionBurnRate, _operators, _name, _symbol, _metadataDigest);
+        super.setup(_owner, _mintFee, _feeCollection, _redemptionBurnRate, _operators, _name, _symbol, _metadataDigest);
 
         if (_service == address(0)) {
             revert SupergroupInvalidCallingParameters();
@@ -96,8 +96,7 @@ contract CESSupergroup is Supergroup, CESSupergroupCoreAddresses {
         if (_service == address(0)) {
             revert SupergroupInvalidCallingParameters();
         }
-        address oldService = service;
         service = _service;
-        emit ServiceUpdated(oldService, _service);
+        emit ServiceUpdated(service);
     }
 }
