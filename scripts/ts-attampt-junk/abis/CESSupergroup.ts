@@ -1,0 +1,26 @@
+// scripts/abis/CESSupergroup.ts
+export const CESSupergroupABI = [
+  "function owner() view returns (address)",
+  "function service() view returns (address)",
+  "function mintFee() view returns (uint256)",
+  "function feeCollection() view returns (address)",
+  "function redemptionBurnRatio() view returns (uint256)",
+  "function requireOperator() view returns (bool)",
+  "function returnGroupCirclesToSender() view returns (bool)",
+  "function getOperators() view returns (address[])",
+  "function setService(address _service)",
+  "function trust(address _trustReceiver, uint96 _expiry)",
+  "function trustBatch(address[] calldata _backers, uint96 _expiry)",
+  "function setMintFee(uint256 _mintFee, address _feeCollection)",
+  "function setRedemptionBurn(uint256 _burnRedemptionRate)",
+  "function setRequireOperators(bool _required)",
+  "function setReturnGroupCirclesToSender(bool _returnGroupCircles)",
+  "function setAuthorizedOperator(address _operator, bool _authorized)",
+  "function updateMetadataDigest(bytes32 _metadataDigest)",
+  "function registerShortName()",
+  "function safeBatchTransferFrom(address _from, address _to, uint256[] calldata _ids, uint256[] calldata _values, bytes calldata _data)",
+  // Add base Supergroup functions that aren't in CESSupergroup
+  "function proxyStatus() view returns (uint8)",
+  "function countOperators() view returns (uint256)",
+  "function isAuthorizedOperator(address _operator) view returns (bool)",
+];
