@@ -17,7 +17,11 @@ with open("abis/CESSupergroup.json") as f:
     contract_abi = contract_data["abi"]
 
 # Contract address on Gnosis Chain
-CONTRACT_ADDRESS = "0x..."
+with open("../deployments/CESSupergroup-gnosis.txt") as f:
+    logs = json.load(f)
+    # Load and convert to checksum address
+    CONTRACT_ADDRESS = Web3.to_checksum_address(logs[0]["address"])
+    print(f"Contract address: {CONTRACT_ADDRESS}")
 
 # Create contract instance
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=contract_abi)
@@ -67,6 +71,8 @@ def set_authorized_operator(operator, authorized):
     """Set operator authorization"""
     account = get_account()
 
+    operator = Web3.to_checksum_address(operator)
+
     txn = contract.functions.setAuthorizedOperator(operator, authorized).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
@@ -75,8 +81,8 @@ def set_authorized_operator(operator, authorized):
     })
 
     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     click.echo(f"Transaction hash: {tx_hash.hex()}")
 
@@ -86,6 +92,8 @@ def set_service(service_address):
     """Set service address"""
     account = get_account()
 
+    service_address = Web3.to_checksum_address(service_address)
+
     txn = contract.functions.setService(service_address).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
@@ -94,17 +102,28 @@ def set_service(service_address):
     })
 
     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     click.echo(f"Transaction hash: {tx_hash.hex()}")
 
 @cli.command()
-@click.argument("backers", nargs=-1)
-@click.argument("expiry", type=int)
+@click.argument('backers', nargs=-1, required=True)
+@click.option('--expiry', '-e', type=int, required=False, help='Optional expiry timestamp')
 def trust_batch(backers, expiry):
-    """Trust batch of addresses with expiry"""
+    """Trust batch of addresses with expiry
+
+    BACKERS: One or more Ethereum addresses to trust, separated by spaces
+             e.g. trust_batch 0x123... 0x456... 0x789...
+
+    --expiry: Optional timestamp for trust expiration (defaults to max uint96)
+    """
     account = get_account()
+
+    if expiry is None:
+        expiry = 2**96 - 1  # max uint96
+
+    backers = [Web3.to_checksum_address(backer) for backer in backers]
 
     txn = contract.functions.trustBatch(list(backers), expiry).build_transaction({
         'from': account.address,
@@ -114,8 +133,8 @@ def trust_batch(backers, expiry):
     })
 
     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     click.echo(f"Transaction hash: {tx_hash.hex()}")
 

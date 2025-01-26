@@ -14,5 +14,9 @@ forge flatten src/projects/ces/helpers/CESSupergroupDeployer.sol > flattened/CES
 forge fmt --check src/projects/ces/CESSupergroup.sol
 forge flatten src/projects/ces/CESSupergroup.sol > flattened/CESSupergroup.flat.sol
 
+# Flatten the UpgradeableRenounceableProxy contract
+forge fmt --check src/projects/ces/helpers/UpgradeableRenounceableProxy.sol
+forge flatten src/projects/ces/helpers/UpgradeableRenounceableProxy.sol > flattened/UpgradeableRenounceableProxy.flat.sol
+
 echo -e "${GREEN}Contract source code flattened for verification!${NC}"
 echo -e "${GREEN}Flattened files saved in ./flattened/ directory${NC}"
