@@ -159,6 +159,9 @@ contract Supergroup is
 
         // set redemption burn ratio
         _setRedemptionBurn(_redemptionBurnRatio);
+
+        // set default behaviour to return gCRC to sender (also on proxy contract)
+        returnGroupCirclesToSender = true;
     }
 
     function trust(address _trustReceiver, uint96 _expiry) external onlyOwner {
