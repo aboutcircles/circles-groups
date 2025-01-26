@@ -13,3 +13,4 @@ mkdir -p abis
 
 # Copy specific contract ABIs from forge output to abis dir
 cp ../out/CESSupergroup.sol/CESSupergroup.json abis/CESSupergroup.json
+cp ../lib/circles-contracts-v2/out/Hub.sol/Hub.json abis/Hub.json
