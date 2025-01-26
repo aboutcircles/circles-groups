@@ -86,6 +86,7 @@ class V2Pathfinder:
         async with aiohttp.ClientSession() as session:
             async with session.post(self.circles_rpc_url, json=request_body) as response:
                 result = await response.json()
+                print(f"RPC Response: {result}")
                 transfers = result['result']['transfers']
 
                 if transfers:
