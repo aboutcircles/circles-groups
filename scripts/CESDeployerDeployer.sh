@@ -38,7 +38,7 @@ DEPLOYER_ADDRESS=$(forge create \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    src/projects/ces/helpers/CESDeployer.sol:CESDeployer \
+    src/projects/ces/CESDeployer.sol:CESDeployer \
     | grep "Deployed to" \
     | awk '{print $3}')
 

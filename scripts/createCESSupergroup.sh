@@ -31,9 +31,15 @@ fi
 mkdir -p deployments
 
 # Constants for CES group creation
+# Check if file exists and is not empty (linux/osx)
+if [ -f "./deployments/CESGroup-gnosis.txt" ] && [ -s "./deployments/CESGroup-gnosis.txt" ]; then
+    DEPLOYMENT_COUNT=$(wc -l < "./deployments/CESGroup-gnosis.txt")
+else
+    DEPLOYMENT_COUNT=0
+fi
+NAME="TestCESGroup-$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
+SYMBOL="TEST-CES$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
 SERVICE_ADDRESS="0x0000000000000000000000000000000000000000"
-NAME="TestCESGroup-01"
-SYMBOL="TEST-CES01"
 METADATA_DIGEST="0x0000000000000000000000000000000000000000000000000000000000000000"
 
 echo -e "${BLUE}Creating CES Group...${NC}"
@@ -63,4 +69,4 @@ fi
 echo -e "${GREEN}CES Group created at:${NC} $GROUP_ADDRESS"
 
 # Save the CES Group address to a file
-echo "$GROUP_ADDRESS" > "./deployments/CESGroup-gnosis.txt"
+echo "$GROUP_ADDRESS" >> "./deployments/CESGroup-gnosis.txt"
