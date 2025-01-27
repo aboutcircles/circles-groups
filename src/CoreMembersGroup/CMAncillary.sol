@@ -257,6 +257,29 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
         return this.onERC1155BatchReceived.selector;
     }
 
+    /// @notice Sets advanced usage flags for this group in the Hub
+    /// @param _flag Advanced usage flag value to set
+    function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
+        hub.setAdvancedUsageFlag(_flag);
+    }
+
+    /// @notice Updates the metadata digest for this group in the name registry
+    /// @param _metadataDigest New metadata digest value
+    function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
+        nameRegistry.updateMetadataDigest(_metadataDigest);
+    }
+
+    /// @notice Registers a short name for this group in the name registry
+    function registerShortName() external onlyOwner {
+        nameRegistry.registerShortName();
+    }
+
+    /// @notice Registers a short name for this group with a specified nonce
+    /// @param _nonce Nonce value to use for short name registration
+    function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
+        nameRegistry.registerShortNameWithNonce(_nonce);
+    }
+
     // Internal functions
 
     /// @notice Checks if token IDs do not contain group circles and converts to avatar addresses
