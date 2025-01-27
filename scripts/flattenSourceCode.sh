@@ -18,6 +18,10 @@ forge flatten src/projects/ces/CESgroup.sol > flattened/CESgroup.flat.sol
 forge fmt --check src/CoreMembersGroup/helpers/CMGroupDeployer.sol
 forge flatten src/CoreMembersGroup/helpers/CMGroupDeployer.sol > flattened/CMGroupDeployer.flat.sol
 
+# Flatten the CESDeployer contract
+forge fmt --check src/projects/ces/CESDeployer.sol
+forge flatten src/projects/ces/CESDeployer.sol > flattened/CESDeployer.flat.sol
+
 # Flatten the CMAncillary contract
 forge fmt --check src/CoreMembersGroup/CMAncillary.sol
 forge flatten src/CoreMembersGroup/CMAncillary.sol > flattened/CMAncillary.flat.sol
