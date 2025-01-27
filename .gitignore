@@ -15,3 +15,6 @@ docs/
 
 # Ignore OSX system files
 .DS_Store
+
+# dont commit flattened source code
+/flattened
