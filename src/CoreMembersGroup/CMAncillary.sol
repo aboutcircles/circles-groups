@@ -60,17 +60,19 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
     /// @notice Only owner can call
     modifier onlyOwner() {
         if (msg.sender != owner) {
-            revert CMGroupOnlyOwner();
+            revert CMAncillaryOnlyOwner();
         }
         _;
     }
 
     // Constructor
 
-    constructor(address _cmGroup, string memory _name) {
+    constructor(address _cmGroup, address _owner, string memory _name) {
         // ancillary is deployed by deployment helper
         cmGroup = _cmGroup;
         cmGroupId = uint256(uint160(cmGroup));
+        // store the group owner for ERC1155 safe transfers
+        owner = _owner;
         // append "-ancillary" to group's name to register organization
         string memory orgName = string.concat(_name, "-ancillary");
         // register ancillary as organization in hub
@@ -112,7 +114,36 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
         }
     }
 
+    /// @notice Safely transfers a single ERC1155 token from one address to another.
+    /// @dev Only callable by the owner of this contract.
+    /// @param _from The address currently holding the token to be transferred.
+    /// @param _to The address to which the token will be transferred.
+    /// @param _id The ID of the token being transferred.
+    /// @param _value The amount of the token being transferred.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeTransferFrom(address _from, address _to, uint256 _id, uint256 _value, bytes calldata _data)
+        external
+        onlyOwner
+    {
+        hub.safeTransferFrom(_from, _to, _id, _value, _data);
+    }
 
+    /// @notice Safely transfers a batch of ERC1155 tokens from one address to another.
+    /// @dev Only callable by the owner of this contract.
+    /// @param _from The address currently holding the tokens to be transferred.
+    /// @param _to The address to which the tokens will be transferred.
+    /// @param _ids An array of token IDs being transferred.
+    /// @param _values An array of amounts being transferred for each token ID.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeBatchTransferFrom(
+        address _from,
+        address _to,
+        uint256[] calldata _ids,
+        uint256[] calldata _values,
+        bytes calldata _data
+    ) external onlyOwner {
+        hub.safeBatchTransferFrom(_from, _to, _ids, _values, _data);
+    }
 
     // ERC1155 acceptance call handlers
 

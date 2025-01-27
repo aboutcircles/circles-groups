@@ -38,17 +38,16 @@ contract CMGroupDeployer {
         external
         returns (address)
     {
+        // group and ancillary owner by caller
+        address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
-        UpgradeableRenounceableProxy proxy =
-            new UpgradeableRenounceableProxy(msg.sender, address(masterCopyCMGroup), "");
+        UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // instead first set up the ancillary
-        CMAncillary ancillary = new CMAncillary(address(proxy), _name);
+        CMAncillary ancillary = new CMAncillary(address(proxy), owner, _name);
         // lastly, call setup on the proxy to initialise the group
-        CoreMembersGroup(address(proxy)).setup(
-            msg.sender, address(ancillary), _service, _name, _symbol, _metadataDigest
-        );
+        CoreMembersGroup(address(proxy)).setup(owner, address(ancillary), _service, _name, _symbol, _metadataDigest);
 
-        emit CMGroupCreated(address(proxy), msg.sender, address(ancillary));
+        emit CMGroupCreated(address(proxy), owner, address(ancillary));
         return address(proxy);
     }
 }
