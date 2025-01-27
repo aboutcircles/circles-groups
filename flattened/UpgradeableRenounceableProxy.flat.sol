@@ -606,7 +606,7 @@ contract ERC1967Proxy is Proxy {
     }
 }
 
-// src/projects/ces/helpers/UpgradeableRenounceableProxy.sol
+// src/CoreMembersGroup/helpers/UpgradeableRenounceableProxy.sol
 
 interface IUpgradeableRenounceableProxy {
     function implementation() external view returns (address);
