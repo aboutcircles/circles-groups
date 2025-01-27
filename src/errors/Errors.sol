@@ -78,4 +78,14 @@ interface ICMGroupErrors {
 interface ICMGroupAncillaryErrors {
     /// @notice only CM Group can call
     error CMAncillaryOnlyCMGroup();
+    /// @notice AcceptanceCallUnhandled
+    error CMAncillaryAcceptanceCallUnhandled();
+    /// @notice Avoid attempting to collateralize self-referential group Circles
+    error CMAncillaryRefuseGroupCircles();
+    /// @notice Only a single conversion can be ongoing at one time
+    error CMAncillaryConversionOngoing(uint256 amount);
+    /// @notice Revert on receiving zero amount
+    error CMAncillaryReceivedZeroAmount();
+    /// @notice logic assertion
+    error CMAncillaryLogicAssertion();
 }

@@ -9,7 +9,7 @@ contract CESCoreAddresses {
     // Constants
 
     /// @notice Launchpad enables people to back their personal CRC in an LBP pool.
-    ///         This CES supergroup will explicitly check the launchpad whether
+    ///         This CES group will explicitly check the launchpad whether
     ///         a person has backed their Circles.
     /// WARNING: this is not the final production address
     ICirclesBackingFactory public constant launchpad =

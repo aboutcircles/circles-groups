@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
+import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
 import "src/CoreMembersGroup/ICMAncillary.sol";
 
-contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICMGroupErrors {
+contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, ICMGroupErrors {
     // Enum
 
     /// @notice Proxy status keeps an explicit byte about this state instance
@@ -165,6 +166,60 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICMGroupErrors {
                 }
             }
         }
+    }
+
+    /// @notice Safely transfers a single ERC1155 token from one address to another.
+    /// @dev Only callable by the owner of this contract.
+    /// @param _from The address currently holding the token to be transferred.
+    /// @param _to The address to which the token will be transferred.
+    /// @param _id The ID of the token being transferred.
+    /// @param _value The amount of the token being transferred.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeTransferFrom(address _from, address _to, uint256 _id, uint256 _value, bytes calldata _data)
+        external
+        onlyOwner
+    {
+        hub.safeTransferFrom(_from, _to, _id, _value, _data);
+    }
+
+    /// @notice Safely transfers a batch of ERC1155 tokens from one address to another.
+    /// @dev Only callable by the owner of this contract.
+    /// @param _from The address currently holding the tokens to be transferred.
+    /// @param _to The address to which the tokens will be transferred.
+    /// @param _ids An array of token IDs being transferred.
+    /// @param _values An array of amounts being transferred for each token ID.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeBatchTransferFrom(
+        address _from,
+        address _to,
+        uint256[] calldata _ids,
+        uint256[] calldata _values,
+        bytes calldata _data
+    ) external onlyOwner {
+        hub.safeBatchTransferFrom(_from, _to, _ids, _values, _data);
+    }
+
+    /// @notice Sets advanced usage flags for this group in the Hub
+    /// @param _flag Advanced usage flag value to set
+    function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
+        hub.setAdvancedUsageFlag(_flag);
+    }
+
+    /// @notice Updates the metadata digest for this group in the name registry
+    /// @param _metadataDigest New metadata digest value
+    function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
+        nameRegistry.updateMetadataDigest(_metadataDigest);
+    }
+
+    /// @notice Registers a short name for this group in the name registry
+    function registerShortName() external onlyOwner {
+        nameRegistry.registerShortName();
+    }
+
+    /// @notice Registers a short name for this group with a specified nonce
+    /// @param _nonce Nonce value to use for short name registration
+    function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
+        nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
     // Internal functions

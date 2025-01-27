@@ -2,6 +2,6 @@
 pragma solidity >=0.8.28;
 
 interface ICirclesBackingFactory {
-    /// @notice checks if the backer has an active LBP at the factory
+    /// @notice checks whether the backer has an active LBP at the factory
     function isActiveLBP(address backer) external view returns (bool);
 }

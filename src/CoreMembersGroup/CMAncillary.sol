@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
+import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "circles-contracts-v2/hub/TypeDefinitions.sol";
 import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
@@ -12,11 +13,21 @@ import "src/errors/Errors.sol";
 ///         so for a general framework one should use ERC1155 operators.
 ///         For redemption the ancillary provides simplified methods
 ///         to perform automatic redemption to the underlying collateral.
-contract CMAncillary is CirclesCoreAddresses, ICMGroupAncillaryErrors, ICMGroupErrors {
+contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryErrors, ICMGroupErrors {
+    // Constants
+
+    /// @dev single transient slot where to store conversion amount in progress
+    ///      to handle acceptance call gracefully
+    bytes32 internal constant CONVERSION_SLOT = keccak256("CONVERSION_SLOT");
+    /// @dev single transient slot where to store beneficiary address
+    bytes32 internal constant BENEFICIARY_SLOT = keccak256("BENEFICIARY_SLOT");
+
     // State
 
     /// @notice CMgroup for which this is an ancillary.
     address public cmGroup;
+    /// @notice tokenId of cmGroup
+    uint256 public cmGroupId;
 
     // Modifiers
 
@@ -28,6 +39,7 @@ contract CMAncillary is CirclesCoreAddresses, ICMGroupAncillaryErrors, ICMGroupE
         _;
     }
 
+    /// @notice Only the CM group can call this function
     modifier onlyCMGroup() {
         if (msg.sender != cmGroup) {
             revert CMAncillaryOnlyCMGroup();
@@ -40,6 +52,7 @@ contract CMAncillary is CirclesCoreAddresses, ICMGroupAncillaryErrors, ICMGroupE
     constructor(address _cmGroup, string memory _name) {
         // ancillary is deployed by deployment helper
         cmGroup = _cmGroup;
+        cmGroupId = uint256(uint160(cmGroup));
         // append "-ancillary" to group's name to register organization
         string memory orgName = string.concat(_name, "-ancillary");
         // register ancillary as organization in hub
@@ -48,6 +61,11 @@ contract CMAncillary is CirclesCoreAddresses, ICMGroupAncillaryErrors, ICMGroupE
 
     // External functions
 
+    /// @notice Mirror trust relationships from the CMgroup to the ancillary.
+    ///         This allows the ancillary to maintain the same trust state
+    ///         as the CMgroup for automatic path mints/redemptions.
+    /// @param _backer Address that is trusted by the CMgroup
+    /// @param _expiry Expiry time until when trust is valid
     function mirrorTrust(address _backer, uint96 _expiry) external onlyCMGroup {
         hub.trust(_backer, _expiry);
     }
@@ -77,4 +95,198 @@ contract CMAncillary is CirclesCoreAddresses, ICMGroupAncillaryErrors, ICMGroupE
     }
 
     // ERC1155 acceptance call handlers
+
+    /// @notice Handler for receiving single ERC1155 token transfers
+    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns
+    /// @param _from Address that initiated the transfer
+    /// @param _id Token ID being transferred
+    /// @param _value Amount of tokens being transferred
+    /// @param _data Additional data passed with transfer
+    /// @return bytes4 Function selector to confirm transfer acceptance
+    function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
+        public
+        virtual
+        override
+        onlyHub
+        returns (bytes4)
+    {
+        // check transient storage to see if we are expecting a return
+        (uint256 ongoingConversion,) = _expectingConversionReturn();
+        if (_from == address(0)) {
+            // group CRC were minted here
+            // so expect an ongoing conversion from collateral to gCRC
+            if (ongoingConversion == _value && _id == cmGroupId) {
+                // return the gCRC at the conclusion of the original handler,
+                // so gracefully accept and return
+                return this.onERC1155Received.selector;
+            } else {
+                // unexpected gCRC mint
+                revert CMAncillaryLogicAssertion();
+            }
+        } else if (_id == cmGroupId) {
+            // todo: attempt automatic redemption from gCRC to collateral
+            revert CMAncillaryAcceptanceCallUnhandled();
+        } else {
+            // from is not zero - mint && id is not gCRC
+            if (ongoingConversion != uint256(0)) {
+                // already ongoing conversion
+                revert CMAncillaryConversionOngoing(ongoingConversion);
+            }
+
+            // set our expectation lock
+            _initiateConversion(_from, _value);
+
+            // assume any tokens received (that are not gCRC)
+            // to be an attempt to mint gCRC
+            address[] memory collateralAvatars = new address[](1);
+            uint256[] memory amounts = new uint256[](1);
+            // safely cast because ids received from hub
+            collateralAvatars[0] = address(uint160(_id));
+            amounts[0] = _value;
+            // initiate groupMint (which will call back, but expectation lock is set)
+            hub.groupMint(cmGroup, collateralAvatars, amounts, _data);
+            // return the freshly minted gCRC to sender
+            hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
+            // tidy up afterwards
+            _clearConversion();
+        }
+        return this.onERC1155Received.selector;
+    }
+
+    /// @notice Handler for receiving batch ERC1155 token transfers
+    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns.
+    ///      First parameter _operator is unused.
+    /// @param _from Address that initiated the transfer
+    /// @param _ids Array of token IDs being transferred
+    /// @param _values Array of amounts being transferred for each token ID
+    /// @param _data Additional data passed with transfer
+    /// @return bytes4 Function selector to confirm transfer acceptance
+    function onERC1155BatchReceived(
+        address, /*_operator*/
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) public virtual override onlyHub returns (bytes4) {
+        if (_from == address(0)) {
+            // it should be impossible that Circles get minted here (as batch)
+            revert CMAncillaryLogicAssertion();
+        }
+        // sum the _values
+        uint256 length = _values.length;
+        uint256 totalValue = 0;
+        for (uint256 i = 0; i < length; i++) {
+            totalValue += _values[i];
+        }
+        if (totalValue == uint256(0)) {
+            revert CMAncillaryReceivedZeroAmount();
+        }
+
+        // check transient storage to see if we are expecting a return
+        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
+
+        if (ongoingConversion == totalValue) {
+            // expect this to be the redemption returned from the group
+            // so return directly to the beneficiary
+            hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
+            // tidy up afterwards
+            _clearConversion();
+        } else if (ongoingConversion == uint256(0)) {
+            // there is no ongoing conversion registered, so interpret this as
+            // a request to group mint
+
+            // revert if ids reference our Core Members group directly
+            address[] memory collateralAvatars = _doesNotContainGroupCircles(_ids);
+            // enable the lock
+            _initiateConversion(_from, totalValue);
+            // attempt group mint
+            hub.groupMint(cmGroup, collateralAvatars, _values, _data);
+            // return the freshly minted gCRC to sender
+            hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
+            // tidy up afterwards
+            _clearConversion();
+        }
+
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    // Internal functions
+
+    /// @notice Checks if token IDs do not contain group circles and converts to avatar addresses
+    /// @dev Used internally to validate batch transfers don't contain group circles.
+    ///      Token IDs from hub are trusted to be valid addresses after conversion.
+    /// @param _ids Array of token IDs to check and convert
+    /// @return Array of collateral avatar addresses converted from token IDs
+    function _doesNotContainGroupCircles(uint256[] memory _ids) internal view returns (address[] memory) {
+        uint256 length = _ids.length;
+        address[] memory collateralAvatars = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            if (_ids[i] == cmGroupId) {
+                revert CMAncillaryRefuseGroupCircles();
+            }
+            // confidently cast to address, as ids are given by hub
+            collateralAvatars[i] = address(uint160(_ids[i]));
+        }
+        return collateralAvatars;
+    }
+
+    /// @notice Initiates a conversion process by storing the amount in transient storage
+    /// @dev Uses transient storage to track ongoing conversions within a transaction
+    /// @param _amount Amount to convert - must be non-zero
+    function _initiateConversion(address _beneficiary, uint256 _amount) internal {
+        // Revert if amount is zero
+        if (_amount == uint256(0)) {
+            revert CMAncillaryReceivedZeroAmount();
+        }
+
+        uint256 ongoingConversion;
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        // Load any existing conversion amount from transient storage
+        assembly {
+            ongoingConversion := tload(conversionSlot)
+        }
+
+        // Revert if there is already an ongoing conversion
+        if (ongoingConversion != uint256(0)) {
+            // don't initiate a new conversion if one is ongoing
+            revert CMAncillaryConversionOngoing(ongoingConversion);
+        }
+
+        // Store the new conversion amount and beneficiary in transient storage
+        assembly {
+            tstore(conversionSlot, _amount)
+            tstore(beneficiarySlot, _beneficiary)
+        }
+    }
+
+    /// @notice Checks if there is an ongoing conversion and returns the amount and beneficiary
+    /// @dev Reads the current conversion amount and beneficiary from transient storage
+    /// @return ongoingConversion The amount of the ongoing conversion, or 0 if none is active
+    /// @return beneficiary The address of the beneficiary for the ongoing conversion
+    function _expectingConversionReturn() internal view returns (uint256 ongoingConversion, address beneficiary) {
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        // Load the current conversion amount and beneficiary from transient storage
+        assembly {
+            ongoingConversion := tload(conversionSlot)
+            beneficiary := tload(beneficiarySlot)
+        }
+
+        return (ongoingConversion, beneficiary);
+    }
+
+    /// @notice Clears the ongoing conversion by resetting transient storage
+    /// @dev Clears both conversion amount and beneficiary slots
+    function _clearConversion() internal {
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        assembly {
+            tstore(conversionSlot, 0)
+            tstore(beneficiarySlot, 0)
+        }
+    }
 }
