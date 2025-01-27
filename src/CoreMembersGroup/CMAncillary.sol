@@ -28,6 +28,16 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
     address public cmGroup;
     /// @notice tokenId of cmGroup
     uint256 public cmGroupId;
+    /// @notice owner
+    address public owner;
+
+    // Events
+
+    /// @notice Emitted when a new conversion is initiated
+    event ConversionInitiated(address indexed beneficiary, uint256 amount);
+
+    /// @notice Emitted when a conversion is completed and cleared
+    event ConversionCleared();
 
     // Modifiers
 
@@ -43,6 +53,14 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
     modifier onlyCMGroup() {
         if (msg.sender != cmGroup) {
             revert CMAncillaryOnlyCMGroup();
+        }
+        _;
+    }
+
+    /// @notice Only owner can call
+    modifier onlyOwner() {
+        if (msg.sender != owner) {
+            revert CMGroupOnlyOwner();
         }
         _;
     }
@@ -94,6 +112,8 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
         }
     }
 
+
+
     // ERC1155 acceptance call handlers
 
     /// @notice Handler for receiving single ERC1155 token transfers
@@ -127,13 +147,9 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
             // todo: attempt automatic redemption from gCRC to collateral
             revert CMAncillaryAcceptanceCallUnhandled();
         } else {
-            // from is not zero - mint && id is not gCRC
-            if (ongoingConversion != uint256(0)) {
-                // already ongoing conversion
-                revert CMAncillaryConversionOngoing(ongoingConversion);
-            }
+            // from is not zero (ie. not minted) && id is not gCRC
 
-            // set our expectation lock
+            // set our expectation lock (reverts if already ongoing)
             _initiateConversion(_from, _value);
 
             // assume any tokens received (that are not gCRC)
@@ -259,6 +275,8 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
             tstore(conversionSlot, _amount)
             tstore(beneficiarySlot, _beneficiary)
         }
+
+        emit ConversionInitiated(_beneficiary, _amount);
     }
 
     /// @notice Checks if there is an ongoing conversion and returns the amount and beneficiary
@@ -288,5 +306,7 @@ contract CMAncillary is CirclesCoreAddresses, ERC1155Holder, ICMGroupAncillaryEr
             tstore(conversionSlot, 0)
             tstore(beneficiarySlot, 0)
         }
+
+        emit ConversionCleared();
     }
 }

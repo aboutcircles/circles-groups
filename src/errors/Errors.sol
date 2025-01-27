@@ -78,6 +78,8 @@ interface ICMGroupErrors {
 interface ICMGroupAncillaryErrors {
     /// @notice only CM Group can call
     error CMAncillaryOnlyCMGroup();
+    /// @notice only owner can call
+    error CMAncillaryOnlyOwner();
     /// @notice AcceptanceCallUnhandled
     error CMAncillaryAcceptanceCallUnhandled();
     /// @notice Avoid attempting to collateralize self-referential group Circles
