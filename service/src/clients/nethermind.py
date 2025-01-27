@@ -26,24 +26,79 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
-    def get_trusted_by_accounts(self, address : str) -> Set[str]:
-        """Get the current list of accounts that trust a given address"""
-        # todo: add pagination to ensure this is a complete list
-        if address not in self.cache_trusted_by:
-            self.cache_trusted_by[address] = self._compose_get_trusted_by_accounts(address, 1000)
-        return self.cache_trusted_by[address]
+
+    # Fetch all the backers from the CirclesBackingCompleted table/event
+    # Backer -> the address of the user who backed their CRC
+
+    def fetch_backers(self) -> list:
+        """Fetch all backers from the CirclesBackingCompleted table/event."""
+        query = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "circles_query",
+            "params": [
+                {
+                    "Namespace": "CrcV2",
+                    "Table": "CirclesBackingCompleted",
+                    "Columns": [
+                        "blockNumber", "timestamp", "transactionIndex", "logIndex",
+                        "transactionHash", "backer", "circlesBackingInstance", "lbp"
+                    ],
+                    "Filter": [],
+                    "Order": [],
+                    "Limit": 10
+                }
+            ]
+        }
+        response = requests.post(self.rpc_url, json=query)
+        response.raise_for_status()
+        return [row["backer"] for row in response.json().get("result", {}).get("rows", [])]
+        
+
+    #Fetch all the trust relations from the TrustRelations table
+    #Truster is the address of the user who trusts the trustee, here SuperGroup is the truster
+    #Trustee is the address of the user who is trusted by the truster
+
+
+    def fetch_group_trust_relations(self, super_group_address: str) -> list:
+        """Fetch all trust relations where the SuperGroup is the truster."""
+        query = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "circles_query",
+            "params": [
+                {
+                    "Namespace": "V_CrcV2",
+                    "Table": "TrustRelations",
+                    "Columns": [
+                        "blockNumber", "timestamp", "transactionIndex", "logIndex",
+                        "transactionHash", "trustee", "truster", "expiryTime"
+                    ],
+                    "Filter": [],
+                    "Order": [],
+                    "Limit": 10
+                }
+            ]
+        }
+        response = requests.post(self.rpc_url, json=query)
+        response.raise_for_status()
+        return [
+            row["trustee"] 
+            for row in response.json().get("result", {}).get("rows", []) 
+            if row["truster"] == super_group_address
+        ]
+
+
+    #Get all the V2 humans from the Avatars table
 
     def get_all_v2_humans(self) -> Set[str]:
-        """Get a list of all v2 human accounts registered in the Hub"""
-        # todo: for now there are only 400+ humans, soon improve by caching and then appending new
+        """Get a list of all v2 human accounts registered in the Hub."""
         return self.get_all_humans_with_pagination(1000)
 
     def get_all_humans_with_pagination(self, limit: int = 1000) -> Set[str]:
         """Get a paginated list of all human accounts registered in the Hub."""
-        if limit > 1000 | limit < 0:
+        if limit > 1000 or limit < 0:
             raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
-
-        # todo: handle caching and pagination
 
         params = [
             {
@@ -58,24 +113,14 @@ class NethermindClient:
                     "Value": "CrcV2_RegisterHuman"
                 }],
                 "Order": [
-                    {
-                        "Column": "blockNumber",
-                        "SortOrder": "DESC"
-                    },
-                    {
-                        "Column": "transactionIndex",
-                        "SortOrder": "DESC"
-                    },
-                    {
-                        "Column": "logIndex",
-                        "SortOrder": "DESC"
-                    }
+                    {"Column": "blockNumber", "SortOrder": "DESC"},
+                    {"Column": "transactionIndex", "SortOrder": "DESC"},
+                    {"Column": "logIndex", "SortOrder": "DESC"}
                 ]
             }
         ]
         result = self._make_request("circles_query", params)
 
-        # Extract the keys and rows from the result
         if 'columns' not in result or 'rows' not in result:
             raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
 
@@ -84,89 +129,15 @@ class NethermindClient:
 
         try:
             avatar_index = keys.index('avatar')
-            print(f"Avatar index found at: {avatar_index}")
-        except ValueError as e:
-            print("Avatar key not found in keys.")
-            raise e
+        except ValueError:
+            raise ValueError("Avatar key not found in response columns.")
 
-        # Extract just the avatar values
         human_addresses = [row[avatar_index] for row in rows]
-
-        # Validate each address and raise an error if any is not a valid Web3 Ethereum address
         invalid_addresses = [address for address in human_addresses if not Web3.is_address(address)]
+
         if invalid_addresses:
             raise ValueError(f"Invalid Ethereum addresses found: {invalid_addresses}")
 
         return set(human_addresses)
 
-    def _compose_get_trusted_by_accounts(self, address: str, limit: int = 1000) -> Set[str]:
-        """Get a paginated list of all trusters who trust the given address as trustee."""
-        if limit > 1000 | limit < 0:
-            raise ValueError("Limit exceeds maximum allowed value of 1000, or is negative.")
-
-        address = address.lower()
-
-        # warning: this is FAULTY if more than one page is needed
-
-        params = [
-            {
-                "Namespace": "V_CrcV2",
-                "Table": "TrustRelations",  # Changed from "Trust" to "TrustRelations"
-                "Limit": limit,
-                "Columns": [],
-                "Filter": [{
-                    "Type": "FilterPredicate",
-                    "FilterType": "Equals",
-                    "Column": "trustee",
-                    "Value": address
-                }],
-                "Order": [
-                    {
-                        "Column": "blockNumber",
-                        "SortOrder": "DESC"
-                    },
-                    {
-                        "Column": "transactionIndex",
-                        "SortOrder": "DESC"
-                    },
-                    {
-                        "Column": "logIndex",
-                        "SortOrder": "DESC"
-                    }
-                ]
-            }
-        ]
-        result = self._make_request("circles_query", params)
-
-        # Extract the keys and rows from the result
-        if 'columns' not in result or 'rows' not in result:
-            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
-
-        keys = result['columns']
-        rows = result['rows']
-
-        try:
-            truster_index = keys.index('truster')
-            expiry_index = keys.index('expiryTime')
-            print(f"Truster index found at: {truster_index}, Expiry index found at: {expiry_index}")
-        except ValueError as e:
-            print("Required columns not found in keys.")
-            raise e
-
-        # Current timestamp determines whether trust has expired past expiryTime
-        current_timestamp = int(time.time())
-
-        # Filter for active trust relationships and extract unique trusters
-        active_trusters = set()
-        for row in rows:
-            truster = row[truster_index].lower()
-            expiry_time = int(row[expiry_index])
-
-            if not Web3.is_address(truster):
-                raise ValueError(f"Invalid Ethereum address: {truster}")
-
-            # Only include trusters whose trust hasn't expired and who aren't the trustee themselves
-            if expiry_time > current_timestamp and truster != address:
-                active_trusters.add(truster)
-
-        return set(active_trusters)
+    

@@ -1,135 +1,125 @@
 import time
 import random
-from typing import List, Dict, Set, Tuple
+from typing import Set
 from web3 import Web3
 from clients.nethermind import NethermindClient
-from clients.lbp_indexer import LBPIndexerClient
 from clients.screening import ScreeningClient
 from config.settings import settings
+from config.SuperGroupABI import SUPERGROUP_CONTRACT_ABI
 
 class TrustManagementAlgorithm:
     def __init__(
         self,
         nethermind_client: NethermindClient,
-        lbp_indexer_client: LBPIndexerClient,
         screening_client: ScreeningClient,
-        supergroup_address: str
+        supergroup_address: str,
+        private_key: str,
+        supergroup_contract_address: str,
+        supergroup_contract_abi: list,
     ):
+        self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))  # Initialize Web3 instance
+        if not self.web3.is_connected():
+            raise ConnectionError("Failed to connect to Ethereum node.")
+
         self.nethermind_client = nethermind_client
-        self.lbp_indexer_client = lbp_indexer_client
         self.screening_client = screening_client
-        self.supergroup_address = supergroup_address
-        self.current_iteration = 0
-        self.trusted_accounts = set() # load during initialisation
+        self.supergroup_address = self.web3.to_checksum_address(supergroup_address)
+        self.private_key = private_key
+        self.supergroup_contract_address = self.web3.to_checksum_address(supergroup_contract_address)
+        self.supergroup_contract = self.web3.eth.contract(
+            address=self.supergroup_contract_address, abi=supergroup_contract_abi
+        )
+
 
     def initialize(self):
-        # Fetch the current list of trusted accounts by the supergroup from Nethermind
-        self.trusted_accounts = set(self.nethermind_client.get_trusted_by_accounts(
-            self.supergroup_address))
-        self.current_iteration += 1
+        # Fetch the current list of trusted accounts by the supergroup
+        self.trusted_accounts = set(self.nethermind_client.fetch_group_trust_relations(self.supergroup_address))
 
     def run_trust_management(self):
-        max_offset = settings.update_max_offset
+        # Step 1: Fetch the list of backers from the completed LBP events
+        backers = set(self.nethermind_client.fetch_backers())
+
+        # Step 2: Subtract the trusted accounts from the backers list
+        new_backers = backers - self.trusted_accounts
+        # print(f"Potential new backers: {new_backers}")
+
+        # Step 3: Check each backer against the blacklist service
+        blacklist = self.screening_client.check_blacklist(list(new_backers))
+
+        # Step 4: Add valid backers (those not in the blacklist) to the trusted accounts
+        valid_backers = new_backers - set(blacklist)
+        print(f"Valid backers to add to trust list: {valid_backers}")
+
+        self.trusted_accounts.update(valid_backers)
+
+        # Step 5: Call the `trustBatch` function to update on-chain trust relations
+        if valid_backers:
+            self.call_trust_batch(valid_backers)
+        else:
+            print("No valid backers to trust.")
+
+    def call_trust_batch(self, valid_backers: Set[str]):
+        """Call the `trustBatch` function on the supergroup contract."""
+        try:
+            # Define an indefinite expiry (e.g., 10 years from now)
+            indefinite_expiry = int(time.time()) + 10 * 365 * 24 * 60 * 60
+
+            # Build the transaction
+            transaction = self.supergroup_contract.functions.trustBatch(
+                list(valid_backers), indefinite_expiry
+            ).build_transaction({
+                "from": self.supergroup_address,
+                "nonce": self.web3.eth.get_transaction_count(self.supergroup_address),
+                "gas": 3000000,
+                "gasPrice": self.web3.eth.gas_price,
+            })
+
+            # Sign the transaction
+            signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key=self.private_key)
+
+            # Send the transaction
+            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            print(f"Transaction sent: {tx_hash.hex()}")
+
+            # Wait for the transaction receipt
+            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+            print(f"Transaction confirmed in block {receipt.blockNumber}")
+
+        except Exception as e:
+            print(f"Error calling trustBatch: {e}")
+
+    def flush(self):
+        self.trusted_accounts = set()  # Reset the trusted accounts set
+
+
+class PollingService:
+    def __init__(self, rpc_url: str, poll_interval: int = 15):
+        self.web3 = Web3(Web3.HTTPProvider(rpc.aboutcircles.com))
+        self.poll_interval = poll_interval
+
+        if not self.web3.is_connected():
+            raise ConnectionError("Failed to connect to the blockchain. Check the RPC URL.")
+
+    def start_polling(self, trust_management_algorithm: TrustManagementAlgorithm):
+        """Start polling for new blocks and trigger trust management updates."""
+        latest_block_number = None
+
         while True:
-            self._update_trusted_list()
-            random_offset = random.randint(- max_offset, max_offset)
-            time.sleep(settings.update_interval + random_offset)
+            try:
+                # Get the latest block number
+                current_block_number = self.web3.eth.block_number
 
-    def _update_trusted_list(self):
-        self.current_iteration += 1
+                if current_block_number != latest_block_number:
+                    latest_block_number = current_block_number
+                    print(f"New block detected: {latest_block_number}")
 
-        set_c = set() # Build the list of accounts to trust in the new iteration
-        set_d = set() # Keep a list of humans who are currently backing their CRC, for determining new friends
+                    # Trigger the trust management update process
+                    trust_management_algorithm.run_trust_management()
 
-        # initialize a dictionary to track
-        dict_credits = {}
+                # Sleep for the polling interval
+                time.sleep(self.poll_interval)
 
-        # Step 1: Fethc All Humans
-        set_a = set(self.nethermind_client.get_all_v2_humans())
-
-        # Step 2: Filter Blacklisted
-        set_a, set_b = self._filter_blacklisted(set_a, self.trusted_accounts)
-
-        # Step 3: Evaluate Backing for Trusted and Not-Blacklisted Humans
-
-        # Sub-Step 3a: First Check for Backed, Already Trusted Humans
-        set_a, set_b, set_c, set_d = self._check_backed_trusted(
-            set_a, set_b, set_c, set_d)
-
-        # Stop if we've reached the max trusted limit
-        if len(set_c) >= settings.max_trusted:
-            self._finalize_trust_list(set_c)
-            return
-
-        # Sub-Step 3b: Find Newly Backed Humans (in list A)
-        set_a, set_c, set_d = self._check_backed_newly(set_a, set_c, set_d)
-
-        # Stop if we've reached the max trusted limit
-        if len(set_c) >= settings.max_trusted:
-            self._finalize_trust_list(set_c)
-            return
-
-        # Step 4: Trust "Unbacked" Friends
-
-        # Sub-Step 4a: Filter the remaining humans for at least 3 Trust Connections
-        set_a = self._filter_at_least_three_trust_connections(set_a, set_d)
-
-        # Sub-Step 4b: Reconsider First Previously Trusted Accounts as possible friends (list A)
-        if not settings.append_only:
-            # with append_only we have already included all not-blacklisted, previously trusted humans
-            set_a, set_b, set_c = self._reconsider_previously_trusted_as_friends(set_a, set_b, set_c)
-
-    def _filter_blacklisted(self, set_a: Set[str], set_b: Set[str]) -> Tuple[Set[str], Set[str]]:
-        blacklisted_accounts = set(self.screening_client.get_blacklisted_accounts())
-        set_a -= blacklisted_accounts
-        set_b -= blacklisted_accounts
-        return set_a, set_b
-
-    def _check_backed_trusted(self, set_a: Set[str], set_b: Set[str], set_c: Set[str], set_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
-        # copy list b to avoid modifying the list in place while looping
-        for account in set_b.copy():
-            if self.lbp_indexer_client.is_crc_sufficiently_backed(account):
-                set_c.add(account)
-                set_d.add(account)
-                set_a.discard(account)
-                set_b.discard(account)
-            elif settings.append_only:
-                # when append-only always re-include the existing trust connections (list b)
-                set_c.add(account)
-                set_a.discard(account)
-        return set_a, set_b, set_c, set_d
-
-    def _check_backed_newly(self, set_a: Set[str], set_c: Set[str], set_d: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
-        for account in set_a.copy():
-            if self.lbp_indexer_client.is_crc_sufficiently_backed(account):
-                set_c.add(account)
-                set_d.add(account)
-                set_a.discard(account)
-        return set_a, set_c, set_d
-
-    def _filter_at_least_three_trust_connections(self, set_a: Set[str], set_d: Set[str]) -> Set[str]:
-        # initialize a dictionary to tally
-        for account in set_a.copy():
-            trusted_by = self.nethermind_client.get_trusted_by_accounts(account)
-            if len(trusted_by.intersection(set_d)) < 3:
-                set_a.discard(account)
-        return set_a
-
-    def _reconsider_previously_trusted_as_friends(self, set_a: Set[str], set_b: Set[str], set_c: Set[str]) -> Tuple[Set[str], Set[str], Set[str]]:
-        for account in set_b.intersection(set_a):
-            set_c.add(account)
-            set_a.discard(account)
-            set_b.discard(account)
-            # client caches this result to reduce repeating the RPC call
-            trusted_by = self.nethermind_client.get_trusted_by_accounts(account)
-
-        return set_a, set_b, set_c
-
-    def _finalize_trust_list(self, set_c: Set[str]):
-        # Determine changes
-        current_trusted_set = self.trusted_accounts
-        delta_joiners = set_c - current_trusted_set
-        delta_leavers = current_trusted_set - set_c
-
-        # Apply threshold
-        # TODO continue to apply and execute
+            except Exception as e:
+                print(f"Error while polling blocks: {e}")
+                time.sleep(self.poll_interval)  # Wait before retrying in case of error
+    

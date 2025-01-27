@@ -12,18 +12,19 @@ class Settings:
 
         # RPC endpoints
         self.nethermind_rpc_url = self._get_env('NETHERMIND_RPC_URL')
-        self.lbp_indexer_url = self._get_env('LBP_INDEXER_URL')
-        self.screening_url = self._get_env('DATABASE_URL')
+        # self.lbp_indexer_url = self._get_env('LBP_INDEXER_URL')
+        self.screening_url = self._get_env('ALLOWLIST_ENDPOINT')
+        self.private_key = self._get_env('PRIVATE_KEY')
 
-        # Algorithm settings
-        self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
-        self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))
-        # Append-only flag: prevents untrusting previously trusted humans unless they are blacklisted
-        self.append_only = bool(self._get_env('APPEND_ONLY', 'true'))
+        # # Algorithm settings
+        # self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
+        # self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))
+        # # Append-only flag: prevents untrusting previously trusted humans unless they are blacklisted
+        # self.append_only = bool(self._get_env('APPEND_ONLY', 'true'))
 
-        # Service settings
-        self.update_interval = int(self._get_env('UPDATE_INTERVAL', '1800'))  # 30 minutes
-        self.update_max_offset = int(self._get_env('UPDATE_MAX_OFFSET', '300'))  # 5 minutes
+        # # Service settings
+        # self.update_interval = int(self._get_env('UPDATE_INTERVAL', '1800'))  # 30 minutes
+        # self.update_max_offset = int(self._get_env('UPDATE_MAX_OFFSET', '300'))  # 5 minutes
 
         # Supergroup address
         supergroup_address = self._get_env('SUPERGROUP_ADDRESS')
@@ -53,8 +54,9 @@ class Settings:
             'change_threshold': self.change_threshold,
             'update_interval': self.update_interval,
             'update_max_offset': self.update_max_offset,
-            'supergroup_address': self.supergroup_address,
-            'append_only': self.append_only
+            'append_only': self.append_only,
+            'supergroup_address': self.SUPERGROUP_ADDRESS,
+            'private_key': self.PRIVATE_KEY
         }
 
 # Create a global settings instance
