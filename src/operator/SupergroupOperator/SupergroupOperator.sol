@@ -5,7 +5,7 @@ import "src/circles/Core.sol";
 import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
 import "src/supergroup/ISupergroup.sol";
-import "src/operator/CompletionHandler.sol";
+import "src/operator/SupergroupOperator/CompletionHandler.sol";
 
 contract SupergroupOperator is
     CirclesCoreAddresses,

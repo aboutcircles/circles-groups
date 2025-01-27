@@ -3,7 +3,7 @@ pragma solidity >=0.8.28;
 
 import "src/projects/ces/helpers/UpgradeableRenounceableProxy.sol";
 import "src/projects/ces/CESSupergroup.sol";
-import "src/operator/SupergroupOperator.sol";
+import "src/operator/SupergroupOperator/SupergroupOperator.sol";
 
 contract CESSupergroupDeployer {
     // Constants

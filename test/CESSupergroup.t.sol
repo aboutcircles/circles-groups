@@ -7,7 +7,7 @@ import "src/supergroup/ISupergroup.sol";
 import {IHub} from "src/circles/IHub.sol";
 import {CirclesTypes} from "src/circles/Types.sol";
 import {CESSupergroup} from "src/projects/ces/CESSupergroup.sol";
-import {SupergroupOperator} from "src/operator/SupergroupOperator.sol";
+import {SupergroupOperator} from "src/operator/SupergroupOperator/SupergroupOperator.sol";
 import {UpgradeableRenounceableProxy} from "circles-contracts-v2/groups/UpgradeableRenounceableProxy.sol";
 
 contract CESSupergroupTest is Test {
