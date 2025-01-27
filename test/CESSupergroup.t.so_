@@ -6,7 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 import "src/supergroup/ISupergroup.sol";
 import {IHub} from "src/circles/IHub.sol";
 import {CirclesTypes} from "src/circles/Types.sol";
-import {CESSupergroup} from "src/projects/ces/CESSupergroup.sol";
+import {CESgroup} from "src/projects/ces/CESgroup.sol";
 import {SupergroupOperator} from "src/operator/SupergroupOperator/SupergroupOperator.sol";
 import {UpgradeableRenounceableProxy} from "circles-contracts-v2/groups/UpgradeableRenounceableProxy.sol";
 
@@ -40,7 +40,7 @@ contract CESSupergroupTest is Test {
 
         // deploy implementaion (from EOA)
         vm.prank(deployer);
-        implementationCESSupergroup = address(new CESSupergroup());
+        implementationCESSupergroup = address(new CMGroup());
 
         // deploy proxy (from EOA)
         address[] memory operators;

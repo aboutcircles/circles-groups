@@ -61,3 +61,21 @@ interface ISupergroupOperatorCompletionErrors {
     /// @notice only expect supergroup id on single receive
     error ExpectationSingleReceiveOnlySupergroupId(uint256 id);
 }
+
+interface ICMGroupErrors {
+    /// @notice CoreMembers group proxy is already initialised
+    error CMGroupProxyAlreadyInitialised();
+    /// @notice Only Hub can call
+    error CMGroupOnlyHub();
+    /// @notice Only owner can call
+    error CMGroupOnlyOwner();
+    /// @notice Only owner or service can call
+    error CMGroupOnlyOwnerOrService();
+    /// @notice Sanity check error on calling parameters
+    error CMGroupInvalidCallingParameters();
+}
+
+interface ICMGroupAncillaryErrors {
+    /// @notice only CM Group can call
+    error CMAncillaryOnlyCMGroup();
+}

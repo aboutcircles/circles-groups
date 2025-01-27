@@ -5,7 +5,7 @@ import "src/projects/ces/ICirclesBackingFactory.sol";
 
 /// @notice Circles Core Addresses list the constant addresses
 ///         of the deployed core contracts of Circles on Gnosis Chain.
-contract CESSupergroupCoreAddresses {
+contract CESCoreAddresses {
     // Constants
 
     /// @notice Launchpad enables people to back their personal CRC in an LBP pool.
