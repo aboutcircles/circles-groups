@@ -4,26 +4,64 @@ import json
 import click
 from web3 import Web3
 
+def ensure_abi_files():
+    """Helper function to check for and copy required ABI files"""
+    required_abis = ["CESgroup.json", "CMAncillary.json"]
+
+    if not os.path.exists("abis"):
+        os.makedirs("abis")
+
+    # Check if any required ABI is missing
+    missing_abis = False
+    for abi_file in required_abis:
+        abi_path = os.path.join("abis", abi_file)
+        if not os.path.exists(abi_path):
+            missing_abis = True
+            break
+
+    # Run copyAbis.sh if any ABI is missing
+    if missing_abis:
+        print("Running copyAbis.sh to copy required ABIs...")
+        if os.system("../scripts/copyAbis.sh") != 0:
+            raise Exception("Failed to run copyAbis.sh")
+
+        # Verify ABIs were copied successfully
+        for abi_file in required_abis:
+            abi_path = os.path.join("abis", abi_file)
+            if not os.path.exists(abi_path):
+                raise Exception(f"Failed to copy required ABI file: {abi_file}")
+
+#==================================================================
+
 # Load environment variables
 load_dotenv()
 
 # Connect to Gnosis Chain
 w3 = Web3(Web3.HTTPProvider(os.getenv("RPC_URL_GNOSIS")))
 
-# Load contract ABI
-with open("abis/CESSupergroup.json") as f:
-    contract_data = json.load(f)
-    contract_abi = contract_data["abi"]
+# Ensure ABI files are available
+ensure_abi_files()
 
-# Contract address on Gnosis Chain
-with open("../deployments/CESSupergroup-gnosis.txt") as f:
-    logs = json.load(f)
-    # Load and convert to checksum address
-    CONTRACT_ADDRESS = Web3.to_checksum_address(logs[0]["address"])
-    print(f"Contract address: {CONTRACT_ADDRESS}")
+# Load contract ABIs
+with open("abis/CESgroup.json") as f:
+    group_data = json.load(f)
+    group_abi = group_data["abi"]
 
-# Create contract instance
-contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=contract_abi)
+with open("abis/CMAncillary.json") as f:
+    ancillary_data = json.load(f)
+    ancillary_abi = ancillary_data["abi"]
+
+# Contract addresses on Gnosis Chain
+with open("../deployments/CESGroup-gnosis.txt") as f:
+    deployment_logs = json.loads(f.read())
+    # Get the address from the first log entry
+    group_address = deployment_logs[0]["address"]
+    GROUP_ADDRESS = Web3.to_checksum_address(group_address)
+    print(f"Group address: {GROUP_ADDRESS}")
+
+# Create contract instances
+group = w3.eth.contract(address=GROUP_ADDRESS, abi=group_abi)
+ancillary = w3.eth.contract(address=group.functions.ancillary().call(), abi=ancillary_abi)
 
 # Helper functions
 def get_account():
@@ -33,176 +71,37 @@ def get_account():
 
 @click.group()
 def cli():
-    """CES Supergroup Interaction CLI"""
+    """CES Group Interaction CLI"""
     pass
 
 @cli.command()
 def get_owner():
     """Get contract owner"""
-    owner = contract.functions.owner().call()
+    owner = group.functions.owner().call()
     click.echo(f"Owner: {owner}")
 
 @cli.command()
 def get_service():
     """Get service address"""
-    service = contract.functions.service().call()
+    service = group.functions.service().call()
     click.echo(f"Service: {service}")
 
 @cli.command()
-def get_operators():
-    """Get list of operators"""
-    operators = contract.functions.getOperators().call()
-    click.echo("Operators:")
-    for op in operators:
-        click.echo(op)
-
-@cli.command()
-def get_mint_fee():
-    """Get current mint fee"""
-    fee = contract.functions.mintFee().call()
-    click.echo(f"Mint fee: {fee}")
-
-@cli.command()
-def get_fee_collection():
-    """Get fee collection address"""
-    address = contract.functions.feeCollection().call()
-    click.echo(f"Fee collection address: {address}")
-
-@cli.command()
-def get_redemption_burn_ratio():
-    """Get redemption burn ratio"""
-    ratio = contract.functions.redemptionBurnRatio().call()
-    click.echo(f"Redemption burn ratio: {ratio}")
-
-@cli.command()
-def get_require_operator():
-    """Get whether operators are required"""
-    required = contract.functions.requireOperator().call()
-    click.echo(f"Operators required: {required}")
-
-@cli.command()
-def get_return_circles_to_sender():
-    """Get whether group circles return to sender"""
-    returns = contract.functions.returnGroupCirclesToSender().call()
-    click.echo(f"Return circles to sender: {returns}")
-
-@cli.command()
-@click.argument("address")
-def is_authorized_operator(address):
-    """Check if address is authorized operator"""
-    is_auth = contract.functions.isAuthorizedOperator(address).call()
-    click.echo(f"Is authorized: {is_auth}")
-
-@cli.command()
-@click.argument("operator")
-@click.argument("authorized", type=bool)
-def set_authorized_operator(operator, authorized):
-    """Set operator authorization"""
-    account = get_account()
-
-    operator = Web3.to_checksum_address(operator)
-
-    txn = contract.functions.setAuthorizedOperator(operator, authorized).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
-
-@cli.command()
-@click.argument("fee", type=int)
-@click.argument("collection_address")
-def set_mint_fee(fee, collection_address):
-    """Set mint fee and collection address"""
-    account = get_account()
-
-    collection_address = Web3.to_checksum_address(collection_address)
-
-    txn = contract.functions.setMintFee(fee, collection_address).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
-
-@cli.command()
-@click.argument("ratio", type=int)
-def set_redemption_burn(ratio):
-    """Set redemption burn ratio"""
-    account = get_account()
-
-    txn = contract.functions.setRedemptionBurn(ratio).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
-
-@cli.command()
-@click.argument("required", type=bool)
-def set_require_operators(required):
-    """Set whether operators are required"""
-    account = get_account()
-
-    txn = contract.functions.setRequireOperators(required).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
-
-@cli.command()
-@click.argument("return_circles", type=bool)
-def set_return_circles_to_sender(return_circles):
-    """Set whether to return group circles to sender"""
-    account = get_account()
-
-    txn = contract.functions.setReturnGroupCirclesToSender(return_circles).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+def get_ancillary():
+    """Get ancillary contract address"""
+    ancillary_addr = group.functions.ancillary().call()
+    click.echo(f"Ancillary: {ancillary_addr}")
 
 @cli.command()
 @click.argument("service_address")
 def set_service(service_address):
-    """Set service address"""
+    """Set service address for both contracts"""
     account = get_account()
 
     service_address = Web3.to_checksum_address(service_address)
 
-    txn = contract.functions.setService(service_address).build_transaction({
+    # Set service on group contract
+    txn = group.functions.setService(service_address).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
         'gas': 200000,
@@ -210,7 +109,49 @@ def set_service(service_address):
     })
 
     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    click.echo(f"Group service update transaction hash: {tx_hash.hex()}")
+
+@cli.command()
+@click.argument("ancillary_address")
+def set_ancillary(ancillary_address):
+    """Set ancillary contract address"""
+    account = get_account()
+
+    ancillary_address = Web3.to_checksum_address(ancillary_address)
+
+    txn = group.functions.setAncillary(ancillary_address).build_transaction({
+        'from': account.address,
+        'nonce': w3.eth.get_transaction_count(account.address),
+        'gas': 200000,
+        'gasPrice': w3.eth.gas_price
+    })
+
+    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    click.echo(f"Transaction hash: {tx_hash.hex()}")
+
+@cli.command()
+@click.argument('addresses', nargs=-1, required=True)
+def sync_trust(addresses):
+    """Sync trust relationships from group to ancillary for given addresses"""
+    account = get_account()
+
+    addresses = [Web3.to_checksum_address(addr) for addr in addresses]
+
+    txn = ancillary.functions.syncTrust(list(addresses)).build_transaction({
+        'from': account.address,
+        'nonce': w3.eth.get_transaction_count(account.address),
+        'gas': 500000,
+        'gasPrice': w3.eth.gas_price
+    })
+
+    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     click.echo(f"Transaction hash: {tx_hash.hex()}")
@@ -219,7 +160,7 @@ def set_service(service_address):
 @click.argument('backers', nargs=-1, required=True)
 @click.option('--expiry', '-e', type=int, required=False, help='Optional expiry timestamp')
 def trust_batch(backers, expiry):
-    """Trust batch of addresses with expiry
+    """Trust batch of addresses with expiry in both group and ancillary
 
     BACKERS: One or more Ethereum addresses to trust, separated by spaces
              e.g. trust_batch 0x123... 0x456... 0x789...
@@ -233,7 +174,7 @@ def trust_batch(backers, expiry):
 
     backers = [Web3.to_checksum_address(backer) for backer in backers]
 
-    txn = contract.functions.trustBatch(list(backers), expiry).build_transaction({
+    txn = group.functions.trustBatch(list(backers), expiry).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
         'gas': 500000,
@@ -241,7 +182,7 @@ def trust_batch(backers, expiry):
     })
 
     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     click.echo(f"Transaction hash: {tx_hash.hex()}")

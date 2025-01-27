@@ -15,7 +15,7 @@ cd ces-interact
 python3 -m venv venv
 source venv/bin/activate  # Linux/Mac
 # OR
-venv\Scripts\activate  # Windows
+venv\Scripts\activate  # Windows (not tested)
 ```
 
 3. Install dependencies:
