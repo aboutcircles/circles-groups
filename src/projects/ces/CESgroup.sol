@@ -5,6 +5,17 @@ import "src/CoreMembersGroup/CoreMembersGroup.sol";
 import "src/projects/ces/CESCoreAddresses.sol";
 
 contract CESgroup is CoreMembersGroup, CESCoreAddresses {
+    // Events
+
+    /// @notice Emitted when backers with active LBPs are verified for trust
+    /// @param backers Array of verified backer addresses
+    /// @param expiry Trust expiry timestamp
+    /// @param activeCount Number of backers that had active LBPs
+    event BackersVerified(address[] backers, uint96 expiry, uint256 activeCount);
+
+    /// @notice Emitted when backers are being untrusted
+    event UntrustingBackers();
+
     // External functions
 
     /// @notice Trust or untrust a batch of LBP Backers.
@@ -30,9 +41,13 @@ contract CESgroup is CoreMembersGroup, CESCoreAddresses {
                 verifiedBackers[i] = activeBackers[i];
             }
 
+            // emit the list of backers whose LBP was deemed active
+            emit BackersVerified(verifiedBackers, _expiry, count);
+
             // effect the asserted verified backers
             super.trustBatch(verifiedBackers, _expiry);
         } else {
+            emit UntrustingBackers();
             super.trustBatch(_backers, _expiry);
         }
     }

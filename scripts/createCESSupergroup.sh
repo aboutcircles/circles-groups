@@ -27,45 +27,40 @@ if [ -z "$RPC_URL_GNOSIS" ]; then
     exit 1
 fi
 
-# Constants for CESSupergroup creation
-SERVICE_ADDRESS="0x0000000000000000000000000000000000000001"
-MINT_FEE="0"
-FEE_COLLECTION="0x0000000000000000000000000000000000000000"
-REDEMPTION_BURN_RATE="0"
-OPERATORS="[]"
-NAME="TestCESSupergroup-01"
+# Create deployments directory if it doesn't exist
+mkdir -p deployments
+
+# Constants for CES group creation
+SERVICE_ADDRESS="0x0000000000000000000000000000000000000000"
+NAME="TestCESGroup-01"
 SYMBOL="TEST-CES01"
 METADATA_DIGEST="0x0000000000000000000000000000000000000000000000000000000000000000"
 
-echo -e "${BLUE}Creating CESSupergroup...${NC}"
+echo -e "${BLUE}Creating CES Group...${NC}"
 
 # Load the deployer address
-DEPLOYER_ADDRESS=$(cat "./deployments/CESSupergroupDeployer-gnosis.txt")
+DEPLOYER_ADDRESS=$(tail -1 "./deployments/CESDeployer-gnosis.txt")
 
-# Create the CESSupergroup using cast send
-SUPERGROUP_ADDRESS=$(cast send \
+# Create the CES Group using cast send
+GROUP_ADDRESS=$(cast send \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --chain-id 100 \
     $DEPLOYER_ADDRESS \
-    "createCESSupergroup(address,uint256,address,uint256,address[],string,string,bytes32)" \
+    "createCESGroup(address,string,string,bytes32)" \
     $SERVICE_ADDRESS \
-    $MINT_FEE \
-    $FEE_COLLECTION \
-    $REDEMPTION_BURN_RATE \
-    $OPERATORS \
-    $NAME \
-    $SYMBOL \
+    "$NAME" \
+    "$SYMBOL" \
     $METADATA_DIGEST \
     | grep "address" \
     | awk '{print $2}')
 
-if [ -z "$SUPERGROUP_ADDRESS" ]; then
-    echo -e "${RED}Error: CESSupergroup creation failed${NC}"
+if [ -z "$GROUP_ADDRESS" ]; then
+    echo -e "${RED}Error: CES Group creation failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}CESSupergroup created at:${NC} $SUPERGROUP_ADDRESS"
+echo -e "${GREEN}CES Group created at:${NC} $GROUP_ADDRESS"
 
-# Save the CESSupergroup address to a file
-echo "$SUPERGROUP_ADDRESS" > "./deployments/CESSupergroup-gnosis.txt"
+# Save the CES Group address to a file
+echo "$GROUP_ADDRESS" > "./deployments/CESGroup-gnosis.txt"

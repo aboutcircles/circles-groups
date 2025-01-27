@@ -30,15 +30,15 @@ fi
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-# Deploy CESSupergroupDeployer
-echo -e "${BLUE}Deploying CESSupergroupDeployer to Gnosis Chain...${NC}"
+# Deploy CESDeployer
+echo -e "${BLUE}Deploying CESDeployer to Gnosis Chain...${NC}"
 
 # Using forge create command
 DEPLOYER_ADDRESS=$(forge create \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    src/projects/ces/helpers/CESSupergroupDeployer.sol:CESSupergroupDeployer \
+    src/projects/ces/helpers/CESDeployer.sol:CESDeployer \
     | grep "Deployed to" \
     | awk '{print $3}')
 
@@ -47,9 +47,9 @@ if [ -z "$DEPLOYER_ADDRESS" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}CESSupergroupDeployer deployed to:${NC} $DEPLOYER_ADDRESS"
+echo -e "${GREEN}CESDeployer deployed to:${NC} $DEPLOYER_ADDRESS"
 
 # Save the deployment address to a file
-echo "$DEPLOYER_ADDRESS" > "./deployments/CESSupergroupDeployer-gnosis.txt"
+echo "$DEPLOYER_ADDRESS" >> "./deployments/CESDeployer-gnosis.txt"
 
 echo -e "${GREEN}Deployment complete!${NC}"

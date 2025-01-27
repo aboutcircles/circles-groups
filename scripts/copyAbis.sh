@@ -12,5 +12,8 @@ cd ces-interact
 mkdir -p abis
 
 # Copy specific contract ABIs from forge output to abis dir
-cp ../out/CESSupergroup.sol/CESSupergroup.json abis/CESSupergroup.json
+cp ../out/CoreMembersGroup.sol/CoreMembersGroup.json abis/CoreMembersGroup.json
+cp ../out/CESgroup.sol/CESgroup.json abis/CESgroup.json
+cp ../out/CMGroupDeployer.sol/CMGroupDeployer.json abis/CMGroupDeployer.json
+cp ../out/CMAncillary.sol/CMAncillary.json abis/CMAncillary.json
 cp ../lib/circles-contracts-v2/out/Hub.sol/Hub.json abis/Hub.json
