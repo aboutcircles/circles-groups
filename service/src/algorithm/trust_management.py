@@ -59,7 +59,9 @@ class TrustManagementAlgorithm:
         # Step 4: Add valid backers (those not in the blacklist) to the trusted accounts
         valid_backers = new_backers - set(blacklist)
         print(f"Valid backers to add to trust list: {valid_backers}")
-
+       
+       # Convert valid backers to checksum addresses
+        valid_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
         self.trusted_accounts.update(valid_backers)
 
         # Step 5: Call the `trustBatch` function to update on-chain trust relations
@@ -71,12 +73,11 @@ class TrustManagementAlgorithm:
     def call_trust_batch(self, valid_backers: Set[str]):
         """Call the `trustBatch` function on the supergroup contract."""
         try:
-            # Define an indefinite expiry (e.g., 10 years from now)
-            indefinite_expiry = int(time.time()) + 10 * 365 * 24 * 60 * 60
+            expiry = 2**96 - 1  # max uint96
 
             # Build the transaction
             transaction = self.supergroup_contract.functions.trustBatch(
-                list(valid_backers), indefinite_expiry
+                list(valid_backers), expiry
             ).build_transaction({
                 "from": self.supergroup_address,
                 "nonce": self.web3.eth.get_transaction_count(self.supergroup_address),
