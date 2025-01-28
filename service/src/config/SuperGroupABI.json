@@ -1,4 +1,4 @@
-SUPERGROUP_CONTRACT_ABI = [
+[
     {
       "type": "function",
       "name": "MAX_RATIO",
@@ -455,17 +455,17 @@ SUPERGROUP_CONTRACT_ABI = [
         {
           "name": "feeCollection",
           "type": "address",
-          "indexed": True,
+          "indexed": true,
           "internalType": "address"
         },
         {
           "name": "fee",
           "type": "uint256",
-          "indexed": False,
+          "indexed": false,
           "internalType": "uint256"
         }
       ],
-      "anonymous": False
+      "anonymous": false
     },
     {
       "type": "event",
@@ -474,11 +474,11 @@ SUPERGROUP_CONTRACT_ABI = [
         {
           "name": "required",
           "type": "bool",
-          "indexed": False,
+          "indexed": false,
           "internalType": "bool"
         }
       ],
-      "anonymous": False
+      "anonymous": false
     },
     {
       "type": "event",
@@ -487,11 +487,11 @@ SUPERGROUP_CONTRACT_ABI = [
         {
           "name": "redemptionRate",
           "type": "uint256",
-          "indexed": False,
+          "indexed": false,
           "internalType": "uint256"
         }
       ],
-      "anonymous": False
+      "anonymous": false
     },
     {
       "type": "event",
@@ -500,11 +500,11 @@ SUPERGROUP_CONTRACT_ABI = [
         {
           "name": "returnGroupCircles",
           "type": "bool",
-          "indexed": False,
+          "indexed": false,
           "internalType": "bool"
         }
       ],
-      "anonymous": False
+      "anonymous": false
     },
     {
       "type": "event",
@@ -513,11 +513,11 @@ SUPERGROUP_CONTRACT_ABI = [
         {
           "name": "newService",
           "type": "address",
-          "indexed": True,
+          "indexed": true,
           "internalType": "address"
         }
       ],
-      "anonymous": False
+      "anonymous": false
     },
     {
       "type": "error",
@@ -572,4 +572,4 @@ SUPERGROUP_CONTRACT_ABI = [
       "name": "SupergroupProxyAlreadyInitialised",
       "inputs": []
     }
-  ],
+  ]

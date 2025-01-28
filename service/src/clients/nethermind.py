@@ -30,6 +30,31 @@ class NethermindClient:
     # Fetch all the backers from the CirclesBackingCompleted table/event
     # Backer -> the address of the user who backed their CRC
 
+    # def fetch_backers(self) -> list:
+    #     """Fetch all backers from the CirclesBackingCompleted table/event."""
+    #     query = {
+    #         "jsonrpc": "2.0",
+    #         "id": 1,
+    #         "method": "circles_query",
+    #         "params": [
+    #             {
+    #                 "Namespace": "CrcV2",
+    #                 "Table": "CirclesBackingCompleted",
+    #                 "Columns": [
+    #                     "blockNumber", "timestamp", "transactionIndex", "logIndex",
+    #                     "transactionHash", "backer", "circlesBackingInstance", "lbp"
+    #                 ],
+    #                 "Filter": [],
+    #                 "Order": [],
+    #                 "Limit": 10
+    #             }
+    #         ]
+    #     }
+    #     response = requests.post(self.rpc_url, json=query)
+    #     response.raise_for_status()
+    #     return [row["backer"] for row in response.json().get("result", {}).get("rows", [])]
+        
+
     def fetch_backers(self) -> list:
         """Fetch all backers from the CirclesBackingCompleted table/event."""
         query = {
@@ -46,19 +71,63 @@ class NethermindClient:
                     ],
                     "Filter": [],
                     "Order": [],
-                    "Limit": 10
+                    "Limit": 10  # Fetching only the first 10 entries
                 }
             ]
         }
+
+        # Make the request
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
-        return [row["backer"] for row in response.json().get("result", {}).get("rows", [])]
-        
+
+        result = response.json().get("result", {})
+        if 'columns' not in result or 'rows' not in result:
+            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+
+        keys = result['columns']
+        rows = result['rows']
+
+        try:
+            backer_index = keys.index('backer')
+        except ValueError:
+            raise ValueError("Backer key not found in response columns.")
+
+        # Extract backers
+        return [row[backer_index] for row in rows]
+
 
     #Fetch all the trust relations from the TrustRelations table
     #Truster is the address of the user who trusts the trustee, here SuperGroup is the truster
     #Trustee is the address of the user who is trusted by the truster
 
+
+    #  def fetch_group_trust_relations(self, super_group_address: str) -> list:
+    #     """Fetch all trust relations where the SuperGroup is the truster."""
+    #     query = {
+    #         "jsonrpc": "2.0",
+    #         "id": 1,
+    #         "method": "circles_query",
+    #         "params": [
+    #             {
+    #                 "Namespace": "V_CrcV2",
+    #                 "Table": "TrustRelations",
+    #                 "Columns": [
+    #                     "blockNumber", "timestamp", "transactionIndex", "logIndex",
+    #                     "transactionHash", "trustee", "truster", "expiryTime"
+    #                 ],
+    #                 "Filter": [],
+    #                 "Order": [],
+    #                 "Limit": 10
+    #             }
+    #         ]
+    #     }
+    #     response = requests.post(self.rpc_url, json=query)
+    #     response.raise_for_status()
+    #     return [
+    #         row["trustee"] 
+    #         for row in response.json().get("result", {}).get("rows", []) 
+    #         if row["truster"] == super_group_address
+    #     ]
 
     def fetch_group_trust_relations(self, super_group_address: str) -> list:
         """Fetch all trust relations where the SuperGroup is the truster."""
@@ -76,17 +145,37 @@ class NethermindClient:
                     ],
                     "Filter": [],
                     "Order": [],
-                    "Limit": 10
+                    "Limit": 10  # Fetching only the first 10 entries
                 }
             ]
         }
+
+        # Make the request
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
-        return [
-            row["trustee"] 
-            for row in response.json().get("result", {}).get("rows", []) 
-            if row["truster"] == super_group_address
-        ]
+
+        result = response.json().get("result", {})
+        if 'columns' not in result or 'rows' not in result:
+            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+
+            keys = result['columns']
+            rows = result['rows']
+
+            try:
+                truster_index = keys.index('truster')
+                trustee_index = keys.index('trustee')
+            except ValueError:
+                raise ValueError("Truster or Trustee key not found in response columns.")
+
+            # Extract trust relations, ensuring truster is the super_group_address
+            trustees = [
+                row[trustee_index] 
+                for row in rows
+                if row[truster_index] == super_group_address
+            ]
+            if any(row[truster_index] != super_group_address for row in rows):
+                raise ValueError("Some entries have an incorrect truster address.")
+                return trustees
 
 
     #Get all the V2 humans from the Avatars table

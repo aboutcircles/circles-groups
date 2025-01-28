@@ -1,11 +1,12 @@
 import time
 import random
+import json
 from typing import Set
 from web3 import Web3
 from clients.nethermind import NethermindClient
 from clients.screening import ScreeningClient
 from config.settings import settings
-from config.SuperGroupABI import SUPERGROUP_CONTRACT_ABI
+
 
 class TrustManagementAlgorithm:
     def __init__(
@@ -15,11 +16,16 @@ class TrustManagementAlgorithm:
         supergroup_address: str,
         private_key: str,
         supergroup_contract_address: str,
-        supergroup_contract_abi: list,
+        # supergroup_contract_abi: str,
     ):
         self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))  # Initialize Web3 instance
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum node.")
+
+        abi_path = "/Users/vanshika/code/circles-groups/service/src/config/SuperGroupABI.json"
+        with open(abi_path, "r") as file:
+            supergroup_contract_abi = json.load(file)
+
 
         self.nethermind_client = nethermind_client
         self.screening_client = screening_client
@@ -33,7 +39,11 @@ class TrustManagementAlgorithm:
 
     def initialize(self):
         # Fetch the current list of trusted accounts by the supergroup
-        self.trusted_accounts = set(self.nethermind_client.fetch_group_trust_relations(self.supergroup_address))
+        trusted_accounts = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address)
+        if trusted_accounts is None:
+            
+            trusted_accounts = []  # Handle None case
+            self.trusted_accounts = set(trusted_accounts)
 
     def run_trust_management(self):
         # Step 1: Fetch the list of backers from the completed LBP events
@@ -93,8 +103,10 @@ class TrustManagementAlgorithm:
 
 
 class PollingService:
-    def __init__(self, rpc_url: str, poll_interval: int = 15):
-        self.web3 = Web3(Web3.HTTPProvider(rpc.aboutcircles.com))
+    def __init__(self, nethermind_client: NethermindClient, poll_interval: int = 15):
+        self.nethermind_client = nethermind_client
+
+        self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))
         self.poll_interval = poll_interval
 
         if not self.web3.is_connected():
