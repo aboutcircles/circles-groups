@@ -74,13 +74,17 @@ class TrustManagementAlgorithm:
         """Call the `trustBatch` function on the supergroup contract."""
         try:
             expiry = 2**96 - 1  # max uint96
-
+            
+            private_key = self.private_key
+            account = self.web3.eth.account.from_key(private_key)
+            return account
+           
             # Build the transaction
             transaction = self.supergroup_contract.functions.trustBatch(
                 list(valid_backers), expiry
             ).build_transaction({
-                "from": self.supergroup_address,
-                "nonce": self.web3.eth.get_transaction_count(self.supergroup_address),
+                "from": account.address,
+                "nonce": self.web3.eth.get_transaction_count(account.address),
                 "gas": 3000000,
                 "gasPrice": self.web3.eth.gas_price,
             })
