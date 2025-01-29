@@ -84,12 +84,16 @@ interface ICMGHandlerErrors {
     error CMGHandlerOnlyOwner();
     /// @notice AcceptanceCallUnhandled
     error CMGHandlerAcceptanceCallUnhandled();
+    /// @notice As operator handler does not act on requested group
+    error CGMHandlerOperatorUnservicedGroup(address group);
     /// @notice Avoid attempting to collateralize self-referential group Circles
     error CMGHandlerRefuseGroupCircles();
     /// @notice Only a single conversion can be ongoing at one time
     error CMGHandlerConversionOngoing(uint256 amount);
     /// @notice Revert on receiving zero amount
     error CMGHandlerReceivedZeroAmount();
+    /// @notice No vault contract exists for the given group address
+    error CMGHandlerVaultNotFound(address group);
     /// @notice Handler can only transfer handler's CRC
     error CMGHandlerOnlyTransferOwnCircles();
     /// @notice Sanity check error on calling parameters

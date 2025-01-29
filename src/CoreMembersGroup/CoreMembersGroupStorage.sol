@@ -13,6 +13,7 @@ contract CoreMembersGroupStorage {
     struct State {
         address owner;
         address mintHandler;
+        address redemptionHandler;
         address service;
     }
 

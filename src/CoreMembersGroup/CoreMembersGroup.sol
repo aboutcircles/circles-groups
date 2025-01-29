@@ -5,6 +5,7 @@ import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
 import "src/CoreMembersGroup/ICMGMintHandler.sol";
+import "src/CoreMembersGroup/ICMGRedemptionHandler.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {CoreMembersGroupStorage} from "src/CoreMembersGroup/CoreMembersGroupStorage.sol";
 
@@ -24,6 +25,10 @@ contract CoreMembersGroup is
     /// @notice Track mintHandler contract changes
     /// @param newMintHandler New mintHandler contract address.
     event MintHandlerUpdated(address indexed newMintHandler);
+
+    /// @notice Track redemptionHandler contract changes
+    /// @param newRedemptionHandler New redemptionHandler contract address.
+    event RedemptionHandlerUpdated(address indexed newRedemptionHandler);
 
     // Modifiers
 
@@ -145,6 +150,62 @@ contract CoreMembersGroup is
         }
     }
 
+    /// @notice Policy that registers minting of circles to track membership in group.
+    /// @param _collateral Array of collateral token IDs being deposited.
+    /// @param _amounts Array of amounts for each collateral ID being deposited.
+    /// @return Returns true to allow the mint.
+    function beforeMintPolicy(
+        address, /*_minter*/
+        address, /*_group*/
+        uint256[] calldata _collateral,
+        uint256[] calldata _amounts,
+        bytes calldata /*_data*/
+    ) external onlyHub override returns (bool) {
+        // register deposit with redemption handler
+        _registerDeposit(_collateral, _amounts);
+        return true;
+    }
+
+    /// @notice Policy that validates and processes redemption of Circles tokens
+    /// @param _data Encoded redemption data containing collateral IDs and values
+    /// @return _ids Array of collateral token IDs to redeem
+    /// @return _values Array of amounts for each collateral ID to redeem
+    /// @return _burnIds Array of collateral token IDs to burn (empty)
+    /// @return _burnValues Array of amounts to burn for each collateral ID (empty)
+    function beforeRedeemPolicy(
+        address, /*_operator*/
+        address, /*_redeemer*/
+        address, /*_group*/
+        uint256, /*_value*/
+        bytes calldata _data
+    )
+        external
+        onlyHub
+        override
+        returns (
+            uint256[] memory _ids,
+            uint256[] memory _values,
+            uint256[] memory _burnIds,
+            uint256[] memory _burnValues
+        )
+    {
+        // simplest policy is to return the collateral as the caller requests it in data
+        BaseMintPolicyDefinitions.BaseRedemptionPolicy memory redemption =
+            abi.decode(_data, (BaseMintPolicyDefinitions.BaseRedemptionPolicy));
+
+        // and no collateral gets burnt upon redemption
+        _burnIds = new uint256[](0);
+        _burnValues = new uint256[](0);
+
+        // register redemption with redemption handler
+        _registerRedemption(redemption.redemptionIds, redemption.redemptionValues);
+
+        // standard treasury checks whether the total sums add up to the amount of group Circles redeemed
+        // so we can simply decode and pass the request back to treasury.
+        // The redemption will fail if it does not contain (sufficient of) these Circles
+        return (redemption.redemptionIds, redemption.redemptionValues, _burnIds, _burnValues);
+    }
+
     /// @notice Sets advanced usage flags for this group in the Hub
     /// @param _flag Advanced usage flag value to set
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
@@ -202,6 +263,20 @@ contract CoreMembersGroup is
         address mintHandler_ = _state().mintHandler;
         if (mintHandler_ != address(0)) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
+        }
+    }
+
+    function _registerDeposit(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
+        address redemptionHandler_ = _state().redemptionHandler;
+        if (redemptionHandler_ != address(0)) {
+            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds, _amounts);
+        }
+    }
+
+    function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
+        address redemptionHandler_ = _state().redemptionHandler;
+        if (redemptionHandler_ != address(0)) {
+            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }
     }
 }
