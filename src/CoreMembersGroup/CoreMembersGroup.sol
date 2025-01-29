@@ -6,33 +6,17 @@ import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
 import "src/CoreMembersGroup/ICMAncillary.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {CoreMembersGroupStorage} from "src/CoreMembersGroup/CoreMembersGroupStorage.sol";
 
-contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, ICMGroupErrors {
-    // Enum
-
-    /// @notice Proxy status keeps an explicit byte about this state instance
-    enum ProxyStatus {
-        Uninitialised,
-        Mastercopy,
-        SetUp
-    }
-
-    // State
-
-    /// @notice Owner address. This is a copied value of ERC1967 ADMIN_SLOT
-    ///         if this group mastercopy is consumed by an ERC1067 proxy.
-    ///         For simplicity and readability we duplicate owner with ERC1967 admin,
-    ///         even if for the intended deployment they are the same address.
-    address public owner;
-    /// @notice stores the ancillary for the CM Group to assist with
-    ///         automatic path mints and redemptions for the group.
-    ICMAncillary public ancillary;
-    /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
-    address public service;
-    /// @notice We take Hub address from core constants, so we need a minimal variable to
-    ///         track whether this state (mastercopy or proxy) has been constructed or setup.
-    ProxyStatus public proxyStatus = ProxyStatus.Uninitialised;
-
+contract CoreMembersGroup is
+    Initializable,
+    CoreMembersGroupStorage,
+    MintPolicy,
+    CirclesCoreAddresses,
+    ERC1155Holder,
+    ICMGroupErrors
+{
     // Events
 
     /// @notice Track service address changes
@@ -55,7 +39,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
 
     /// @notice Only owner can call
     modifier onlyOwner() {
-        if (msg.sender != owner) {
+        if (msg.sender != _state().owner) {
             revert CMGroupOnlyOwner();
         }
         _;
@@ -63,7 +47,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
 
     /// @notice Only owner or service can call
     modifier onlyOwnerOrService() {
-        if (msg.sender != owner && msg.sender != service) {
+        if (msg.sender != _state().owner && msg.sender != _state().service) {
             revert CMGroupOnlyOwnerOrService();
         }
         _;
@@ -71,9 +55,9 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
 
     // Constructor
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // set proxy status to mastercopy to block its direct usage
-        proxyStatus = ProxyStatus.Mastercopy;
+        _disableInitializers();
     }
 
     // Setup
@@ -85,22 +69,17 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
         string calldata _name,
         string calldata _symbol,
         bytes32 _metadataDigest
-    ) public virtual {
-        if (proxyStatus != ProxyStatus.Uninitialised) {
-            // contract state already initialised.
-            revert CMGroupProxyAlreadyInitialised();
-        }
+    ) external virtual initializer {
         if (_owner == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
         // set the owner explicitly
         // (recommended same value as ERC1967 ADMIN SLOT)
-        owner = _owner;
-        // set the service key, can initially be zero address
-        service = _service;
+        _state().owner = _owner;
         // set the ancillary address, can be zero address
-        ancillary = ICMAncillary(_ancillary);
-
+        _state().ancillary = _ancillary;
+        // set the service key, can initially be zero address
+        _state().service = _service;
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
     }
@@ -115,8 +94,8 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
         if (_service == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
-        service = _service;
-        emit ServiceUpdated(service);
+        _state().service = _service;
+        emit ServiceUpdated(_service);
     }
 
     /// @notice Change the ancillary contract address. Ancillary contract helps
@@ -124,7 +103,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
     /// @param _ancillary Updated ancillary contract address.
     /// @dev The ancillary contract can be zero address. Only owner can change the ancillary contract.
     function setAncillary(address _ancillary) external onlyOwner {
-        ancillary = ICMAncillary(_ancillary);
+        _state().ancillary = _ancillary;
         emit AncillaryUpdated(_ancillary);
     }
 
@@ -222,6 +201,27 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
         nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
+    // View functions
+
+    /// @notice Owner address. This is a copied value of ERC1967 ADMIN_SLOT
+    ///         if this group mastercopy is consumed by an ERC1967 proxy.
+    ///         For simplicity and readability we duplicate owner with ERC1967 admin,
+    ///         even if for the intended deployment they are the same address.
+    function owner() external view returns (address) {
+        return _state().owner;
+    }
+
+    /// @notice stores the ancillary for the CM Group to assist with
+    ///         automatic path mints and redemptions for the group.
+    function ancillary() external view returns (address) {
+        return _state().ancillary;
+    }
+
+    /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
+    function service() external view returns (address) {
+        return _state().service;
+    }
+
     // Internal functions
 
     /// @notice Internal trust function that trusts a single core member
@@ -232,8 +232,9 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ERC1155Holder, IC
     ///         establishes trust. If < current time, serves to untrust.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
         hub.trust(_trustReceiver, _expiry);
-        if (address(ancillary) != address(0)) {
-            ancillary.mirrorTrust(_trustReceiver, _expiry);
+        address ancillary_ = _state().ancillary;
+        if (ancillary_ != address(0)) {
+            ICMAncillary(ancillary_).mirrorTrust(_trustReceiver, _expiry);
         }
     }
 }
