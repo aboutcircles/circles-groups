@@ -2,6 +2,8 @@ import time
 import requests
 from typing import Set
 from web3 import Web3
+from config.settings import settings
+
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
@@ -77,7 +79,7 @@ class NethermindClient:
     #Trustee is the address of the user who is trusted by the truster
 
 
-    def fetch_group_trust_relations(self, super_group_address: str) -> list:
+    def fetch_group_trust_relations(self, supergroup_address: str) -> set:
         """Fetch all trust relations where the SuperGroup is the truster."""
         query = {
             "jsonrpc": "2.0",
@@ -87,10 +89,7 @@ class NethermindClient:
                 {
                     "Namespace": "V_CrcV2",
                     "Table": "TrustRelations",
-                    "Columns": [
-                        "blockNumber", "timestamp", "transactionIndex", "logIndex",
-                        "transactionHash", "trustee", "truster", "expiryTime"
-                    ],
+                    "Columns": ["truster", "trustee"],
                     "Filter": [],
                     "Order": [],
                     "Limit": 1000
@@ -98,32 +97,38 @@ class NethermindClient:
             ]
         }
 
-        # Make the request
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
-
         result = response.json().get("result", {})
+        print(f"Response data: {result}")
+
         if 'columns' not in result or 'rows' not in result:
+            print(f"Unexpected response structure: {result}")
             raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
 
-            keys = result['columns']
-            rows = result['rows']
+        keys = result['columns']
+        rows = result['rows']
+        print(f"Columns: {keys}")
+        
+        try:
+            truster_index = keys.index('truster')
+            trustee_index = keys.index('trustee')
+        except ValueError:
+            print(f"Missing 'truster' or 'trustee' in columns.")
+        
+        supergroup_address_normalized = settings.supergroup_address.lower()
 
-            try:
-                truster_index = keys.index('truster')
-                trustee_index = keys.index('trustee')
-            except ValueError:
-                raise ValueError("Truster or Trustee key not found in response columns.")
+        trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
+        
+        if trustees:
+            print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
+            for trustee in trustees:
+                print(trustee)
+        else:
+            print(f"No trustees found for supergroup {supergroup_address_normalized}.")
 
-            # Extract trust relations, ensuring truster is the super_group_address
-            trustees = [
-                row[trustee_index] 
-                for row in rows
-                if row[truster_index] == super_group_address
-            ]
-            if any(row[truster_index] != super_group_address for row in rows):
-                raise ValueError("Some entries have an incorrect truster address.")
-                return trustees
+        print(trustees)
+        return trustees
 
 
     #Get all the V2 humans from the Avatars table
