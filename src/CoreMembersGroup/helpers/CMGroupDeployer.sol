@@ -3,7 +3,7 @@ pragma solidity >=0.8.28;
 
 import "src/CoreMembersGroup/helpers/UpgradeableRenounceableProxy.sol";
 import "src/CoreMembersGroup/CoreMembersGroup.sol";
-import "src/CoreMembersGroup/CMAncillary.sol";
+import "src/CoreMembersGroup/CMGMintHandler.sol";
 
 contract CMGroupDeployer {
     // State variables
@@ -16,8 +16,8 @@ contract CMGroupDeployer {
     /// @notice Emitted when a new CMGroup proxy is deployed
     /// @param proxy Address of the deployed proxy contract
     /// @param owner Owner of the new group
-    /// @param ancillary Address of the ancillary contract
-    event CMGroupCreated(address indexed proxy, address indexed owner, address indexed ancillary);
+    /// @param mintHandler Address of the mintHandler contract
+    event CMGroupCreated(address indexed proxy, address indexed owner, address indexed mintHandler);
 
     /// @notice Emitted when mastercopy is deployed in constructor
     /// @param mastercopy Address of the deployed mastercopy contract
@@ -38,16 +38,16 @@ contract CMGroupDeployer {
         external
         returns (address)
     {
-        // group and ancillary owner by caller
+        // group and mintHandler owner by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
-        // instead first set up the ancillary
-        CMAncillary ancillary = new CMAncillary(address(proxy), owner, _name);
+        // instead first set up the mintHandler
+        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name);
         // lastly, call setup on the proxy to initialise the group
-        CoreMembersGroup(address(proxy)).setup(owner, address(ancillary), _service, _name, _symbol, _metadataDigest);
+        CoreMembersGroup(address(proxy)).setup(owner, address(mintHandler), _service, _name, _symbol, _metadataDigest);
 
-        emit CMGroupCreated(address(proxy), owner, address(ancillary));
+        emit CMGroupCreated(address(proxy), owner, address(mintHandler));
         return address(proxy);
     }
 }

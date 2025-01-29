@@ -12,7 +12,7 @@ contract CoreMembersGroupStorage {
     /// @custom:storage-location erc7201:circles.storage.CoreMembersGroup
     struct State {
         address owner;
-        address ancillary;
+        address mintHandler;
         address service;
     }
 

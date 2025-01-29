@@ -75,19 +75,25 @@ interface ICMGroupErrors {
     error CMGroupInvalidCallingParameters();
 }
 
-interface ICMGroupAncillaryErrors {
+interface ICMGHandlerErrors {
+    /// @notice only Hub can call
+    error CMGHandlerOnlyHub();
     /// @notice only CM Group can call
-    error CMAncillaryOnlyCMGroup();
+    error CMGHandlerOnlyCMGroup();
     /// @notice only owner can call
-    error CMAncillaryOnlyOwner();
+    error CMGHandlerOnlyOwner();
     /// @notice AcceptanceCallUnhandled
-    error CMAncillaryAcceptanceCallUnhandled();
+    error CMGHandlerAcceptanceCallUnhandled();
     /// @notice Avoid attempting to collateralize self-referential group Circles
-    error CMAncillaryRefuseGroupCircles();
+    error CMGHandlerRefuseGroupCircles();
     /// @notice Only a single conversion can be ongoing at one time
-    error CMAncillaryConversionOngoing(uint256 amount);
+    error CMGHandlerConversionOngoing(uint256 amount);
     /// @notice Revert on receiving zero amount
-    error CMAncillaryReceivedZeroAmount();
+    error CMGHandlerReceivedZeroAmount();
+    /// @notice Handler can only transfer handler's CRC
+    error CMGHandlerOnlyTransferOwnCircles();
+    /// @notice Sanity check error on calling parameters
+    error CMGHandlerInvalidCallingParameters();
     /// @notice logic assertion
-    error CMAncillaryLogicAssertion();
+    error CMGHandlerLogicAssertion();
 }

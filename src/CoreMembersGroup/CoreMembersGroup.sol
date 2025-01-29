@@ -4,7 +4,7 @@ pragma solidity >=0.8.28;
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
-import "src/CoreMembersGroup/ICMAncillary.sol";
+import "src/CoreMembersGroup/ICMGMintHandler.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {CoreMembersGroupStorage} from "src/CoreMembersGroup/CoreMembersGroupStorage.sol";
 
@@ -21,9 +21,9 @@ contract CoreMembersGroup is
     /// @param newService New service address.
     event ServiceUpdated(address indexed newService);
 
-    /// @notice Track ancillary contract changes
-    /// @param newAncillary New ancillary contract address.
-    event AncillaryUpdated(address indexed newAncillary);
+    /// @notice Track mintHandler contract changes
+    /// @param newMintHandler New mintHandler contract address.
+    event MintHandlerUpdated(address indexed newMintHandler);
 
     // Modifiers
 
@@ -62,7 +62,7 @@ contract CoreMembersGroup is
 
     function setup(
         address _owner,
-        address _ancillary,
+        address _mintHandler,
         address _service,
         string calldata _name,
         string calldata _symbol,
@@ -74,8 +74,8 @@ contract CoreMembersGroup is
         // set the owner explicitly
         // (recommended same value as ERC1967 ADMIN SLOT)
         _state().owner = _owner;
-        // set the ancillary address, can be zero address
-        _state().ancillary = _ancillary;
+        // set the mintHandler address, can be zero address
+        _state().mintHandler = _mintHandler;
         // set the service key, can initially be zero address
         _state().service = _service;
         // register group in hub and set the mint policy to this address
@@ -96,13 +96,13 @@ contract CoreMembersGroup is
         emit ServiceUpdated(_service);
     }
 
-    /// @notice Change the ancillary contract address. Ancillary contract helps
+    /// @notice Change the mintHandler contract address. MintHandler contract helps
     ///         automate path minting/redemptions.
-    /// @param _ancillary Updated ancillary contract address.
-    /// @dev The ancillary contract can be zero address. Only owner can change the ancillary contract.
-    function setAncillary(address _ancillary) external onlyOwner {
-        _state().ancillary = _ancillary;
-        emit AncillaryUpdated(_ancillary);
+    /// @param _mintHandler Updated mintHandler contract address.
+    /// @dev The mintHandler contract can be zero address. Only owner can change the mintHandler contract.
+    function setMintHandler(address _mintHandler) external onlyOwner {
+        _state().mintHandler = _mintHandler;
+        emit MintHandlerUpdated(_mintHandler);
     }
 
     /// @notice trust allows the owner to explicitly set trust relations
@@ -178,10 +178,10 @@ contract CoreMembersGroup is
         return _state().owner;
     }
 
-    /// @notice stores the ancillary for the CM Group to assist with
+    /// @notice stores the mintHandler for the CM Group to assist with
     ///         automatic path mints and redemptions for the group.
-    function ancillary() external view returns (address) {
-        return _state().ancillary;
+    function mintHandler() external view returns (address) {
+        return _state().mintHandler;
     }
 
     /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
@@ -192,16 +192,16 @@ contract CoreMembersGroup is
     // Internal functions
 
     /// @notice Internal trust function that trusts a single core member
-    ///         through the hub. If ancillary contract is set,
+    ///         through the hub. If mintHandler contract is set,
     ///         also mirrors the trust there.
     /// @param _trustReceiver Address of core member to trust
     /// @param _expiry Timestamp when trust expires. If >= current time,
     ///         establishes trust. If < current time, serves to untrust.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
         hub.trust(_trustReceiver, _expiry);
-        address ancillary_ = _state().ancillary;
-        if (ancillary_ != address(0)) {
-            ICMAncillary(ancillary_).mirrorTrust(_trustReceiver, _expiry);
+        address mintHandler_ = _state().mintHandler;
+        if (mintHandler_ != address(0)) {
+            ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
         }
     }
 }
