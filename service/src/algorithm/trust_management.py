@@ -77,15 +77,13 @@ class TrustManagementAlgorithm:
             
             private_key = self.private_key
             account = self.web3.eth.account.from_key(private_key)
-            return account
-           
             # Build the transaction
             transaction = self.supergroup_contract.functions.trustBatch(
                 list(valid_backers), expiry
             ).build_transaction({
                 "from": account.address,
                 "nonce": self.web3.eth.get_transaction_count(account.address),
-                "gas": 3000000,
+                "gas": 500000,
                 "gasPrice": self.web3.eth.gas_price,
             })
 
@@ -93,7 +91,7 @@ class TrustManagementAlgorithm:
             signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key=self.private_key)
 
             # Send the transaction
-            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             print(f"Transaction sent: {tx_hash.hex()}")
 
             # Wait for the transaction receipt
