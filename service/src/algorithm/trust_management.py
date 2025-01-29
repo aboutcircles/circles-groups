@@ -77,7 +77,6 @@ class TrustManagementAlgorithm:
             
             private_key = self.private_key
             account = self.web3.eth.account.from_key(private_key)
-            return account
            
             # Build the transaction
             transaction = self.supergroup_contract.functions.trustBatch(
