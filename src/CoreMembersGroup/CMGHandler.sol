@@ -58,6 +58,20 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         _;
     }
 
+
+    /// @notice Reentrancy guard for nonReentrant functions.
+    /// see https://soliditylang.org/blog/2024/01/26/transient-storage/
+    modifier nonReentrant() {
+        assembly {
+            if tload(0) { revert(0, 0) }
+            tstore(0, 1)
+        }
+        _;
+        assembly {
+            tstore(0, 0)
+        }
+    }
+
     constructor(address _cmGroup, address _owner) {
         if (_cmGroup == address(0)) {
             // note: should not yet call on hub.isGroup() because address is not
