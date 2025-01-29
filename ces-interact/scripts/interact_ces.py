@@ -177,7 +177,7 @@ def trust_batch(backers, expiry):
     txn = group.functions.trustBatch(list(backers), expiry).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 500000,
+        'gas': 5000000,
         'gasPrice': w3.eth.gas_price
     })
 
