@@ -37,8 +37,6 @@ class TrustManagementAlgorithm:
         )
         self.trusted_accounts = set() 
 
-        self.trusted_accounts = set()
-
     def initialize(self):
         try:
             trusted_accounts = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address.lower())
@@ -70,12 +68,11 @@ class TrustManagementAlgorithm:
         print(f"Valid backers to add to trust list: {valid_backers}")
        
        # Convert valid backers to checksum addresses
-        valid_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
-        self.trusted_accounts.update(valid_backers)
+        checksummed_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
 
         # Step 5: Call the `trustBatch` function to update on-chain trust relations
         if valid_backers:
-            self.call_trust_batch(valid_backers)
+            self.call_trust_batch(checksummed_backers)
         else:
             print("No valid backers to trust.")
 
