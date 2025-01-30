@@ -62,7 +62,7 @@ contract SupergroupOperator is
             revert SupergroupMustBeRegistered();
         }
         // We want to encourage people to only use the standard treasury, so enforce explicitly.
-        if (collateralTreasury != standardTreasury) {
+        if (collateralTreasury != address(standardTreasury)) {
             revert SupergroupMustUseStandardTreasury();
         }
     }
@@ -159,7 +159,7 @@ contract SupergroupOperator is
         // }
 
         // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
-        hub.safeTransferFrom(msg.sender, standardTreasury, supergroupId, value, data);
+        hub.safeTransferFrom(msg.sender, address(standardTreasury), supergroupId, value, data);
 
         // the vault will directly transfer to msg.sender, so no need for acceptance handler
     }

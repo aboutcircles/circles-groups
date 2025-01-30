@@ -58,7 +58,6 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         _;
     }
 
-
     /// @notice Reentrancy guard for nonReentrant functions.
     /// see https://soliditylang.org/blog/2024/01/26/transient-storage/
     modifier nonReentrant() {

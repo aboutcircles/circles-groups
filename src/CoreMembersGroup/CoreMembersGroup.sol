@@ -16,6 +16,11 @@ contract CoreMembersGroup is
     CirclesCoreAddresses,
     ICMGroupErrors
 {
+    // Constants
+
+    /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
+    uint256 public constant MAX_DEPOSIT_AMOUNT_MINIMUM = 10 ** 15;
+
     // Events
 
     /// @notice Track service address changes
@@ -29,6 +34,10 @@ contract CoreMembersGroup is
     /// @notice Track redemptionHandler contract changes
     /// @param newRedemptionHandler New redemptionHandler contract address.
     event RedemptionHandlerUpdated(address indexed newRedemptionHandler);
+
+    /// @notice Event emitted when minimal deposit amount is updated
+    /// @param minimalDeposit New minimal deposit value.
+    event MinimalDepositUpdated(uint256 minimalDeposit);
 
     // Modifiers
 
@@ -61,6 +70,7 @@ contract CoreMembersGroup is
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+        _state().minimalDeposit = MAX_DEPOSIT_AMOUNT_MINIMUM;
     }
 
     // Setup
@@ -110,6 +120,17 @@ contract CoreMembersGroup is
         emit MintHandlerUpdated(_mintHandler);
     }
 
+    /// @notice Change minimal deposit amount for the group
+    /// @param _minimalDeposit New minimal deposit amount
+    /// @dev Must not exceed MAX_DEPOSIT_AMOUNT_MINIMUM. Only owner can change.
+    function setMinimalDeposit(uint256 _minimalDeposit) external onlyOwner {
+        if (_minimalDeposit > MAX_DEPOSIT_AMOUNT_MINIMUM) {
+            revert CMGroupInvalidCallingParameters();
+        }
+        _state().minimalDeposit = _minimalDeposit;
+        emit MinimalDepositUpdated(_minimalDeposit);
+    }
+
     /// @notice trust allows the owner to explicitly set trust relations
     ///         for the group.
     function trust(address _trustReceiver, uint96 _expiry) external onlyOwner {
@@ -152,7 +173,6 @@ contract CoreMembersGroup is
 
     /// @notice Policy that registers minting of circles to track membership in group.
     /// @param _collateral Array of collateral token IDs being deposited.
-    /// @param _amounts Array of amounts for each collateral ID being deposited.
     /// @return Returns true to allow the mint.
     function beforeMintPolicy(
         address, /*_minter*/
@@ -160,9 +180,19 @@ contract CoreMembersGroup is
         uint256[] calldata _collateral,
         uint256[] calldata _amounts,
         bytes calldata /*_data*/
-    ) external onlyHub override returns (bool) {
+    ) external override onlyHub returns (bool) {
+        // ensure the amounts are not zero as sanity check
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            if (_amounts[i] < _state().minimalDeposit) {
+                // hub already checks no amount is zero in _groupMint,
+                // but assert here that each deposit is at least minimally significant
+                // to avoid that the group's vault collects dust, which makes the
+                // redemption (and redemption bookkeeping) less efficient.
+                revert CMGroupInteractionAmountIsBelowMinimum(_collateral[i], _amounts[i], _state().minimalDeposit);
+            }
+        }
         // register deposit with redemption handler
-        _registerDeposit(_collateral, _amounts);
+        _registerDeposit(_collateral);
         return true;
     }
 
@@ -180,8 +210,8 @@ contract CoreMembersGroup is
         bytes calldata _data
     )
         external
-        onlyHub
         override
+        onlyHub
         returns (
             uint256[] memory _ids,
             uint256[] memory _values,
@@ -266,10 +296,10 @@ contract CoreMembersGroup is
         }
     }
 
-    function _registerDeposit(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
+    function _registerDeposit(uint256[] memory _collateralIds) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds, _amounts);
+            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds);
         }
     }
 

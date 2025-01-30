@@ -71,6 +71,8 @@ interface ICMGroupErrors {
     error CMGroupOnlyOwner();
     /// @notice Only owner or service can call
     error CMGroupOnlyOwnerOrService();
+    /// @notice to interact with the group it must be above a set minimum
+    error CMGroupInteractionAmountIsBelowMinimum(uint256 id, uint256 receivedAmount, uint256 minimalAmount);
     /// @notice Sanity check error on calling parameters
     error CMGroupInvalidCallingParameters();
 }

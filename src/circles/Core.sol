@@ -15,7 +15,8 @@ contract CirclesCoreAddresses {
     /// @dev Hub contract address
     IHub internal constant hub = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
     /// @dev Standard Treasury
-    IStandardTreasury internal constant standardTreasury = IStandardTreasury(address(0x08F90aB73A515308f03A718257ff9887ED330C6e));
+    IStandardTreasury internal constant standardTreasury =
+        IStandardTreasury(address(0x08F90aB73A515308f03A718257ff9887ED330C6e));
     /// @dev Name Registry
     INameRegistryExtended internal constant nameRegistry =
         INameRegistryExtended(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
