@@ -2,6 +2,7 @@ import time
 import requests
 from typing import Set
 from web3 import Web3
+from config.settings import settings
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
@@ -77,7 +78,7 @@ class NethermindClient:
     #Trustee is the address of the user who is trusted by the truster
 
 
-    def fetch_group_trust_relations(self, super_group_address: str) -> list:
+    def fetch_group_trust_relations(self, supergroup_address: str) -> set:
         """Fetch all trust relations where the SuperGroup is the truster."""
         query = {
             "jsonrpc": "2.0",
@@ -87,10 +88,7 @@ class NethermindClient:
                 {
                     "Namespace": "V_CrcV2",
                     "Table": "TrustRelations",
-                    "Columns": [
-                        "blockNumber", "timestamp", "transactionIndex", "logIndex",
-                        "transactionHash", "trustee", "truster", "expiryTime"
-                    ],
+                    "Columns": ["truster", "trustee"],
                     "Filter": [],
                     "Order": [],
                     "Limit": 1000
@@ -116,14 +114,18 @@ class NethermindClient:
                 raise ValueError("Truster or Trustee key not found in response columns.")
 
             # Extract trust relations, ensuring truster is the super_group_address
-            trustees = [
-                row[trustee_index] 
-                for row in rows
-                if row[truster_index] == super_group_address
-            ]
-            if any(row[truster_index] != super_group_address for row in rows):
-                raise ValueError("Some entries have an incorrect truster address.")
-                return trustees
+            supergroup_address_normalized = settings.supergroup_address.lower()
+            
+            trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
+
+            if trustees:
+                print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
+                for trustee in trustees:
+                    print(trustee)
+            else:
+                print(f"No trustees found for supergroup {supergroup_address_normalized}.")
+
+            return trustees
 
 
     #Get all the V2 humans from the Avatars table

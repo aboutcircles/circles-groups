@@ -22,28 +22,38 @@ class TrustManagementAlgorithm:
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum node.")
 
-        abi_path = "service/src/config/SuperGroupABI.json"
+        abi_path = "/service/src/config/SuperGroupABI.json"
         with open(abi_path, "r") as file:
             supergroup_contract_abi = json.load(file)
 
 
         self.nethermind_client = nethermind_client
         self.screening_client = screening_client
-        self.supergroup_address = self.web3.to_checksum_address(supergroup_address)
+        self.supergroup_address = supergroup_address
         self.private_key = private_key
         self.supergroup_contract_address = self.web3.to_checksum_address(supergroup_contract_address)
         self.supergroup_contract = self.web3.eth.contract(
             address=self.supergroup_contract_address, abi=supergroup_contract_abi
         )
 
+        self.trusted_accounts = set()
 
     def initialize(self):
-        # Fetch the current list of trusted accounts by the supergroup
-        trusted_accounts = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address)
-        if trusted_accounts is None:
+        try:
+            trusted_accounts = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address.lower())
+            if not trusted_accounts:
+                print(f"No trusted accounts found for supergroup {self.supergroup_address.lower()}.")
+                self.trusted_accounts = set()  # Initialize as empty set if no accounts
+            else:
+                # Ensure the data is in the correct format (set of trusted accounts)
+                self.trusted_accounts = set(trusted_accounts)
+                print(f"Successfully fetched trusted accounts: {self.trusted_accounts}")
             
-            trusted_accounts = []  # Handle None case
-            self.trusted_accounts = set(trusted_accounts)
+        except Exception as e:
+            print(f"Error fetching trusted accounts: {str(e)}")
+            self.trusted_accounts = set()  # In case of error, initialize as empty set
+        # Fetch the current list of trusted accounts by the supergroup
+    
 
     def run_trust_management(self):
         # Step 1: Fetch the list of backers from the completed LBP events
@@ -51,7 +61,6 @@ class TrustManagementAlgorithm:
 
         # Step 2: Subtract the trusted accounts from the backers list
         new_backers = backers - self.trusted_accounts
-        # print(f"Potential new backers: {new_backers}")
 
         # Step 3: Check each backer against the blacklist service
         blacklist = self.screening_client.check_blacklist(list(new_backers))
