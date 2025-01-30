@@ -112,6 +112,21 @@ class NethermindClient:
                 trustee_index = keys.index('trustee')
             except ValueError:
                 raise ValueError("Truster or Trustee key not found in response columns.")
+                
+                supergroup_address_normalized = settings.supergroup_address.lower()
+                 
+                trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
+                 
+                if trustees:
+                    print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
+                for trustee in trustees:
+                    print(trustee)
+                
+                else:
+                    print(f"No trustees found for supergroup {supergroup_address_normalized}.")
+                    return trustees
+
+
             
 
     #Get all the V2 humans from the Avatars table
