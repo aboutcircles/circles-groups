@@ -28,7 +28,7 @@ class ScreeningClient:
         
         response = self._make_request(endpoint, method="POST", data=payload)
         verdicts = response.get("verdicts", [])
-        return [v["address"] for v in verdicts if v.get("is_bot") or v.get("category") in ["blocked", "flagged","null"]]
+        return [v["address"] for v in verdicts if v.get("is_bot") or v.get("category") in ["blocked", "flagged"]]
 
 
 
