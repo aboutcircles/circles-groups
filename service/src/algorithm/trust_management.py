@@ -22,7 +22,7 @@ class TrustManagementAlgorithm:
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum node.")
 
-        abi_path = "/Users/vanshika/code/circles-groups/service/src/config/SuperGroupABI.json"
+        abi_path = "/service/src/config/SuperGroupABI.json"
         with open(abi_path, "r") as file:
             supergroup_contract_abi = json.load(file)
 
