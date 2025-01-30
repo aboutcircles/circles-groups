@@ -15,6 +15,14 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice Indefinite future, or approximated with uint96.max
     uint96 internal constant INDEFINITE_FUTURE = type(uint96).max;
 
+    /// @notice Some reasonable cut off on the number of redemption ids to search for
+    uint256 public constant MAX_NUMBER_REDEMPTION_IDS = 100;
+
+    /// @notice Maximum amount that auto-redemption will collect
+    /// per collateral ID at a time. Prevents getting a redemption that is too
+    /// strongly leveraged on a single id.
+    uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
+
     // Storage
     uint256[] public activeCollateralIds;
     mapping(uint256 => uint256) public indexInActiveIds;
@@ -41,9 +49,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 id = collateralIds[i];
             // if the id was registered as zero-collateral, add it now
             if (indexInActiveIds[id] == 0) {
-                // if amount was zero, add this id to our tracker
-                indexInActiveIds[id] = activeCollateralIds.length;
-                activeCollateralIds.push(id);
+                _addActiveId(id);
             }
         }
     }
@@ -59,7 +65,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             revert CMGHandlerLogicAssertion();
         }
 
-        // to do a batched balance call of vault for each, we need to expand the address
+        // to do a batched balance call of vault for each,
+        // we need to expand the address - it's a trade-off
         address[] memory accounts = new address[](collateralIds.length);
         for (uint256 i = 0; i < collateralIds.length; i++) {
             accounts[i] = vault;
@@ -69,24 +76,21 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 id = collateralIds[i];
-            uint256 remainingBalance = balances[i] - amounts[i];
+            if (balances[i] < amounts[i]) {
+                revert CMGHandlerEarlyRevertCollateralNotPresent();
+            }
+            uint256 remainingBalance;
+            unchecked {
+                // explicitly checked above, and this handler can't effect
+                // the actual redemption flow by hub,
+                // nor is this remaining balance stored
+                remainingBalance = balances[i] - amounts[i];
+            }
 
+            // When a collateral's balance has been fully redeemed to 0,
+            // we need to remove it from our active tracking lists
             if (remainingBalance == 0) {
-                uint256 idx = indexInActiveIds[id];
-                uint256 lastIdx = activeCollateralIds.length - 1;
-
-                if (idx != lastIdx) {
-                    uint256 lastId = activeCollateralIds[lastIdx];
-                    activeCollateralIds[idx] = lastId;
-                    indexInActiveIds[lastId] = idx;
-                }
-
-                activeCollateralIds.pop();
-                delete indexInActiveIds[id];
-
-                if (cursor > idx) {
-                    cursor--;
-                }
+                _removeActiveId(id);
             }
         }
     }
@@ -129,10 +133,10 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     }
 
     /// @notice Find available collateral IDs and amounts for redeeming a certain amount
-    function findCollateral(address _group, uint256 _amount)
+    function findCollateral(address _group, uint256 _amount, bool _partialFillable)
         public
         view
-        returns (uint256[] memory ids, uint256[] memory amounts)
+        returns (uint256[] memory, uint256[] memory)
     {
         // sanity check as the operator for groups might get mixed up
         // once many groups and their operators are authorized.
@@ -150,34 +154,50 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256 numActive = activeCollateralIds.length;
         if (numActive == 0) return (new uint256[](0), new uint256[](0));
 
-        ids = new uint256[](numActive);
-        amounts = new uint256[](numActive);
-
-        // Get all balances in one call
-        address[] memory accounts = new address[](numActive);
-        for (uint256 i = 0; i < numActive; i++) {
-            accounts[i] = vault;
-        }
-        uint256[] memory balances = hub.balanceOfBatch(accounts, activeCollateralIds);
+        // temporally "allocate" lengthy arrays (check this is sensible)
+        uint256[] memory ids = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
+        uint256[] memory amounts = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
 
         uint256 remaining = _amount;
         uint256 outputIdx = 0;
         uint256 localCursor = cursor % numActive;
 
-        while (remaining > 0 && outputIdx < numActive) {
+        // Keep looking for collateral while we still need more and haven't hit array bounds
+        while (remaining > 0 && outputIdx < MAX_NUMBER_REDEMPTION_IDS && outputIdx < numActive) {
+            // Get the next collateral ID based on our cursor position
             uint256 id = activeCollateralIds[localCursor];
-            uint256 balance = balances[localCursor];
 
+            // Check how much collateral is available in the vault for this ID
+            uint256 balance = hub.balanceOf(vault, id);
+
+            // Only process IDs that have a non-zero balance
             if (balance > 0) {
+                // Calculate redemption amount - take either remaining amount needed
+                // or full balance, whichever is smaller
                 uint256 toRedeem = remaining < balance ? remaining : balance;
+
+                // Cap individual redemption amounts to prevent over-concentration
+                if (toRedeem > MAX_REDEEM_PER_ID) {
+                    toRedeem = MAX_REDEEM_PER_ID;
+                }
+
+                // Record this ID and amount in our output arrays
                 ids[outputIdx] = id;
                 amounts[outputIdx] = toRedeem;
+
+                // Update remaining amount needed and advance output index
                 remaining -= toRedeem;
                 outputIdx++;
             }
+            // Note: We purposely don't remove zero balance IDs here to maintain view function status
 
+            // Advance cursor with wraparound, using modulo to cycle back to start
             localCursor = (localCursor + 1) % numActive;
-            if (localCursor == cursor % numActive) break;
+        }
+
+        // If not partial fillable and we couldn't find enough collateral, revert
+        if (!_partialFillable && remaining > 0) {
+            revert CMGHandlerCouldNotFillRedemptionRequest();
         }
 
         // Trim arrays if needed
@@ -187,6 +207,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
                 mstore(amounts, outputIdx)
             }
         }
+
+        return (ids, amounts);
     }
 
     // ERC1155 acceptance call handlers
@@ -210,12 +232,54 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         (uint256 ongoingConversion,) = _expectingConversionReturn();
         // starting branch: receive groupId to intiate redemption
         if (ongoingConversion == 0 && _id == cmGroupId) {
-            (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value);
+            (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
             if (ids.length > 0) {
                 // redeem(cmGroup, ids, amounts);
                 // todo: we can't use the same redeem function because now we already hold the gCRC!
             }
         }
         return this.onERC1155Received.selector;
+    }
+
+    // Internal helpers
+
+    /// @dev Add an ID to the 'activeIds' array and set indexInActiveIds for quick removal.
+    function _addActiveId(uint256 id) internal {
+        // Store index mapping for quick lookup/removal later
+        // Index is current length before adding new element
+        indexInActiveIds[id] = activeCollateralIds.length;
+
+        // Add the new ID to end of active IDs array
+        activeCollateralIds.push(id);
+    }
+
+    /// @dev Remove an ID from 'activeCollateralIds' array via swap-and-pop to keep it O(1).
+    function _removeActiveId(uint256 id) internal {
+        // Get index of id to remove and last index in array
+        uint256 idx = indexInActiveIds[id];
+        uint256 lastIdx = activeCollateralIds.length - 1;
+
+        // If id to remove isn't the last element, we need to swap with last element
+        // to maintain array continuity when we pop
+        if (idx != lastIdx) {
+            // Get the last element's id
+            uint256 lastId = activeCollateralIds[lastIdx];
+            // Move last element into the slot we're removing
+            activeCollateralIds[idx] = lastId;
+            // Update the index mapping for the moved element
+            indexInActiveIds[lastId] = idx;
+        }
+
+        // Remove last element from array (either the element we wanted to remove
+        // or the one we swapped into its place)
+        activeCollateralIds.pop();
+        // Clear the index mapping for removed id
+        delete indexInActiveIds[id];
+
+        // If cursor was past the removed index, decrement it
+        // to maintain proper position in the now-shorter array
+        if (cursor > idx) {
+            cursor--;
+        }
     }
 }

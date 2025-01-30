@@ -96,6 +96,10 @@ interface ICMGHandlerErrors {
     error CMGHandlerReceivedZeroAmount();
     /// @notice No vault contract exists for the given group address
     error CMGHandlerVaultNotFound(address group);
+    /// @notice Thrown when a redemption request cannot be satisfied with available collateral and cutoff on search
+    error CMGHandlerCouldNotFillRedemptionRequest();
+    /// @notice Thrown early to prevent wasted gas when requested collateral is not present in vault
+    error CMGHandlerEarlyRevertCollateralNotPresent();
     /// @notice Handler can only transfer handler's CRC
     error CMGHandlerOnlyTransferOwnCircles();
     /// @notice Sanity check error on calling parameters
