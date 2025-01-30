@@ -22,7 +22,7 @@ class TrustManagementAlgorithm:
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum node.")
 
-        abi_path = "/Users/vanshika/code/circles-groups/service/src/config/SuperGroupABI.json"
+        abi_path = "/service/src/config/SuperGroupABI.json"
         with open(abi_path, "r") as file:
             supergroup_contract_abi = json.load(file)
 
@@ -37,6 +37,7 @@ class TrustManagementAlgorithm:
         )
         self.trusted_accounts = set() 
 
+        self.trusted_accounts = set()
 
     def initialize(self):
         try:
@@ -53,13 +54,13 @@ class TrustManagementAlgorithm:
             print(f"Error fetching trusted accounts: {str(e)}")
             self.trusted_accounts = set()  # In case of error, initialize as empty set
 
+
     def run_trust_management(self):
         # Step 1: Fetch the list of backers from the completed LBP events
         backers = set(self.nethermind_client.fetch_backers())
 
         # Step 2: Subtract the trusted accounts from the backers list
         new_backers = backers - self.trusted_accounts
-        # print(f"Potential new backers: {new_backers}")
 
         # Step 3: Check each backer against the blacklist service
         blacklist = self.screening_client.check_blacklist(list(new_backers))

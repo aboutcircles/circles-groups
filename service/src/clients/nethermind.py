@@ -118,6 +118,7 @@ class NethermindClient:
         
         supergroup_address_normalized = settings.supergroup_address.lower()
 
+
         trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
         
         if trustees:
@@ -128,7 +129,21 @@ class NethermindClient:
             print(f"No trustees found for supergroup {supergroup_address_normalized}.")
 
         print(trustees)
-        return trustees
+      
+
+            # Extract trust relations, ensuring truster is the super_group_address
+            supergroup_address_normalized = settings.supergroup_address.lower()
+            
+            trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
+
+            if trustees:
+                print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
+                for trustee in trustees:
+                    print(trustee)
+            else:
+                print(f"No trustees found for supergroup {supergroup_address_normalized}.")
+
+            return trustees
 
 
     #Get all the V2 humans from the Avatars table
