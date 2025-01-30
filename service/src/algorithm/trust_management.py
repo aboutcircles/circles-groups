@@ -22,7 +22,7 @@ class TrustManagementAlgorithm:
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum node.")
 
-        abi_path = "/service/src/config/SuperGroupABI.json"
+        abi_path = "/Users/vanshika/code/circles-groups/service/src/config/SuperGroupABI.json"
         with open(abi_path, "r") as file:
             supergroup_contract_abi = json.load(file)
 
@@ -68,11 +68,11 @@ class TrustManagementAlgorithm:
         print(f"Valid backers to add to trust list: {valid_backers}")
        
        # Convert valid backers to checksum addresses
-        checksummed_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
+        valid_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
 
         # Step 5: Call the `trustBatch` function to update on-chain trust relations
         if valid_backers:
-            self.call_trust_batch(checksummed_backers)
+            self.call_trust_batch(valid_backers)
         else:
             print("No valid backers to trust.")
 

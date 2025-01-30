@@ -91,11 +91,12 @@ class NethermindClient:
                     "Table": "TrustRelations",
                     "Columns": ["truster", "trustee"],
                     "Filter": [],
-                    "Order": [],
+                    "Order": [],  #order by block number, txn history 
                     "Limit": 1000
                 }
             ]
         }
+        #TODO : add handler for block sync
 
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
