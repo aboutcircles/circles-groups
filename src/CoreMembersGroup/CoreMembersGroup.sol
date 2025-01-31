@@ -306,7 +306,7 @@ contract CoreMembersGroup is
     function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
+            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_state().minimalDeposit, _collateralIds, _amounts);
         }
     }
 }

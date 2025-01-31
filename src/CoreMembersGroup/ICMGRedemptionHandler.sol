@@ -6,7 +6,9 @@ interface ICMGRedemptionHandler {
     /// @param collateralIds Identifiers of collaterals being deposited
     function registerDeposit(uint256[] memory collateralIds) external;
     /// @notice Registers collateral amounts that are being redeemed
+    /// @param minimalTrackingAmount if collateral amount falls
+    ///        below this amount stop tracking it in redemption handler
     /// @param collateralIds Identifiers of collaterals being redeemed
     /// @param amounts Amounts of each collateral being redeemed
-    function registerRedemption(uint256[] memory collateralIds, uint256[] memory amounts) external;
+    function registerRedemption(uint256 minimalTrackingAmount, uint256[] memory collateralIds, uint256[] memory amounts) external;
 }

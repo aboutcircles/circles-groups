@@ -14,6 +14,8 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     bytes32 internal constant CONVERSION_SLOT = keccak256("CONVERSION_SLOT");
     /// @dev single transient slot where to store beneficiary address
     bytes32 internal constant BENEFICIARY_SLOT = keccak256("BENEFICIARY_SLOT");
+    /// @dev single transient slot where to store redemption data hash
+    bytes32 internal constant REDEMPTION_DATA_HASH_SLOT = keccak256("REDEMPTION_DATA_HASH_SLOT");
 
     // State
 

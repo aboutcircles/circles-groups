@@ -94,9 +94,12 @@ interface ICMGHandlerErrors {
     error CMGHandlerConversionOngoing(uint256 amount);
     /// @notice Revert on receiving zero amount
     error CMGHandlerReceivedZeroAmount();
+    /// @notice Redemption of collateral is expected to originate from the vault
+    error CGMHandlerRedemptionExpectedFromVault(address from);
     /// @notice No vault contract exists for the given group address
     error CMGHandlerVaultNotFound(address group);
-    /// @notice Thrown when a redemption request cannot be satisfied with available collateral and cutoff on search
+    /// @notice Thrown when a redemption request cannot be satisfied
+    ///         with available collateral and cutoff on search
     error CMGHandlerCouldNotFillRedemptionRequest();
     /// @notice Thrown early to prevent wasted gas when requested collateral is not present in vault
     error CMGHandlerEarlyRevertCollateralNotPresent();
