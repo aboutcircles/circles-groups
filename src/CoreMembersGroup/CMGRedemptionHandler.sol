@@ -225,33 +225,79 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         returns (bytes4)
     {
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
+        (uint256 ongoingConversion, address beneficiary, bytes32 dataHash) = _expectingConversionReturn();
         // starting branch: receive groupId to initiate redemption
         if (ongoingConversion == 0 && _id == cmGroupId) {
             (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
             if (ids.length > 0) {
                 // todo: tstore _data so we can recover it on completion
-                _initiateConversion(_from, _value);
+                _initiateConversion(_from, _value, _data);
                 // note: we can't use the same redeem function because now we already hold the gCRC!
                 _redeemUponReceivedGroupCircles(_value, ids, amounts);
             }
         } else if (ongoingConversion == _value && _id != cmGroupId) {
-            // expect this to be sent by the vault
+            // continuation branch: receive a single collateral id
 
+            // expect this to be sent by the vault
             if (_getGroupVault() != _from) {
                 revert CGMHandlerRedemptionExpectedFromVault(_from);
             }
 
-            // continuation branch: receive a single collateral id
+            // Also check data hash matches for the collateral being redeemed
+            if (dataHash != keccak256(_data)) {
+                revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
+            }
+
             _clearConversion();
             // return the collateral with the redemption data (sent back via vault to us)
-            // todo: consider mirroring back the original data when stored in tstorage
+            // todo: consider mirroring back the original data when stored in tstorage - now we send the "redemption structured data" which is redundant for receiver
             hub.safeTransferFrom(address(this), beneficiary, _id, _value, _data);
         } else {
             // if the amount does not match
+            // or id is groupid, unexpected
             revert CMGHandlerConversionOngoing(ongoingConversion);
         }
         return this.onERC1155Received.selector;
+    }
+
+    /// @notice Handler for receiving batch ERC1155 token transfers
+    /// @param _from Address that initiated the transfer
+    /// @param _ids Array of token IDs being transferred
+    /// @param _values Array of amounts being transferred for each token ID
+    /// @param _data Additional data passed with transfer
+    /// @return bytes4 Function selector to confirm transfer acceptance
+    function onERC1155BatchReceived(
+        address, /*_operator*/
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory _data
+    ) public virtual override onlyHub returns (bytes4) {
+        // check for expected conversion
+        (uint256 ongoingConversion, address beneficiary, bytes32 dataHash) = _expectingConversionReturn();
+
+        // verify we are expecting a conversion
+        if (ongoingConversion == 0) {
+            revert CMGHandlerNoConversionExpected();
+        }
+
+        // verify sender is the group vault
+        if (_from != _getGroupVault()) {
+            revert CGMHandlerRedemptionExpectedFromVault(_from);
+        }
+
+        // verify data hash matches
+        if (dataHash != keccak256(_data)) {
+            revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
+        }
+
+        // clear conversion state
+        _clearConversion();
+
+        // forward tokens to beneficiary
+        hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
+
+        return this.onERC1155BatchReceived.selector;
     }
 
     // Public view functions

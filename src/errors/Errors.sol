@@ -96,6 +96,8 @@ interface ICMGHandlerErrors {
     error CMGHandlerReceivedZeroAmount();
     /// @notice Redemption of collateral is expected to originate from the vault
     error CGMHandlerRedemptionExpectedFromVault(address from);
+    /// @notice The data hash does not match the expected hash for completing conversion
+    error CGMHandlerDataHashMismatchUponReceiving(bytes32 expectedDataHash, bytes receivedData);
     /// @notice No vault contract exists for the given group address
     error CMGHandlerVaultNotFound(address group);
     /// @notice Thrown when a redemption request cannot be satisfied
