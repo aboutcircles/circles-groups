@@ -62,8 +62,11 @@ contract CMGMintHandler is CMGHandler {
 
     // ERC1155 acceptance call handlers
 
-    /// @notice Handler for receiving single ERC1155 token transfers
-    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns
+    /// @notice Handler for receiving single ERC1155 token transfers.
+    ///         Upon receiving valid collateral, it will try to
+    ///         group mint the received collateral and return the group
+    ///         Circles to the original sender.
+    /// @dev Only callable by the Circles Hub.
     /// @param _from Address that initiated the transfer
     /// @param _id Token ID being transferred
     /// @param _value Amount of tokens being transferred
@@ -71,17 +74,21 @@ contract CMGMintHandler is CMGHandler {
     /// @return bytes4 Function selector to confirm transfer acceptance
     function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
         public
-        virtual
         override
         onlyHub
         returns (bytes4)
     {
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion,) = _expectingConversionReturn();
+        (uint256 ongoingConversion,, bytes32 dataHash) = _expectingConversionReturn();
+
         if (_from == address(0)) {
             // group CRC were minted here
             // so expect an ongoing conversion from collateral to gCRC
             if (ongoingConversion == _value && _id == cmGroupId) {
+                if (keccak256(_data) != dataHash) {
+                    revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
+                }
+                _clearConversion();
                 // return the gCRC at the conclusion of the original handler,
                 // so gracefully accept and return
                 return this.onERC1155Received.selector;
@@ -90,13 +97,13 @@ contract CMGMintHandler is CMGHandler {
                 revert CMGHandlerLogicAssertion();
             }
         } else if (_id == cmGroupId) {
-            // todo: attempt automatic redemption from gCRC to collateral
+            // redemptions are handled only by redemption handler
             revert CMGHandlerAcceptanceCallUnhandled();
         } else {
             // from is not zero (ie. not minted) && id is not gCRC
 
             // set our expectation lock (reverts if already ongoing)
-            _initiateConversion(_from, _value);
+            _initiateConversion(_from, _value, _data);
 
             // assume any tokens received (that are not gCRC)
             // to be an attempt to mint gCRC
@@ -116,7 +123,7 @@ contract CMGMintHandler is CMGHandler {
     }
 
     /// @notice Handler for receiving batch ERC1155 token transfers
-    /// @dev Only callable by the Circles Hub. Verifies fingerprints and handles group token returns.
+    /// @dev Only callable by the Circles Hub.
     ///      First parameter _operator is unused.
     /// @param _from Address that initiated the transfer
     /// @param _ids Array of token IDs being transferred
@@ -145,29 +152,26 @@ contract CMGMintHandler is CMGHandler {
         }
 
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
+        (uint256 ongoingConversion,,) = _expectingConversionReturn();
 
-        if (ongoingConversion == totalValue) {
-            // expect this to be the redemption returned from the group
-            // so return directly to the beneficiary
-            hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
-            // tidy up afterwards
-            _clearConversion();
-        } else if (ongoingConversion == uint256(0)) {
-            // there is no ongoing conversion registered, so interpret this as
-            // a request to group mint
-
-            // revert if ids reference our Core Members group directly
-            address[] memory collateralAvatars = _doesNotContainGroupCircles(_ids);
-            // enable the lock
-            _initiateConversion(_from, totalValue);
-            // attempt group mint
-            hub.groupMint(cmGroup, collateralAvatars, _values, _data);
-            // return the freshly minted gCRC to sender
-            hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
-            // tidy up afterwards
-            _clearConversion();
+        if (ongoingConversion != uint256(0)) {
+            // redemptions are handled by redemption handler,
+            // so a batch acceptance call must only happen at the start of a mint conversion
+            revert CMGHandlerConversionOngoing(ongoingConversion);
         }
+        // there is no ongoing conversion registered, so interpret this as
+        // a request to group mint
+
+        // revert if ids reference our Core Members group directly
+        address[] memory collateralAvatars = _doesNotContainGroupCircles(_ids);
+        // enable the lock
+        _initiateConversion(_from, totalValue, _data);
+        // attempt group mint
+        hub.groupMint(cmGroup, collateralAvatars, _values, _data);
+        // tidy up afterwards
+        _clearConversion();
+        // return the freshly minted gCRC to sender
+        hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
 
         return this.onERC1155BatchReceived.selector;
     }
