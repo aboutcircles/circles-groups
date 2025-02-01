@@ -58,7 +58,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @param _minimalTrackingAmount Stop tracking amounts below this amount
     /// @param _collateralIds Identifiers of collaterals being redeemed
     /// @param _amounts Amounts of each collateral being redeemed
-    function registerRedemption(uint256 _minimalTrackingAmount, uint256[] memory _collateralIds, uint256[] memory _amounts) external onlyCMGroup {
+    function registerRedemption(
+        uint256 _minimalTrackingAmount,
+        uint256[] memory _collateralIds,
+        uint256[] memory _amounts
+    ) external onlyCMGroup {
         // CM group always registers with standard treasury
         address vault = standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
@@ -272,13 +276,26 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256[] memory _ids,
         uint256[] memory _values,
         bytes memory _data
-    ) public virtual override onlyHub returns (bytes4) {
+    ) public override onlyHub returns (bytes4) {
         // check for expected conversion
         (uint256 ongoingConversion, address beneficiary, bytes32 dataHash) = _expectingConversionReturn();
 
         // verify we are expecting a conversion
         if (ongoingConversion == 0) {
             revert CMGHandlerNoConversionExpected();
+        }
+
+        // sum the _values
+        uint256 length = _values.length;
+        uint256 totalValue = 0;
+        for (uint256 i = 0; i < length; i++) {
+            totalValue += _values[i];
+        }
+        if (totalValue == uint256(0)) {
+            revert CMGHandlerReceivedZeroAmount();
+        }
+        if (ongoingConversion != totalValue) {
+            revert CMGHandlerConversionOngoing(ongoingConversion);
         }
 
         // verify sender is the group vault
@@ -302,7 +319,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Public view functions
 
-    function structureRedemptionData(uint256[] memory _redemptionIds, uint256[] memory _redemptionValues) public pure returns (bytes memory) {
+    function structureRedemptionData(uint256[] memory _redemptionIds, uint256[] memory _redemptionValues)
+        public
+        pure
+        returns (bytes memory)
+    {
         bytes memory userData = abi.encode(BaseRedemptionPolicy(_redemptionIds, _redemptionValues));
         bytes memory data = abi.encode(Metadata(METADATATYPE_GROUPREDEEM, "", userData));
         return data;
@@ -310,7 +331,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Internal helpers
 
-    function _redeemUponReceivedGroupCircles(uint256 _value, uint256[] memory _redemptionIds, uint256[] memory _redemptionValues) internal {
+    function _redeemUponReceivedGroupCircles(
+        uint256 _value,
+        uint256[] memory _redemptionIds,
+        uint256[] memory _redemptionValues
+    ) internal {
         // formulate the data to send to standard treasury to redeem gCRC for collateral
         bytes memory redemptionData = structureRedemptionData(_redemptionIds, _redemptionValues);
         // send gCRC to standard treasury,

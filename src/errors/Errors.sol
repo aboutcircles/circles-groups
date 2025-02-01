@@ -92,6 +92,8 @@ interface ICMGHandlerErrors {
     error CMGHandlerRefuseGroupCircles();
     /// @notice Only a single conversion can be ongoing at one time
     error CMGHandlerConversionOngoing(uint256 amount);
+    /// @notice Expect a conversion to be ongoing
+    error CMGHandlerNoConversionExpected();
     /// @notice Revert on receiving zero amount
     error CMGHandlerReceivedZeroAmount();
     /// @notice Redemption of collateral is expected to originate from the vault
