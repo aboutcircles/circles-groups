@@ -120,6 +120,15 @@ contract CoreMembersGroup is
         emit MintHandlerUpdated(_mintHandler);
     }
 
+    /// @notice Change the redemptionHandler contract address. RedemptionHandler contract helps
+    ///         track deposits and redemptions for the group.
+    /// @param _redemptionHandler Updated redemptionHandler contract address.
+    /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
+    function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
+        _state().redemptionHandler = _redemptionHandler;
+        emit RedemptionHandlerUpdated(_redemptionHandler);
+    }
+
     /// @notice Change minimal deposit amount for the group
     /// @param _minimalDeposit New minimal deposit amount
     /// @dev Must not exceed MAX_DEPOSIT_AMOUNT_MINIMUM. Only owner can change.
@@ -269,15 +278,28 @@ contract CoreMembersGroup is
         return _state().owner;
     }
 
-    /// @notice stores the mintHandler for the CM Group to assist with
-    ///         automatic path mints and redemptions for the group.
+    /// @notice returns the mintHandler for the CM Group to assist with
+    ///         automatic path-mints for the group.
     function mintHandler() external view returns (address) {
         return _state().mintHandler;
+    }
+
+    /// @notice returns the redemptionHandler for the CM Group to facilitate
+    ///         redemptions either direct or over paths.
+    function redemptionHandler() external view returns (address) {
+        return _state().redemptionHandler;
     }
 
     /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
     function service() external view returns (address) {
         return _state().service;
+    }
+
+    /// @notice returns the minimal deposit amount for mints. The same minimal
+    ///         amount must remain in the vault collateral in order to track
+    ///         the id as active collateral for searches for redemption
+    function minimalDeposit() external view returns (uint256) {
+        return _state().minimalDeposit;
     }
 
     // Internal functions
