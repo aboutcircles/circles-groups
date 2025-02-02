@@ -41,6 +41,10 @@ contract CoreMembersGroup is
     /// @param minimalDeposit New minimal deposit value.
     event MinimalDepositUpdated(uint256 minimalDeposit);
 
+    /// @notice Event emitted when owner is set during setup
+    /// @param owner New owner address.
+    event OwnerSet(address indexed owner);
+
     // Modifiers
 
     /// @notice Only the Circles Hub can call this function
@@ -72,15 +76,15 @@ contract CoreMembersGroup is
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-        _state().minimalDeposit = MAX_DEPOSIT_AMOUNT_MINIMUM;
     }
 
     // Setup
 
     function setup(
         address _owner,
-        address _mintHandler,
         address _service,
+        address _mintHandler,
+        address _redemptionHandler,
         string calldata _name,
         string calldata _symbol,
         bytes32 _metadataDigest
@@ -88,15 +92,15 @@ contract CoreMembersGroup is
         if (_owner == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
-        // set the owner explicitly
-        // (recommended same value as ERC1967 ADMIN SLOT)
-        _state().owner = _owner;
-        // set the mintHandler address, can be zero address
-        _state().mintHandler = _mintHandler;
-        // set the service key, can initially be zero address
-        _state().service = _service;
+        _setOwner(_owner);
+        _setMintHandler(_mintHandler);
+        _setService(_service);
+        _setRedemptionHandler(_redemptionHandler);
+        _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+
+        emit OwnerSet(_owner);
     }
 
     // External functions
@@ -109,8 +113,7 @@ contract CoreMembersGroup is
         if (_service == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
-        _state().service = _service;
-        emit ServiceUpdated(_service);
+        _setService(_service);
     }
 
     /// @notice Change the mintHandler contract address. MintHandler contract helps
@@ -118,8 +121,7 @@ contract CoreMembersGroup is
     /// @param _mintHandler Updated mintHandler contract address.
     /// @dev The mintHandler contract can be zero address. Only owner can change the mintHandler contract.
     function setMintHandler(address _mintHandler) external onlyOwner {
-        _state().mintHandler = _mintHandler;
-        emit MintHandlerUpdated(_mintHandler);
+        _setMintHandler(_mintHandler);
     }
 
     /// @notice Change the redemptionHandler contract address. RedemptionHandler contract helps
@@ -127,8 +129,7 @@ contract CoreMembersGroup is
     /// @param _redemptionHandler Updated redemptionHandler contract address.
     /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
     function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
-        _state().redemptionHandler = _redemptionHandler;
-        emit RedemptionHandlerUpdated(_redemptionHandler);
+        _setRedemptionHandler(_redemptionHandler);
     }
 
     /// @notice Change minimal deposit amount for the group
@@ -138,8 +139,7 @@ contract CoreMembersGroup is
         if (_minimalDeposit > MAX_DEPOSIT_AMOUNT_MINIMUM) {
             revert CMGroupInvalidCallingParameters();
         }
-        _state().minimalDeposit = _minimalDeposit;
-        emit MinimalDepositUpdated(_minimalDeposit);
+        _setMinimalDeposit(_minimalDeposit);
     }
 
     /// @notice trust allows the owner to explicitly set trust relations
@@ -305,6 +305,30 @@ contract CoreMembersGroup is
     }
 
     // Internal functions
+
+    function _setOwner(address _owner) internal {
+        _state().owner = _owner;
+    }
+
+    function _setService(address _service) internal {
+        _state().service = _service;
+        emit ServiceUpdated(_service);
+    }
+
+    function _setMintHandler(address _mintHandler) internal {
+        _state().mintHandler = _mintHandler;
+        emit MintHandlerUpdated(_mintHandler);
+    }
+
+    function _setRedemptionHandler(address _redemptionHandler) internal {
+        _state().redemptionHandler = _redemptionHandler;
+        emit RedemptionHandlerUpdated(_redemptionHandler);
+    }
+
+    function _setMinimalDeposit(uint256 _minimalDeposit) internal {
+        _state().minimalDeposit = _minimalDeposit;
+        emit MinimalDepositUpdated(_minimalDeposit);
+    }
 
     /// @notice Internal trust function that trusts a single core member
     ///         through the hub. If mintHandler contract is set,

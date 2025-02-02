@@ -4,6 +4,7 @@ pragma solidity >=0.8.28;
 import "src/CoreMembersGroup/helpers/UpgradeableRenounceableProxy.sol";
 import "src/CoreMembersGroup/CoreMembersGroup.sol";
 import "src/CoreMembersGroup/CMGMintHandler.sol";
+import "src/CoreMembersGroup/CMGRedemptionHandler.sol";
 
 contract CMGroupDeployer {
     // State variables
@@ -17,7 +18,10 @@ contract CMGroupDeployer {
     /// @param proxy Address of the deployed proxy contract
     /// @param owner Owner of the new group
     /// @param mintHandler Address of the mintHandler contract
-    event CMGroupCreated(address indexed proxy, address indexed owner, address indexed mintHandler);
+    /// @param redemptionHandler Address of the redemptionHandler contract
+    event CMGroupCreated(
+        address indexed proxy, address indexed owner, address indexed mintHandler, address redemptionHandler
+    );
 
     /// @notice Emitted when mastercopy is deployed in constructor
     /// @param mastercopy Address of the deployed mastercopy contract
@@ -38,16 +42,19 @@ contract CMGroupDeployer {
         external
         returns (address)
     {
-        // group and mintHandler owner by caller
+        // group and handlers owned by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
-        // instead first set up the mintHandler
+        // deploy the handlers
         CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name);
         // lastly, call setup on the proxy to initialise the group
-        CoreMembersGroup(address(proxy)).setup(owner, address(mintHandler), _service, _name, _symbol, _metadataDigest);
+        CoreMembersGroup(address(proxy)).setup(
+            owner, _service, address(mintHandler), address(redemptionHandler), _name, _symbol, _metadataDigest
+        );
 
-        emit CMGroupCreated(address(proxy), owner, address(mintHandler));
+        emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));
         return address(proxy);
     }
 }
