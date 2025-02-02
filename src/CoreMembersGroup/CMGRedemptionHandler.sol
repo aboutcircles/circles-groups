@@ -7,6 +7,7 @@ import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
 import "src/CoreMembersGroup/CMGHandler.sol";
 import "src/CoreMembersGroup/ICMGRedemptionHandler.sol";
+import "src/CoreMembersGroup/ICoreMembersGroup.sol";
 
 /// @notice
 contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes {
@@ -95,6 +96,37 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
             if (remainingBalance <= _minimalTrackingAmount) {
+                _removeActiveId(id);
+            }
+        }
+    }
+
+    /// @notice Sync status of provided collateral IDs, updating tracked status based on vault balances
+    /// @param _collateralIds Array of collateral IDs to check and sync
+    function syncValidCollateral(uint256[] memory _collateralIds) external {
+        address vault = _getGroupVault();
+        uint256 minimalAmount = ICoreMembersGroup(cmGroup).minimalDeposit();
+
+        // expand addresses array for batch balance check
+        address[] memory accounts = new address[](_collateralIds.length);
+        for (uint256 i = 0; i < _collateralIds.length; i++) {
+            accounts[i] = vault;
+        }
+
+        // get balances for all IDs in single call
+        uint256[] memory balances = hub.balanceOfBatch(accounts, _collateralIds);
+
+        // update tracking for each ID based on balance
+        for (uint256 i = 0; i < _collateralIds.length; i++) {
+            uint256 id = _collateralIds[i];
+            uint256 balance = balances[i];
+
+            // add to active tracking if has balance above minimal amount but not tracked
+            if (balance > minimalAmount && indexInActiveIds[id] == 0) {
+                _addActiveId(id);
+            }
+            // remove from active tracking if has balance below minimal amount but is tracked
+            else if (balance <= minimalAmount && indexInActiveIds[id] != 0) {
                 _removeActiveId(id);
             }
         }

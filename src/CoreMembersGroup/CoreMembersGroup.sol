@@ -4,6 +4,7 @@ pragma solidity >=0.8.28;
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
+import "src/CoreMembersGroup/ICoreMembersGroup.sol";
 import "src/CoreMembersGroup/ICMGMintHandler.sol";
 import "src/CoreMembersGroup/ICMGRedemptionHandler.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -14,6 +15,7 @@ contract CoreMembersGroup is
     CoreMembersGroupStorage,
     MintPolicy,
     CirclesCoreAddresses,
+    ICoreMembersGroup,
     ICMGroupErrors
 {
     // Constants
