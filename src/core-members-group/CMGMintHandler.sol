@@ -5,7 +5,7 @@ import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "circles-contracts-v2/hub/TypeDefinitions.sol";
 import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
-import "src/CoreMembersGroup/CMGHandler.sol";
+import "src/core-members-group/CMGHandler.sol";
 
 /// @notice CoreMembers group (CMG) Mint Handler is deployed by the CMgroup
 ///         and functions as a helper for group mints. It mirrors the

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/CoreMembersGroup/helpers/UpgradeableRenounceableProxy.sol";
-import "src/CoreMembersGroup/CoreMembersGroup.sol";
-import "src/CoreMembersGroup/CMGMintHandler.sol";
-import "src/CoreMembersGroup/CMGRedemptionHandler.sol";
+import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
+import "src/core-members-group/CoreMembersGroup.sol";
+import "src/core-members-group/CMGMintHandler.sol";
+import "src/core-members-group/CMGRedemptionHandler.sol";
 
 contract CMGroupDeployer {
     // State variables

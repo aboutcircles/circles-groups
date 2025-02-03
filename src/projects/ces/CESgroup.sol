@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/CoreMembersGroup/CoreMembersGroup.sol";
+import "src/core-members-group/CoreMembersGroup.sol";
 import "src/projects/ces/CESCoreAddresses.sol";
 
 contract CESgroup is CoreMembersGroup, CESCoreAddresses {

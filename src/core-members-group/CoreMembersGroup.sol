@@ -4,11 +4,11 @@ pragma solidity >=0.8.28;
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
-import "src/CoreMembersGroup/ICoreMembersGroup.sol";
-import "src/CoreMembersGroup/ICMGMintHandler.sol";
-import "src/CoreMembersGroup/ICMGRedemptionHandler.sol";
+import "src/core-members-group/ICoreMembersGroup.sol";
+import "src/core-members-group/ICMGMintHandler.sol";
+import "src/core-members-group/ICMGRedemptionHandler.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {CoreMembersGroupStorage} from "src/CoreMembersGroup/CoreMembersGroupStorage.sol";
+import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
 
 contract CoreMembersGroup is
     Initializable,

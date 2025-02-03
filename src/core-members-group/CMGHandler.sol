@@ -4,7 +4,7 @@ pragma solidity >=0.8.28;
 import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
-import "src/CoreMembersGroup/ICMGHandler.sol";
+import "src/core-members-group/ICMGHandler.sol";
 
 abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler, ICMGHandlerErrors {
     // Constants

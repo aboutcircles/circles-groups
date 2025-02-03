@@ -5,9 +5,9 @@ import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "src/circles/Core.sol";
 import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
-import "src/CoreMembersGroup/CMGHandler.sol";
-import "src/CoreMembersGroup/ICMGRedemptionHandler.sol";
-import "src/CoreMembersGroup/ICoreMembersGroup.sol";
+import "src/core-members-group/CMGHandler.sol";
+import "src/core-members-group/ICMGRedemptionHandler.sol";
+import "src/core-members-group/ICoreMembersGroup.sol";
 
 /// @notice
 contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes {
