@@ -30,14 +30,14 @@ fi
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-echo -e "${BLUE}Deploying ActiveLBPBacker Condition...${NC}"
+echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
 
 # Deploy the condition contract
 CONDITION_ADDRESS=$(forge create \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    src/membership-conditions/ActiveLBPBackerCondition.sol:ActiveLBPBackerCondition \
+    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
     | grep "Deployed to" \
     | awk '{print $3}')
 
@@ -46,7 +46,7 @@ if [ -z "$CONDITION_ADDRESS" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}ActiveLBPBacker Condition deployed at:${NC} $CONDITION_ADDRESS"
+echo -e "${GREEN}IsHuman Condition deployed at:${NC} $CONDITION_ADDRESS"
 
 # Save the condition address to a file
-echo "$CONDITION_ADDRESS" > "./deployments/ActiveLBPBackerCondition-gnosis.txt"
+echo "$CONDITION_ADDRESS" > "./deployments/IsHumanCondition-gnosis.txt"

@@ -7,7 +7,7 @@ import "src/membership-conditions/IMembershipCondition.sol";
 
 /// @title ActiveLBPBackerMembershipCondition
 /// @notice A membership condition that checks if the given avatar has an active LBP
-contract ActiveLBPBackerMembershipCondition is CirclesCoreAddresses, CESCoreAddresses, IMembershipCondition {
+contract ActiveLBPBackerCondition is CirclesCoreAddresses, CESCoreAddresses, IMembershipCondition {
     // External functions
 
     /// @notice Checks whether the avatar is human (implied by check of LBP factory) and
