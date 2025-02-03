@@ -30,31 +30,33 @@ fi
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-# Constants for CES group creation
+# Constants for CMGroup creation
 # Check if file exists and is not empty (linux/osx)
-if [ -f "./deployments/CESGroup-gnosis.txt" ] && [ -s "./deployments/CESGroup-gnosis.txt" ]; then
-    DEPLOYMENT_COUNT=$(wc -l < "./deployments/CESGroup-gnosis.txt")
+if [ -f "./deployments/CMGroup-gnosis.txt" ] && [ -s "./deployments/CMGroup-gnosis.txt" ]; then
+    DEPLOYMENT_COUNT=$(wc -l < "./deployments/CMGroup-gnosis.txt")
 else
     DEPLOYMENT_COUNT=0
 fi
-NAME="TestCESGroup-$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
-SYMBOL="TEST-CES$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
+NAME="TestCMGroup-$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
+SYMBOL="TEST-CM$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
 SERVICE_ADDRESS="0x0000000000000000000000000000000000000000"
 METADATA_DIGEST="0x0000000000000000000000000000000000000000000000000000000000000000"
+INITIAL_CONDITIONS="[0xB4276b19E32DB027A0aF478446D09f8F37F92eba]" # condition for test LBP deployment
 
-echo -e "${BLUE}Creating CES Group...${NC}"
+echo -e "${BLUE}Creating CM Group...${NC}"
 
 # Load the deployer address
-DEPLOYER_ADDRESS=$(tail -1 "./deployments/CESDeployer-gnosis.txt")
+DEPLOYER_ADDRESS=$(tail -1 "./deployments/CMGDeployer-gnosis.txt")
 
-# Create the CES Group using cast send
+# Create the CM Group using cast send
 GROUP_ADDRESS=$(cast send \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --chain-id 100 \
     $DEPLOYER_ADDRESS \
-    "createCESGroup(address,string,string,bytes32)" \
+    "createCMGroup(address,address[],string,string,bytes32)" \
     $SERVICE_ADDRESS \
+    "$INITIAL_CONDITIONS" \
     "$NAME" \
     "$SYMBOL" \
     $METADATA_DIGEST \
@@ -62,11 +64,11 @@ GROUP_ADDRESS=$(cast send \
     | awk '{print $2}')
 
 if [ -z "$GROUP_ADDRESS" ]; then
-    echo -e "${RED}Error: CES Group creation failed${NC}"
+    echo -e "${RED}Error: CM Group creation failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}CES Group created at:${NC} $GROUP_ADDRESS"
+echo -e "${GREEN}CM Group created at:${NC} $GROUP_ADDRESS"
 
-# Save the CES Group address to a file
-echo "$GROUP_ADDRESS" >> "./deployments/CESGroup-gnosis.txt"
+# Save the CM Group address to a file
+echo "$GROUP_ADDRESS" >> "./deployments/CMGroup-gnosis.txt"

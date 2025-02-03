@@ -25,8 +25,14 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
 
     // Storage
+
+    /// @notice Array of all currently tracked collateral token IDs that have sufficient balance
     uint256[] public activeCollateralIds;
+
+    /// @notice Maps collateral token ID to its index position in activeCollateralIds array for O(1) lookups
     mapping(uint256 => uint256) public indexInActiveIds;
+
+    /// @notice Cursor tracking current position in activeCollateralIds when searching for available collateral
     uint256 public cursor;
 
     // Events
@@ -271,6 +277,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         // starting branch: receive groupId to initiate redemption
         if (ongoingConversion == 0 && _id == cmGroupId) {
             (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
+            // move the cursor forward to cycle through other collateral next time
+            cursor = (cursor + ids.length) % activeCollateralIds.length;
+
             if (ids.length > 0) {
                 // todo: tstore _data so we can recover it on completion
                 _initiateConversion(_from, _value, _data);

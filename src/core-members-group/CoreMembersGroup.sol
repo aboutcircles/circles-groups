@@ -54,6 +54,10 @@ contract CoreMembersGroup is
     /// @param enabled Whether the condition was enabled or disabled
     event MembershipConditionEnabled(address indexed condition, bool enabled);
 
+    /// @notice Event emitted when fee collection address is updated
+    /// @param feeCollection New fee collection address
+    event FeeCollectionUpdated(address indexed feeCollection);
+
     // Modifiers
 
     /// @notice Only the Circles Hub can call this function
@@ -113,6 +117,9 @@ contract CoreMembersGroup is
             _addMembershipCondition(_initialConditions[i]);
         }
 
+        // set fee collection to be by default the owner
+        _state().feeCollection = _owner;
+
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
@@ -168,6 +175,17 @@ contract CoreMembersGroup is
             revert CMGroupInvalidCallingParameters();
         }
         _setMinimalDeposit(_minimalDeposit);
+    }
+
+    /// @notice Change the fee collection address
+    /// @param _feeCollection New fee collection address
+    /// @dev The fee collection address must not be zero. Only owner can change.
+    function setFeeCollection(address _feeCollection) external onlyOwner {
+        if (_feeCollection == address(0)) {
+            revert CMGroupInvalidCallingParameters();
+        }
+        _state().feeCollection = _feeCollection;
+        emit FeeCollectionUpdated(_feeCollection);
     }
 
     /// @notice trust allows the owner to explicitly set trust relations
@@ -334,6 +352,11 @@ contract CoreMembersGroup is
     ///         the id as active collateral for searches for redemption
     function minimalDeposit() external view returns (uint256) {
         return _state().minimalDeposit;
+    }
+
+    /// @notice Returns the address that receives fees collected by this group
+    function feeCollection() external view returns (address) {
+        return _state().feeCollection;
     }
 
     // Internal functions
