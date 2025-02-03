@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import "src/core-members-group/CoreMembersGroup.sol";
-import "src/projects/ces/CESCoreAddresses.sol";
+import "src/membership-conditions/projects/ces/CESCoreAddresses.sol";
 
 contract CESgroup is CoreMembersGroup, CESCoreAddresses {
     // Events

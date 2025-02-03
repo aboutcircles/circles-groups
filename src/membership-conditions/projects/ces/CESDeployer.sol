@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
-import "src/projects/ces/CESgroup.sol";
+import "src/membership-conditions/projects/ces/CESgroup.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
 
