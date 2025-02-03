@@ -69,7 +69,9 @@ interface ICMGroupErrors {
     error CMGroupOnlyHub();
     /// @notice Only owner can call
     error CMGroupOnlyOwner();
-    /// @notice
+    /// @notice Membership check failed for avatar on condition
+    error CMGroupMembershipCheckFailed(address avatar, address failedCondition);
+    /// @notice Maximum number of conditions reached already
     error CMGroupMaxConditionsActive(uint256 conditionsActive);
     /// @notice Only owner or service can call
     error CMGroupOnlyOwnerOrService();

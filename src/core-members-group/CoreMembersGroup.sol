@@ -94,8 +94,9 @@ contract CoreMembersGroup is
         address _service,
         address _mintHandler,
         address _redemptionHandler,
-        string calldata _name,
-        string calldata _symbol,
+        address[] memory _initialConditions,
+        string memory _name,
+        string memory _symbol,
         bytes32 _metadataDigest
     ) external virtual initializer {
         if (_owner == address(0)) {
@@ -106,6 +107,11 @@ contract CoreMembersGroup is
         _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
         _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
+
+        // set initial conditions
+        for (uint256 i = 0; i < _initialConditions.length; i++) {
+            _addMembershipCondition(_initialConditions[i]);
+        }
 
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
@@ -185,6 +191,10 @@ contract CoreMembersGroup is
         if (_expiry >= block.timestamp) {
             for (uint256 i = 0; i < length; i++) {
                 coreMember = _coreMembers[i];
+                (bool passed, address failedCondition) = _checkMembershipConditions(coreMember);
+                if (!passed) {
+                    revert CMGroupMembershipCheckFailed(coreMember, failedCondition);
+                }
                 _trust(coreMember, _expiry);
             }
         } else {
@@ -398,6 +408,17 @@ contract CoreMembersGroup is
         if (mintHandler_ != address(0)) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
         }
+    }
+
+    function _checkMembershipConditions(address _avatar) internal returns (bool, address) {
+        for (uint256 i = 0; i < _state().membershipConditions.length; i++) {
+            if (!IMembershipCondition(_state().membershipConditions[i]).passesMembershipCondition(_avatar)) {
+                return (false, _state().membershipConditions[i]);
+            }
+        }
+        // passed all membership conditions,
+        // true by default if no conditions set
+        return (true, address(0));
     }
 
     function _registerDeposit(uint256[] memory _collateralIds) internal {
