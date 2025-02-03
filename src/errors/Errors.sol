@@ -69,6 +69,8 @@ interface ICMGroupErrors {
     error CMGroupOnlyHub();
     /// @notice Only owner can call
     error CMGroupOnlyOwner();
+    /// @notice
+    error CMGroupMaxConditionsActive(uint256 conditionsActive);
     /// @notice Only owner or service can call
     error CMGroupOnlyOwnerOrService();
     /// @notice to interact with the group it must be above a set minimum

@@ -38,10 +38,13 @@ contract CMGroupDeployer {
     // External functions
 
     /// @notice Create Core Members group for caller
-    function createCMGroup(address _service, string calldata _name, string calldata _symbol, bytes32 _metadataDigest)
-        external
-        returns (address)
-    {
+    function createCMGroup(
+        address _service,
+        address[] calldata _initialConditions,
+        string calldata _name,
+        string calldata _symbol,
+        bytes32 _metadataDigest
+    ) external returns (address) {
         // group and handlers owned by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
@@ -51,7 +54,14 @@ contract CMGroupDeployer {
         CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
-            owner, _service, address(mintHandler), address(redemptionHandler), _name, _symbol, _metadataDigest
+            owner,
+            _service,
+            address(mintHandler),
+            address(redemptionHandler),
+            _initialConditions,
+            _name,
+            _symbol,
+            _metadataDigest
         );
 
         emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));

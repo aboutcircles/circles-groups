@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
+import "src/membership-conditions/IMembershipCondition.sol";
 
 contract CoreMembersGroup is
     Initializable,
@@ -22,6 +23,9 @@ contract CoreMembersGroup is
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
     uint256 public constant MAX_DEPOSIT_AMOUNT_MINIMUM = 10 ** 15;
+
+    /// @notice The maximum number of membership conditions allowed.
+    uint256 public constant MAX_CONDITIONS = 10;
 
     // Events
 
@@ -44,6 +48,11 @@ contract CoreMembersGroup is
     /// @notice Event emitted when owner is set during setup
     /// @param owner New owner address.
     event OwnerSet(address indexed owner);
+
+    /// @notice Event emitted when membership condition is enabled/disabled
+    /// @param condition Address of the membership condition contract
+    /// @param enabled Whether the condition was enabled or disabled
+    event MembershipConditionEnabled(address indexed condition, bool enabled);
 
     // Modifiers
 
@@ -85,6 +94,7 @@ contract CoreMembersGroup is
         address _service,
         address _mintHandler,
         address _redemptionHandler,
+        address[] calldata _initialConditions,
         string calldata _name,
         string calldata _symbol,
         bytes32 _metadataDigest
@@ -93,10 +103,14 @@ contract CoreMembersGroup is
             revert CMGroupInvalidCallingParameters();
         }
         _setOwner(_owner);
-        _setMintHandler(_mintHandler);
         _setService(_service);
+        _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
         _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
+
+        // skips if condition is zero
+        _addMembershipCondition(_initialConditions[0]);
+
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
@@ -114,6 +128,18 @@ contract CoreMembersGroup is
             revert CMGroupInvalidCallingParameters();
         }
         _setService(_service);
+    }
+
+    /// @notice Enable or disable a membership condition contract
+    /// @param _condition Address of membership condition contract
+    /// @param _enabled Whether to enable (true) or disable (false) the condition
+    function setMembershipCondition(address _condition, bool _enabled) external onlyOwner {
+        if (_enabled) {
+            _addMembershipCondition(_condition);
+        } else {
+            _removeMembershipCondition(_condition);
+        }
+        emit MembershipConditionEnabled(_condition, _enabled);
     }
 
     /// @notice Change the mintHandler contract address. MintHandler contract helps
@@ -328,6 +354,40 @@ contract CoreMembersGroup is
     function _setMinimalDeposit(uint256 _minimalDeposit) internal {
         _state().minimalDeposit = _minimalDeposit;
         emit MinimalDepositUpdated(_minimalDeposit);
+    }
+
+    function _addMembershipCondition(address _condition) internal {
+        if (_condition == address(0)) {
+            return;
+        }
+        if (_state().membershipConditions.length >= MAX_CONDITIONS) {
+            revert CMGroupMaxConditionsActive(_state().membershipConditions.length);
+        }
+        for (uint256 i = 0; i < _state().membershipConditions.length; i++) {
+            if (_state().membershipConditions[i] == _condition) {
+                // avoid double entry of conditions, silently return
+                return;
+            }
+        }
+        _state().membershipConditions.push(_condition);
+    }
+
+    function _removeMembershipCondition(address _condition) internal {
+        if (_condition == address(0)) {
+            return;
+        }
+        uint256 length = _state().membershipConditions.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (_state().membershipConditions[i] == _condition) {
+                if (i != length - 1) {
+                    // Swap the condition with the last element, if not already last
+                    _state().membershipConditions[i] = _state().membershipConditions[length - 1];
+                }
+                // Remove the last element
+                _state().membershipConditions.pop();
+                return;
+            }
+        }
     }
 
     /// @notice Internal trust function that trusts a single core member

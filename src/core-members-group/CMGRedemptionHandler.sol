@@ -29,6 +29,12 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     mapping(uint256 => uint256) public indexInActiveIds;
     uint256 public cursor;
 
+    // Events
+
+    /// @notice Clarification event to report handler returned redeemed collateral Circles to beneficiary
+    ///         for total amount redeemed.
+    event ReturnedRedeemedCollateral(address indexed group, address indexed beneficiary, uint256 totalAmount);
+
     // Constructor
 
     constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
@@ -288,6 +294,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             // return the collateral with the redemption data (sent back via vault to us)
             // todo: consider mirroring back the original data when stored in tstorage - now we send the "redemption structured data" which is redundant for receiver
             hub.safeTransferFrom(address(this), beneficiary, _id, _value, _data);
+
+            // emit clarification event of returned collateral
+            emit ReturnedRedeemedCollateral(cmGroup, beneficiary, _value);
         } else {
             // if the amount does not match
             // or id is groupid, unexpected
@@ -345,6 +354,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
         // forward tokens to beneficiary
         hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
+
+        // emit clarification event of returned collateral
+        emit ReturnedRedeemedCollateral(cmGroup, beneficiary, totalValue);
 
         return this.onERC1155BatchReceived.selector;
     }

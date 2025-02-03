@@ -16,6 +16,11 @@ import "src/core-members-group/CMGHandler.sol";
 ///         custom requirements (eg. extended membership to the group),
 ///         so for a general framework one should use ERC1155 operators.
 contract CMGMintHandler is CMGHandler {
+    // Events
+
+    /// @notice Clarification event to report handler returned minted group Circles to beneficiary
+    event ReturnedMintedGroupCircles(address indexed group, address indexed beneficiary, uint256 amount);
+
     // Constructor
 
     constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
@@ -118,6 +123,9 @@ contract CMGMintHandler is CMGHandler {
             _clearConversion();
             // return the freshly minted gCRC to sender
             hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
+
+            // emit event for clarity
+            emit ReturnedMintedGroupCircles(cmGroup, _from, _value);
         }
         return this.onERC1155Received.selector;
     }
@@ -172,6 +180,9 @@ contract CMGMintHandler is CMGHandler {
         _clearConversion();
         // return the freshly minted gCRC to sender
         hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
+
+        // emit event for clarity
+        emit ReturnedMintedGroupCircles(cmGroup, _from, totalValue);
 
         return this.onERC1155BatchReceived.selector;
     }

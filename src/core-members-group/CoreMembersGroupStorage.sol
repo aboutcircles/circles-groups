@@ -16,6 +16,7 @@ contract CoreMembersGroupStorage {
         address redemptionHandler;
         address service;
         uint256 minimalDeposit;
+        address[] membershipConditions;
     }
 
     function _state() internal pure returns (State storage state) {
