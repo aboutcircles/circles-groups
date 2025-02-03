@@ -114,3 +114,8 @@ interface ICMGHandlerErrors {
     /// @notice logic assertion
     error CMGHandlerLogicAssertion();
 }
+
+interface ICMGPrimaryGroupRegistryErrors {
+    /// @notice to register primary group caller must be registered human and group must be group
+    error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);
+}
