@@ -94,7 +94,6 @@ contract CoreMembersGroup is
         address _service,
         address _mintHandler,
         address _redemptionHandler,
-        address[] calldata _initialConditions,
         string calldata _name,
         string calldata _symbol,
         bytes32 _metadataDigest
@@ -107,9 +106,6 @@ contract CoreMembersGroup is
         _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
         _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
-
-        // skips if condition is zero
-        _addMembershipCondition(_initialConditions[0]);
 
         // register group in hub and set the mint policy to this address
         hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
