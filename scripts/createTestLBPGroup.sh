@@ -37,13 +37,13 @@ if [ -f "./deployments/CMGroup-gnosis.txt" ] && [ -s "./deployments/CMGroup-gnos
 else
     DEPLOYMENT_COUNT=0
 fi
-NAME="TestCMGroup-$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
-SYMBOL="TEST-CM$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
+NAME="TestCMG-LBP-$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
+SYMBOL="TEST-LBP$(printf "%02d" $((DEPLOYMENT_COUNT + 1)))"
 SERVICE_ADDRESS="0x0000000000000000000000000000000000000000"
 METADATA_DIGEST="0x0000000000000000000000000000000000000000000000000000000000000000"
-INITIAL_CONDITIONS="[]" # Empty array for initial conditions
+INITIAL_CONDITIONS="[0xB4276b19E32DB027A0aF478446D09f8F37F92eba]" # condition for test LBP deployment
 
-echo -e "${BLUE}Creating CM Group...${NC}"
+echo -e "${BLUE}Creating LBP CM Group...${NC}"
 
 # Load the deployer address
 DEPLOYER_ADDRESS=$(tail -1 "./deployments/CMGDeployer-gnosis.txt")
@@ -64,11 +64,11 @@ GROUP_ADDRESS=$(cast send \
     | awk '{print $2}')
 
 if [ -z "$GROUP_ADDRESS" ]; then
-    echo -e "${RED}Error: CM Group creation failed${NC}"
+    echo -e "${RED}Error: LBP CM Group creation failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}CM Group created at:${NC} $GROUP_ADDRESS"
+echo -e "${GREEN}LBP CM Group created at:${NC} $GROUP_ADDRESS"
 
-# Save the CM Group address to a file
+# Save the LBP CM Group address to a file
 echo "$GROUP_ADDRESS" >> "./deployments/CMGroup-gnosis.txt"
