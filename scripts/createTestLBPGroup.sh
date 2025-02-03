@@ -46,7 +46,7 @@ INITIAL_CONDITIONS="[0xB4276b19E32DB027A0aF478446D09f8F37F92eba]" # condition fo
 echo -e "${BLUE}Creating LBP CM Group...${NC}"
 
 # Load the deployer address
-DEPLOYER_ADDRESS=$(tail -1 "./deployments/CMGDeployer-gnosis.txt")
+DEPLOYER_ADDRESS=$(tail -1 "./deployments/CMGroupDeployer-gnosis.txt")
 
 # Create the CM Group using cast send
 GROUP_ADDRESS=$(cast send \
