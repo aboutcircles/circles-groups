@@ -1,12 +1,10 @@
 import time
-import random
 import json
 from typing import Set
 from web3 import Web3
 from clients.nethermind import NethermindClient
 from clients.screening import ScreeningClient
 from config.settings import settings
-
 
 class TrustManagementAlgorithm:
     def __init__(
@@ -16,77 +14,107 @@ class TrustManagementAlgorithm:
         supergroup_address: str,
         private_key: str,
         supergroup_contract_address: str,
-        # supergroup_contract_abi: str,
     ):
+
         self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))  # Initialize Web3 instance
         if not self.web3.is_connected():
-            raise ConnectionError("Failed to connect to Ethereum node.")
-
-        abi_path = "/service/src/config/SuperGroupABI.json"
-        with open(abi_path, "r") as file:
-            supergroup_contract_abi = json.load(file)
-
+            raise ConnectionError("Failed to connect to Gnosis Chain node.")
 
         self.nethermind_client = nethermind_client
         self.screening_client = screening_client
         self.supergroup_address = supergroup_address
         self.private_key = private_key
-        self.supergroup_contract_address = self.web3.to_checksum_address(supergroup_contract_address)
-        self.supergroup_contract = self.web3.eth.contract(
-            address=self.supergroup_contract_address, abi=supergroup_contract_abi
-        )
-        self.trusted_accounts = set() 
 
-    def initialize(self):
+        # Simple in-memory cache
+        self._trusted_accounts = None
+        self._last_fetch_time = 0
+        self.cache_ttl = 300  # 5 minutes
+
+        # Initialize contract
+        self._initialize_contract(supergroup_contract_address)
+
+    def _initialize_contract(self, contract_address: str):
         try:
-            trusted_accounts = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address.lower())
-            if not trusted_accounts:
-                print(f"No trusted accounts found for supergroup {self.supergroup_address.lower()}.")
-                self.trusted_accounts = set()  # Initialize as empty set if no accounts
-            else:
-                # Ensure the data is in the correct format (set of trusted accounts)
-                self.trusted_accounts = set(trusted_accounts)
-                print(f"Successfully fetched trusted accounts: {self.trusted_accounts}")
-            
-        except Exception as e:
-            print(f"Error fetching trusted accounts: {str(e)}")
-            self.trusted_accounts = set()  # In case of error, initialize as empty set
+            with open(settings.supergroup_abi_path, "r") as file:
+                contract_abi = json.load(file)
 
+            self.supergroup_contract_address = self.web3.to_checksum_address(contract_address)
+            self.supergroup_contract = self.web3.eth.contract(
+                address=self.supergroup_contract_address,
+                abi=contract_abi
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize contract: {str(e)}")
+
+    def load_initial_accounts(self):
+        """Initial load of trusted accounts"""
+        try:
+            accounts = self.nethermind_client.fetch_group_trust_relations(
+                self.supergroup_address.lower()
+            )
+            self._trusted_accounts = set(accounts) if accounts else set()
+            self._last_fetch_time = time.time()
+            print(f"Initially loaded {len(self._trusted_accounts)} trusted accounts")
+        except Exception as e:
+            print(f"Error loading initial trusted accounts: {str(e)}")
+            self._trusted_accounts = set()
+
+    @property
+    def trusted_accounts(self) -> Set[str]:
+        """Get trusted accounts with cache handling"""
+        current_time = time.time()
+        if self._trusted_accounts is None or (current_time - self._last_fetch_time) > self.cache_ttl:
+            try:
+                accounts = self.nethermind_client.fetch_group_trust_relations(
+                    self.supergroup_address.lower()
+                )
+                self._trusted_accounts = set(accounts) if accounts else set()
+                self._last_fetch_time = current_time
+                print(f"Refreshed cache: {len(self._trusted_accounts)} trusted accounts")
+            except Exception as e:
+                print(f"Error fetching trusted accounts: {str(e)}")
+                if self._trusted_accounts is None:
+                    self._trusted_accounts = set()
+        return self._trusted_accounts
 
     def run_trust_management(self):
-        # Step 1: Fetch the list of backers from the completed LBP events
-        backers = set(self.nethermind_client.fetch_backers())
+            # Step 1: Fetch the list of backers from the completed LBP events
+            backers = set(self.nethermind_client.fetch_backers())
+            current_trusted = self.trusted_accounts
+            # Step 2: Subtract the trusted accounts from the backers list
+            new_backers = backers - current_trusted
+            if not new_backers:
+                print("No new backers found")
+                return
 
-        # Step 2: Subtract the trusted accounts from the backers list
-        new_backers = backers - self.trusted_accounts
+            # Step 3: Check each backer against the blacklist service
+            blacklist = self.screening_client.check_blacklist(list(new_backers))
 
-        # Step 3: Check each backer against the blacklist service
-        blacklist = self.screening_client.check_blacklist(list(new_backers))
+            # Step 4: Add valid backers (those not in the blacklist) to the trusted accounts
+            valid_backers = new_backers - set(blacklist)
 
-        # Step 4: Add valid backers (those not in the blacklist) to the trusted accounts
-        valid_backers = new_backers - set(blacklist)
-        print(f"Valid backers to add to trust list: {valid_backers}")
-       
-       # Convert valid backers to checksum addresses
-        valid_backers = {Web3.to_checksum_address(backer) for backer in valid_backers}
+            # Convert to checksum addresses
+            checksum_backers: Set[str] = {Web3.to_checksum_address(backer) for backer in valid_backers}
 
-        # Step 5: Call the `trustBatch` function to update on-chain trust relations
-        if valid_backers:
-            self.call_trust_batch(valid_backers)
-        else:
-            print("No valid backers to trust.")
+            # Step 5: Call the `trustBatch` function to update on-chain trust relations
+            if checksum_backers:
+                print(f"Adding {len(checksum_backers)} addresses to trust batch")
+                self.call_trust_batch(checksum_backers)  # Convert to Set[str]
+                # Update cache after successful trust batch
+                self._trusted_accounts = current_trusted | valid_backers
+                self._last_fetch_time = time.time()
+            else:
+                print("No valid backers to trust")
 
-    def call_trust_batch(self, valid_backers: Set[str]):
+    def call_trust_batch(self, checksum_backers: Set[str]):
         """Call the `trustBatch` function on the supergroup contract."""
         try:
             expiry = 2**96 - 1  # max uint96
-            
-            private_key = self.private_key
-            account = self.web3.eth.account.from_key(private_key)
+            account = self.web3.eth.account.from_key(self.private_key)
 
             # Build the transaction
             transaction = self.supergroup_contract.functions.trustBatch(
-                list(valid_backers), expiry
+                list(checksum_backers), expiry
             ).build_transaction({
                 "from": account.address,
                 "nonce": self.web3.eth.get_transaction_count(account.address),
@@ -103,13 +131,13 @@ class TrustManagementAlgorithm:
 
             # Wait for the transaction receipt
             receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
-            print(f"Transaction confirmed in block {receipt.blockNumber}")
+            print(f"Transaction confirmed in block {receipt['blockNumber']}")
 
         except Exception as e:
             print(f"Error calling trustBatch: {e}")
 
     def flush(self):
-        self.trusted_accounts = set()  # Reset the trusted accounts set
+        self._trusted_accounts = set()  # Reset the trusted accounts set directly
 
 
 class PollingService:
@@ -144,4 +172,3 @@ class PollingService:
             except Exception as e:
                 print(f"Error while polling blocks: {e}")
                 time.sleep(self.poll_interval)  # Wait before retrying in case of error
-    

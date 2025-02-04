@@ -6,15 +6,10 @@ from config.settings import settings
 # from config.SuperGroupABI import SUPERGROUP_CONTRACT_ABI
 
 def main():
-    
+
     # Initialize clients using the settings instance
     nethermind_client = NethermindClient(settings.nethermind_rpc_url)
     screening_client = ScreeningClient(settings.screening_url)
-    
-    # abi_path = "/Users/vanshika/code/circles-groups/service/src/config/SuperGroupABI.json"
-    # with open(abi_path, "r") as file:
-    #     supergroup_contract_abi = json.load(file)
-    
 
     # Initialize algorithm
     algorithm = TrustManagementAlgorithm(
@@ -24,12 +19,9 @@ def main():
         private_key=settings.private_key,
         supergroup_contract_address=settings.supergroup_address,  # Use the same address
     )
-    
-
-    algorithm.initialize()
 
     algorithm.run_trust_management()
-    
+
     # Initialize PollingService
     polling_service = PollingService(nethermind_client)
 

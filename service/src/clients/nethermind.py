@@ -54,6 +54,7 @@ class NethermindClient:
             ]
         }
 
+
         # Make the request
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
@@ -72,6 +73,14 @@ class NethermindClient:
 
         # Extract backers
         return [row[backer_index] for row in rows]
+
+
+    #Create a new function to handle fallback, before fetch_backers
+    # Query CirclesBackingInitiated event (backers)
+    # Subtract CirclesBackingInitiated(backers) - CirclesBackingCompleted(backers)
+    # CirclesBackingInitiated -> filter based on different backers addresses 
+    # if CirclesBacking Initiated ->  circlesBackingInstance address ( eth_call on CreateLBP() )      (only executable when cowswap hasn't called yet)
+
 
 
     #Fetch all the trust relations from the TrustRelations table
@@ -145,7 +154,6 @@ class NethermindClient:
                 print(f"No trustees found for supergroup {supergroup_address_normalized}.")
 
         return trustees
-
 
     #Get all the V2 humans from the Avatars table
 

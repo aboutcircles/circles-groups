@@ -9,13 +9,16 @@ class Settings:
     def __init__(self):
         # Load environment variables from .env file
         load_dotenv()
-
+        # Set up base paths
+        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.CONFIG_DIR = os.path.join(self.BASE_DIR, 'config')
         # RPC endpoints
         self.nethermind_rpc_url = self._get_env('NETHERMIND_RPC_URL')
         # self.lbp_indexer_url = self._get_env('LBP_INDEXER_URL')
         self.screening_url = self._get_env('ALLOWLIST_ENDPOINT')
         self.private_key = self._get_env('PRIVATE_KEY')
-
+        # File paths
+        self.supergroup_abi_path = os.path.join(self.CONFIG_DIR, 'SuperGroupABI.json')
         # # Algorithm settings
         # self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
         # self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))
@@ -30,6 +33,7 @@ class Settings:
         supergroup_address = self._get_env('SUPERGROUP_ADDRESS')
         if not Web3.is_address(supergroup_address):
             raise ValueError(f"Invalid Ethereum address: {supergroup_address}")
+
         self.supergroup_address = Web3.to_checksum_address(supergroup_address)
 
     def _get_env(self, key: str, default: Optional[str] = None) -> str:
@@ -48,15 +52,10 @@ class Settings:
         """Return settings as a dictionary"""
         return {
             'nethermind_rpc_url': self.nethermind_rpc_url,
-            'lbp_indexer_url': self.lbp_indexer_url,
             'database_url': self.screening_url,
-            'max_trusted': self.max_trusted,
-            'change_threshold': self.change_threshold,
-            'update_interval': self.update_interval,
-            'update_max_offset': self.update_max_offset,
-            'append_only': self.append_only,
-            'supergroup_address': self.SUPERGROUP_ADDRESS,
-            'private_key': self.PRIVATE_KEY
+            'supergroup_address': self.supergroup_address,
+            'private_key': self.private_key,
+            'supergroup_abi_path': self.supergroup_abi_path
         }
 
 # Create a global settings instance
