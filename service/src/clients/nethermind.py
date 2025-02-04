@@ -1,17 +1,21 @@
-import time
 import requests
 from typing import Set
 from web3 import Web3
-from config.settings import settings
-
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
         self.rpc_url = rpc_url
-        self.cache_trusted_by = {}
+        self.web3 = Web3(Web3.HTTPProvider(rpc_url))
+        self._cache = {
+            'trusted_by': {},  # Address -> set of trustees
+            'last_processed_block': 0
+        }
 
     def flush(self):
-        self.cache_trusted_by = {}
+        self._cache = {
+            'trusted_by': {},
+            'last_processed_block': 0
+        }
 
     def reset(self):
         self.flush()
@@ -28,12 +32,14 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
+    #Create a new function to handle fallback, before fetch_backers
+       # Query CirclesBackingInitiated event (backers)
+       # Subtract CirclesBackingInitiated(backers) - CirclesBackingCompleted(backers)
+       # CirclesBackingInitiated -> filter based on different backers addresses
+       # if CirclesBacking Initiated ->  circlesBackingInstance address ( eth_call on CreateLBP() )      (only executable when cowswap hasn't called yet)
 
-    # Fetch all the backers from the CirclesBackingCompleted table/event
-    # Backer -> the address of the user who backed their CRC
 
-   
-    def fetch_backers(self) -> list:
+    def fetch_backers(self) -> tuple[set[str], int]:
         """Fetch all backers from the CirclesBackingCompleted table/event."""
         query = {
             "jsonrpc": "2.0",
@@ -44,52 +50,50 @@ class NethermindClient:
                     "Namespace": "CrcV2",
                     "Table": "CirclesBackingCompleted",
                     "Columns": [
-                        "blockNumber", "timestamp", "transactionIndex", "logIndex",
-                        "transactionHash", "backer", "circlesBackingInstance", "lbp"
+                        "blockNumber", "backer"
                     ],
                     "Filter": [],
-                    "Order": [],
-                    "Limit": 1000 
+                    "Order": [
+                        {"Column": "blockNumber", "SortOrder": "DESC"}
+                    ],
+                    "Limit": 1000
                 }
             ]
         }
 
-
-        # Make the request
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
 
         result = response.json().get("result", {})
         if 'columns' not in result or 'rows' not in result:
-            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+            raise ValueError("Unexpected response structure")
 
         keys = result['columns']
         rows = result['rows']
 
         try:
             backer_index = keys.index('backer')
+            block_number_index = keys.index('blockNumber')
         except ValueError:
-            raise ValueError("Backer key not found in response columns.")
+            raise ValueError("Required columns not found in response")
 
-        # Extract backers
-        return [row[backer_index] for row in rows]
+        # Extract backers and latest block
+        backers = set()
+        latest_block = self._cache['last_processed_block']
 
+        for row in rows:
+            backers.add(row[backer_index])
+            block_number = int(row[block_number_index])
+            latest_block = max(latest_block, block_number)
 
-    #Create a new function to handle fallback, before fetch_backers
-    # Query CirclesBackingInitiated event (backers)
-    # Subtract CirclesBackingInitiated(backers) - CirclesBackingCompleted(backers)
-    # CirclesBackingInitiated -> filter based on different backers addresses 
-    # if CirclesBacking Initiated ->  circlesBackingInstance address ( eth_call on CreateLBP() )      (only executable when cowswap hasn't called yet)
+        self._cache['last_processed_block'] = latest_block
+        return backers, latest_block
 
+    def fetch_group_trust_relations(self, supergroup_address: str, last_processed_block: int = 0) -> tuple[set[str], int]:
+        """Fetch trust relations for a supergroup with block tracking."""
+        if supergroup_address in self._cache['trusted_by'] and last_processed_block == self._cache['last_processed_block']:
+            return self._cache['trusted_by'][supergroup_address], self._cache['last_processed_block']
 
-
-    #Fetch all the trust relations from the TrustRelations table
-    #Truster is the address of the user who trusts the trustee, here SuperGroup is the truster
-    #Trustee is the address of the user who is trusted by the truster
-
-
-    def fetch_group_trust_relations(self, supergroup_address: str) -> set:
-        """Fetch all trust relations where the SuperGroup is the truster."""
         query = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -98,64 +102,55 @@ class NethermindClient:
                 {
                     "Namespace": "V_CrcV2",
                     "Table": "TrustRelations",
-                    "Columns": ["truster", "trustee"],
-                    "Filter": [],
-                    "Order": [],  #order by block number, txn history 
+                    "Columns": ["trustee", "blockNumber"],
+                    "Filter": [
+                        {
+                            "Type": "FilterPredicate",
+                            "FilterType": "Equals",
+                            "Column": "truster",
+                            "Value": supergroup_address.lower()
+                        }
+                    ],
+                    "Order": [
+                        {"Column": "blockNumber", "SortOrder": "DESC"}
+                    ],
                     "Limit": 1000
                 }
             ]
         }
-        #TODO : add handler for block sync
 
         response = requests.post(self.rpc_url, json=query)
         response.raise_for_status()
-        result = response.json().get("result", {})
-        print(f"Response data: {result}")
 
+        result = response.json().get("result", {})
         if 'columns' not in result or 'rows' not in result:
-            print(f"Unexpected response structure: {result}")
-            raise ValueError("Unexpected response structure: result should contain 'columns' and 'rows'.")
+            raise ValueError("Unexpected response structure")
 
         keys = result['columns']
         rows = result['rows']
-        print(f"Columns: {keys}")
-        
+
         try:
-            truster_index = keys.index('truster')
             trustee_index = keys.index('trustee')
+            block_number_index = keys.index('blockNumber')
         except ValueError:
-            print(f"Missing 'truster' or 'trustee' in columns.")
-        
-        supergroup_address_normalized = settings.supergroup_address.lower()
+            return set(), last_processed_block
 
+        trustees = set()
+        latest_block = last_processed_block
 
-        trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
-        
-        if trustees:
-            print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
-            for trustee in trustees:
-                print(trustee)
-        else:
-            print(f"No trustees found for supergroup {supergroup_address_normalized}.")
+        for row in rows:
+            trustees.add(row[trustee_index])
+            block_number = int(row[block_number_index])
+            latest_block = max(latest_block, block_number)
 
-        print(trustees)
-      
-
-            # Extract trust relations, ensuring truster is the super_group_address
-        supergroup_address_normalized = settings.supergroup_address.lower()
-            
-        trustees = {row[trustee_index] for row in rows if row[truster_index] == supergroup_address_normalized}
+        # Update cache
+        self._cache['trusted_by'][supergroup_address] = trustees
+        self._cache['last_processed_block'] = latest_block
 
         if trustees:
-            print(f"Trustees trusted by supergroup {supergroup_address_normalized}:")
-            for trustee in trustees:
-                print(trustee)
-            else:
-                print(f"No trustees found for supergroup {supergroup_address_normalized}.")
+            print(f"Found {trustees} trustees for supergroup {supergroup_address}")
 
-        return trustees
-
-    #Get all the V2 humans from the Avatars table
+        return trustees, latest_block
 
     def get_all_v2_humans(self) -> Set[str]:
         """Get a list of all v2 human accounts registered in the Hub."""
@@ -205,5 +200,3 @@ class NethermindClient:
             raise ValueError(f"Invalid Ethereum addresses found: {invalid_addresses}")
 
         return set(human_addresses)
-
-    

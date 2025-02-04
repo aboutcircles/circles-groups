@@ -1,4 +1,3 @@
-import json
 from algorithm.trust_management import TrustManagementAlgorithm, PollingService
 from clients.nethermind import NethermindClient
 from clients.screening import ScreeningClient
