@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/projects/ces/ICirclesBackingFactory.sol";
+import "src/membership-conditions/projects/ces/ICirclesBackingFactory.sol";
 
 /// @notice Circles Core Addresses list the constant addresses
 ///         of the deployed core contracts of Circles on Gnosis Chain.

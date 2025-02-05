@@ -12,8 +12,12 @@ contract CoreMembersGroupStorage {
     /// @custom:storage-location erc7201:circles.storage.CoreMembersGroup
     struct State {
         address owner;
-        address ancillary;
+        address mintHandler;
+        address redemptionHandler;
         address service;
+        uint256 minimalDeposit;
+        address feeCollection;
+        address[] membershipConditions;
     }
 
     function _state() internal pure returns (State storage state) {

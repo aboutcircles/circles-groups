@@ -69,25 +69,57 @@ interface ICMGroupErrors {
     error CMGroupOnlyHub();
     /// @notice Only owner can call
     error CMGroupOnlyOwner();
+    /// @notice Membership check failed for avatar on condition
+    error CMGroupMembershipCheckFailed(address avatar, address failedCondition);
+    /// @notice Maximum number of conditions reached already
+    error CMGroupMaxConditionsActive(uint256 conditionsActive);
     /// @notice Only owner or service can call
     error CMGroupOnlyOwnerOrService();
+    /// @notice to interact with the group it must be above a set minimum
+    error CMGroupInteractionAmountIsBelowMinimum(uint256 id, uint256 receivedAmount, uint256 minimalAmount);
     /// @notice Sanity check error on calling parameters
     error CMGroupInvalidCallingParameters();
 }
 
-interface ICMGroupAncillaryErrors {
+interface ICMGHandlerErrors {
+    /// @notice only Hub can call
+    error CMGHandlerOnlyHub();
     /// @notice only CM Group can call
-    error CMAncillaryOnlyCMGroup();
+    error CMGHandlerOnlyCMGroup();
     /// @notice only owner can call
-    error CMAncillaryOnlyOwner();
+    error CMGHandlerOnlyOwner();
     /// @notice AcceptanceCallUnhandled
-    error CMAncillaryAcceptanceCallUnhandled();
+    error CMGHandlerAcceptanceCallUnhandled();
+    /// @notice As operator handler does not act on requested group
+    error CGMHandlerOperatorUnservicedGroup(address group);
     /// @notice Avoid attempting to collateralize self-referential group Circles
-    error CMAncillaryRefuseGroupCircles();
+    error CMGHandlerRefuseGroupCircles();
     /// @notice Only a single conversion can be ongoing at one time
-    error CMAncillaryConversionOngoing(uint256 amount);
+    error CMGHandlerConversionOngoing(uint256 amount);
+    /// @notice Expect a conversion to be ongoing
+    error CMGHandlerNoConversionExpected();
     /// @notice Revert on receiving zero amount
-    error CMAncillaryReceivedZeroAmount();
+    error CMGHandlerReceivedZeroAmount();
+    /// @notice Redemption of collateral is expected to originate from the vault
+    error CGMHandlerRedemptionExpectedFromVault(address from);
+    /// @notice The data hash does not match the expected hash for completing conversion
+    error CGMHandlerDataHashMismatchUponReceiving(bytes32 expectedDataHash, bytes receivedData);
+    /// @notice No vault contract exists for the given group address
+    error CMGHandlerVaultNotFound(address group);
+    /// @notice Thrown when a redemption request cannot be satisfied
+    ///         with available collateral and cutoff on search
+    error CMGHandlerCouldNotFillRedemptionRequest();
+    /// @notice Thrown early to prevent wasted gas when requested collateral is not present in vault
+    error CMGHandlerEarlyRevertCollateralNotPresent();
+    /// @notice Handler can only transfer handler's CRC
+    error CMGHandlerOnlyTransferOwnCircles();
+    /// @notice Sanity check error on calling parameters
+    error CMGHandlerInvalidCallingParameters();
     /// @notice logic assertion
-    error CMAncillaryLogicAssertion();
+    error CMGHandlerLogicAssertion();
+}
+
+interface ICMGPrimaryGroupRegistryErrors {
+    /// @notice to register primary group caller must be registered human and group must be group
+    error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);
 }

@@ -1,6 +1,6 @@
-# CES Supergroup Interaction CLI
+# CMG Interaction CLI
 
-A command line tool for interacting with the CES Supergroup smart contract on Gnosis Chain.
+A command line tool for interacting with CMG smart contracts on Gnosis Chain.
 
 ## Installation
 
@@ -40,58 +40,37 @@ The CLI provides the following commands:
 
 Get contract owner:
 ```bash
-python interact_ces.py get-owner
+python interact_cmg.py get-owner
 ```
 
 Get service address:
 ```bash
-python interact_ces.py get-service
-```
-
-Get list of operators:
-```bash
-python interact_ces.py get-operators
+python interact_cmg.py get-service
 ```
 
 Check if address is authorized operator:
 ```bash
-python interact_ces.py is-authorized-operator <address>
+python interact_cmg.py is-authorized-operator <address>
 ```
 
 ### Modify Contract State
 
-Set operator authorization:
-```bash
-python interact_ces.py set-authorized-operator <operator_address> <true|false>
-```
-
 Set service address:
 ```bash
-python interact_ces.py set-service <service_address>
+python interact_cmg.py set-service <service_address>
 ```
 
 Trust batch of addresses:
 ```bash
-python interact_ces.py trust-batch <address1> <address2> ... <expiry_timestamp>
+python interact_cmg.py trust-batch <address1> <address2> ... <expiry_timestamp>
 ```
 
 ## Examples
 
 Trust multiple addresses until timestamp 1735689600 (Jan 1, 2025):
 ```bash
-python interact_ces.py trust-batch 0x123... 0x456... 0x789... 1735689600
+python interact_cmg.py trust-batch 0x123... 0x456... 0x789... 1735689600
 ```
-
-Authorize an operator:
-```bash
-python interact_ces.py set-authorized-operator 0x123... true
-```
-
-## Security
-
-- Keep your private key secure and never commit it to version control
-- Review all transactions before signing
-- Test on testnet first before using on mainnet
 
 ## Requirements
 
