@@ -10,6 +10,14 @@ class NethermindClient:
             'trusted_by': {},  # Address -> set of trustees
             'last_processed_block': 0
         }
+        # Placeholder ABI - will create a new json file to handle once I get the ABI
+        self.abi = [{
+            "inputs": [],
+            "name": "CreateLBP",
+            "type": "function",
+            "stateMutability": "nonpayable",
+            "outputs": []
+        }]
 
     def flush(self):
         self._cache = {
@@ -32,62 +40,149 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
-    #Create a new function to handle fallback, before fetch_backers
-       # Query CirclesBackingInitiated event (backers)
-       # Subtract CirclesBackingInitiated(backers) - CirclesBackingCompleted(backers)
-       # CirclesBackingInitiated -> filter based on different backers addresses
-       # if CirclesBacking Initiated ->  circlesBackingInstance address ( eth_call on CreateLBP() )      (only executable when cowswap hasn't called yet)
-
-
-    def fetch_backers(self) -> tuple[set[str], int]:
-        """Fetch all backers from the CirclesBackingCompleted table/event."""
-        query = {
+    def fetch_backing_status(self) -> tuple[set[tuple[str, str]], set[str], int]:
+        """
+        Fetch both initiated and completed backings.
+        Returns:
+            - Set of (backer, instance) pairs needing CreateLBP
+            - Set of completed backer addresses
+            - Latest block number
+        """
+        # Query CirclesBackingInitiated events
+        initiated_query = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "circles_query",
-            "params": [
-                {
-                    "Namespace": "CrcV2",
-                    "Table": "CirclesBackingCompleted",
-                    "Columns": [
-                        "blockNumber", "backer"
-                    ],
-                    "Filter": [],
-                    "Order": [
-                        {"Column": "blockNumber", "SortOrder": "DESC"}
-                    ],
-                    "Limit": 1000
-                }
-            ]
+            "params": [{
+                "Namespace": "CrcV2",
+                "Table": "CirclesBackingInitiated",
+                "Columns": [
+                    "backer",
+                    "circlesBackingInstance",
+                    "blockNumber"
+                ],
+                "Filter": [],
+                "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
+                "Limit": 1000
+            }]
         }
 
-        response = requests.post(self.rpc_url, json=query)
-        response.raise_for_status()
+        # Query CirclesBackingCompleted events
+        completed_query = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "circles_query",
+            "params": [{
+                "Namespace": "CrcV2",
+                "Table": "CirclesBackingCompleted",
+                "Columns": [
+                    "backer",
+                    "circlesBackingInstance",
+                    "blockNumber"
+                ],
+                "Filter": [],
+                "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
+                "Limit": 1000
+            }]
+        }
 
-        result = response.json().get("result", {})
-        if 'columns' not in result or 'rows' not in result:
-            raise ValueError("Unexpected response structure")
+        initiated_response = requests.post(self.rpc_url, json=initiated_query)
+        completed_response = requests.post(self.rpc_url, json=completed_query)
 
-        keys = result['columns']
-        rows = result['rows']
+        initiated_result = initiated_response.json().get("result", {})
+        completed_result = completed_response.json().get("result", {})
 
-        try:
-            backer_index = keys.index('backer')
-            block_number_index = keys.index('blockNumber')
-        except ValueError:
-            raise ValueError("Required columns not found in response")
-
-        # Extract backers and latest block
-        backers = set()
+        # Process initiated events
+        initiated_pairs = set()
         latest_block = self._cache['last_processed_block']
 
-        for row in rows:
-            backers.add(row[backer_index])
-            block_number = int(row[block_number_index])
-            latest_block = max(latest_block, block_number)
+        if initiated_result.get('rows'):
+            initiated_cols = initiated_result['columns']
+            backer_idx = initiated_cols.index('backer')
+            instance_idx = initiated_cols.index('circlesBackingInstance')
+            block_idx = initiated_cols.index('blockNumber')
 
-        self._cache['last_processed_block'] = latest_block
-        return backers, latest_block
+            for row in initiated_result['rows']:
+                backer = row[backer_idx].lower()
+                instance = row[instance_idx].lower()
+                initiated_pairs.add((backer, instance))
+                latest_block = max(latest_block, int(row[block_idx]))
+
+        # Process completed events
+        completed_pairs = set()
+        completed_backers = set()
+
+        if completed_result.get('rows'):
+            completed_cols = completed_result['columns']
+            backer_idx = completed_cols.index('backer')
+            instance_idx = completed_cols.index('circlesBackingInstance')
+            block_idx = completed_cols.index('blockNumber')
+
+            for row in completed_result['rows']:
+                backer = row[backer_idx].lower()
+                instance = row[instance_idx].lower()
+                completed_pairs.add((backer, instance))
+                completed_backers.add(backer)
+                latest_block = max(latest_block, int(row[block_idx]))
+
+        # Find pairs needing CreateLBP
+        fallback_pairs = initiated_pairs - completed_pairs
+
+        return fallback_pairs, completed_backers, latest_block
+
+    def validate_create_lbp(self, instance_address: str, private_key: str) -> bool:
+       """Validate if CreateLBP can be called"""
+       try:
+           checksum_instance = self.web3.to_checksum_address(instance_address)
+           account = self.web3.eth.account.from_key(private_key)
+
+           print(f"Instance address: {checksum_instance}")
+           print(f"Account address: {account.address}")
+
+           contract = self.web3.eth.contract(
+               address=checksum_instance,
+               abi=self.abi
+           )
+
+           contract.functions.CreateLBP().call({'from': account.address})
+           return True
+       except Exception as e:
+           print(f"Validation failed with error: {str(e)}")
+           return False
+
+
+    def execute_create_lbp(self, instance_address: str, private_key: str) -> dict:
+        """Execute CreateLBP on a circles backing instance"""
+        try:
+            # Convert instance address to checksum
+            checksum_instance = self.web3.to_checksum_address(instance_address)
+            account = self.web3.eth.account.from_key(private_key)
+
+            print(f"Checksum instance address: {checksum_instance}")
+            print(f"Account address: {account.address}")
+
+            contract = self.web3.eth.contract(
+                address=checksum_instance,
+                abi=self.abi
+            )
+
+            transaction = contract.functions.CreateLBP().build_transaction({
+                "from": account.address,  # Account address is already checksum
+                "nonce": self.web3.eth.get_transaction_count(account.address),
+                "gas": 500000,
+                "gasPrice": self.web3.eth.gas_price,
+            })
+
+            signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key)
+            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+            return dict(receipt)
+        except ValueError as ve:
+            print(f"Address validation error: {str(ve)}")
+            raise
+        except Exception as e:
+            print(f"Execution failed with error: {str(e)}")
+            raise
 
     def fetch_group_trust_relations(self, supergroup_address: str, last_processed_block: int = 0) -> tuple[set[str], int]:
         """Fetch trust relations for a supergroup with block tracking."""

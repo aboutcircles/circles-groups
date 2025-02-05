@@ -7,32 +7,37 @@ from config.settings import settings
 
 class TrustManagementAlgorithm:
     def __init__(
-        self,
-        nethermind_client: NethermindClient,
-        screening_client: ScreeningClient,
-        supergroup_address: str,
-        private_key: str,
-        supergroup_contract_address: str,
-        cache_ttl: int = 300  # 5 minutes default TTL
-    ):
-        self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))
-        if not self.web3.is_connected():
-            raise ConnectionError("Failed to connect to Gnosis Chain node.")
+            self,
+            nethermind_client: NethermindClient,
+            screening_client: ScreeningClient,
+            supergroup_address: str,
+            private_key: str,
+            supergroup_contract_address: str,
+            cache_ttl: int = 300
+        ):
+            self.web3 = Web3(Web3.HTTPProvider(nethermind_client.rpc_url))
+            if not self.web3.is_connected():
+                raise ConnectionError("Failed to connect to Gnosis Chain node.")
 
-        self.nethermind_client = nethermind_client
-        self.screening_client = screening_client
-        self.supergroup_address = supergroup_address.lower()
-        self.private_key = private_key
-        self.cache_ttl = cache_ttl
+            self.nethermind_client = nethermind_client
+            self.screening_client = screening_client
+            self.supergroup_address = supergroup_address.lower()
+            self.private_key = private_key
+            self.cache_ttl = cache_ttl
 
-        # Initialize on-chain state
-        self._trusted_accounts, self._last_trust_block = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address)
-        self._backers, self._last_backer_block = self.nethermind_client.fetch_backers()
-        print(f"Initialized with {len(self._trusted_accounts)} trusted accounts from block {self._last_trust_block}")
-        print(f"Initialized with {len(self._backers)} backers from block {self._last_backer_block}")
+            try:
+                # Initialize on-chain state
+                self._trusted_accounts, self._last_trust_block = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address)
+                self._last_processed_block = 0  # Track last processed block
+                print(f"Initialized with {len(self._trusted_accounts)} trusted accounts from block {self._last_trust_block}")
+            except AttributeError as e:
+                print(f"Error initializing trust relations: {str(e)}")
+                self._trusted_accounts = set()
+                self._last_trust_block = 0
+                self._last_processed_block = 0
 
-        # Initialize contract
-        self._initialize_contract(supergroup_contract_address)
+            # Initialize contract
+            self._initialize_contract(supergroup_contract_address)
 
     def _initialize_contract(self, contract_address: str):
         try:
@@ -47,69 +52,119 @@ class TrustManagementAlgorithm:
             raise RuntimeError(f"Failed to initialize contract: {str(e)}")
 
     def _sync_state(self):
-            """Sync local state with current blockchain state"""
-            current_block = self.web3.eth.block_number
+        """Sync local state with current blockchain state"""
+        current_block = self.web3.eth.block_number
 
-            # Sync trust relations if behind
-            if current_block > self._last_trust_block:
-                print(f"Syncing trust relations from block {self._last_trust_block} to {current_block}")
-                new_trusted, latest_block = self.nethermind_client.fetch_group_trust_relations(
-                    self.supergroup_address,
-                    self._last_trust_block
-                )
-                self._trusted_accounts.update(new_trusted)
-                self._last_trust_block = latest_block
+        if current_block <= self._last_processed_block:
+            return
 
-            # Sync backers if behind
-            if current_block > self._last_backer_block:
-                print(f"Syncing backers from block {self._last_backer_block} to {current_block}")
-                new_backers, latest_block = self.nethermind_client.fetch_backers()
-                self._backers.update(new_backers)
-                self._last_backer_block = latest_block
+        print(f"\nSyncing state for block {current_block}")
+
+        # Fetch both initiated and completed backings
+        fallback_pairs, completed_backers, latest_block = self.nethermind_client.fetch_backing_status()
+
+        # Handle incomplete backings first
+        if fallback_pairs:
+            self._handle_incomplete_backings(fallback_pairs)
+
+        # Then handle trust relations
+        if current_block > self._last_trust_block:
+            print(f"Syncing trust relations from block {self._last_trust_block} to {current_block}")
+            new_trusted, latest_block = self.nethermind_client.fetch_group_trust_relations(
+                self.supergroup_address,
+                self._last_trust_block
+            )
+            self._trusted_accounts.update(new_trusted)
+            self._last_trust_block = latest_block
+
+        # Process completed backers
+        if completed_backers:
+            self._handle_completed_backers(completed_backers)
+
+        self._last_processed_block = current_block
+
+
+    def _handle_incomplete_backings(self, fallback_pairs: set[tuple[str, str]]):
+        """Process backings that need CreateLBP calls"""
+        print(f"Processing {len(fallback_pairs)} incomplete backings")
+
+        for _, instance in fallback_pairs:
+            print(f"\nProcessing instance: {instance}")
+
+            try:
+                checksum_instance = self.web3.to_checksum_address(instance)
+
+                print(f"Original instance address: {instance}")
+                print(f"Checksum instance address: {checksum_instance}")
+
+                # Pass private key for both validation and execution
+                if self.nethermind_client.validate_create_lbp(
+                    instance_address=checksum_instance,
+                    private_key=self.private_key  # Use private key here
+                ):
+                    receipt = self.nethermind_client.execute_create_lbp(
+                        instance_address=checksum_instance,
+                        private_key=self.private_key
+                    )
+                    if receipt['status'] == 1:
+                        print(f"Successfully executed CreateLBP for instance {checksum_instance}")
+                    else:
+                        print(f"CreateLBP failed for instance {checksum_instance}")
+                else:
+                    print(f"CreateLBP validation failed for instance {checksum_instance}")
+
+            except Exception as e:
+                print(f"Error processing instance {instance}: {str(e)}")
+                print(f"Error type: {type(e)}")
+                continue
+
+
+    def _handle_completed_backers(self, completed_backers: set[str]):
+        """Process completed backers for trust relationships"""
+        # Find new backers not yet trusted
+        new_backers = completed_backers - self._trusted_accounts
+        if not new_backers:
+            print("No new backers to process")
+            return
+
+        print(f"Processing {len(new_backers)} new backers")
+
+        # Screen against blacklist
+        blacklisted = set(self.screening_client.check_blacklist(list(new_backers)))
+        valid_backers = new_backers - blacklisted
+
+        if blacklisted:
+            print(f"Filtered out {len(blacklisted)} blacklisted addresses")
+
+        if not valid_backers:
+            print("No valid backers to trust after screening")
+            return
+
+        # Trust valid backers
+        checksum_backers = {str(Web3.to_checksum_address(backer)) for backer in valid_backers}
+        print(f"Adding {len(checksum_backers)} addresses to trust batch")
+
+        try:
+            self.call_trust_batch(checksum_backers)
+            self._trusted_accounts.update(valid_backers)
+            print("Successfully updated trust relationships")
+        except Exception as e:
+            print(f"Failed to execute trust batch: {str(e)}")
 
     def run_trust_management(self):
-           current_block = self.web3.eth.block_number
-           print(f"\nProcessing trust management for block {current_block}")
+        """Main execution function"""
+        current_block = self.web3.eth.block_number
+        print(f"\nProcessing block {current_block}")
 
-           # Ensure we're synced with current blockchain state
-           self._sync_state()
-
-           # Process new backers
-           new_backers = self._backers - self._trusted_accounts
-           print(f"Found {len(new_backers)} new backers not yet trusted")
-
-           if not new_backers:
-               print("No new backers to process")
-               return
-
-           # Screen new backers against blacklist
-           blacklisted = set(self.screening_client.check_blacklist(list(new_backers)))
-           valid_backers = new_backers - blacklisted
-
-           if blacklisted:
-               print(f"Filtered out {len(blacklisted)} blacklisted addresses")
-
-           if not valid_backers:
-               print("No valid backers to trust after screening")
-               return
-
-           # Trust valid backers - convert to string set for type compatibility
-           checksum_backers = {str(Web3.to_checksum_address(backer)) for backer in valid_backers}
-           print(f"Adding {len(checksum_backers)} addresses to trust batch")
-
-           try:
-               self.call_trust_batch(checksum_backers)
-               # Update local state only after successful on-chain transaction
-               self._trusted_accounts.update(valid_backers)
-               print("Successfully updated on-chain trust relationships")
-           except Exception as e:
-               print(f"Failed to execute trust batch: {e}")
-
+        try:
+            self._sync_state()
+        except Exception as e:
+            print(f"Error in trust management: {str(e)}")
 
     def call_trust_batch(self, checksum_backers: set[str]):
-        """Execute on-chain trust batch transaction"""
+        """Execute trust batch transaction"""
         try:
-            expiry = 2**96 - 1  # max uint96
+            expiry = 2**96 - 1
             account = self.web3.eth.account.from_key(self.private_key)
 
             transaction = self.supergroup_contract.functions.trustBatch(
@@ -133,11 +188,10 @@ class TrustManagementAlgorithm:
             raise Exception(f"Trust batch transaction failed: {str(e)}")
 
     def flush(self):
-        """Reset the algorithm state"""
+        """Reset algorithm state"""
         self._trusted_accounts, self._last_trust_block = self.nethermind_client.fetch_group_trust_relations(self.supergroup_address)
-        self._backers, self._last_backer_block = self.nethermind_client.fetch_backers()
+        self._last_processed_block = 0
         print(f"Reset state with {len(self._trusted_accounts)} trusted accounts from block {self._last_trust_block}")
-        print(f"Reset state with {len(self._backers)} backers from block {self._last_backer_block}")
 
 
 class PollingService:
