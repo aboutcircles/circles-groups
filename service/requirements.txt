@@ -1,0 +1,8 @@
+python-dotenv
+requests
+web3
+
+
+# for tests
+pytest
+requests_mock
