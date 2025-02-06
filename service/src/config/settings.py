@@ -19,6 +19,7 @@ class Settings:
         self.private_key = self._get_env('PRIVATE_KEY')
         # File paths
         self.supergroup_abi_path = os.path.join(self.CONFIG_DIR, 'SuperGroupABI.json')
+        self.circles_backing_abi_path = os.path.join(self.CONFIG_DIR, 'CirclesBackingABI.json')
         # # Algorithm settings
         # self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
         # self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))
@@ -55,7 +56,8 @@ class Settings:
             'database_url': self.screening_url,
             'supergroup_address': self.supergroup_address,
             'private_key': self.private_key,
-            'supergroup_abi_path': self.supergroup_abi_path
+            'supergroup_abi_path': self.supergroup_abi_path,
+            'circles_backing_abi_path': self.circles_backing_abi_path
         }
 
 # Create a global settings instance

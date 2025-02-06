@@ -1,6 +1,8 @@
 import requests
+import json
 from typing import Set
 from web3 import Web3
+from config.settings import settings
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
@@ -10,14 +12,15 @@ class NethermindClient:
             'trusted_by': {},  # Address -> set of trustees
             'last_processed_block': 0
         }
-        # Placeholder ABI - will create a new json file to handle once I get the ABI
-        self.abi = [{
-            "inputs": [],
-            "name": "CreateLBP",
-            "type": "function",
-            "stateMutability": "nonpayable",
-            "outputs": []
-        }]
+
+        # Load ABI from JSON file
+        try:
+            with open(settings.circles_backing_abi_path, "r") as file:
+                self.abi = json.load(file)
+        except FileNotFoundError:
+            raise Exception("CirclesBackingABI.json file not found")
+
+
 
     def flush(self):
         self._cache = {
@@ -64,6 +67,7 @@ class NethermindClient:
                 "Filter": [],
                 "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
                 "Limit": 1000
+                #Add pagination and higher limit handling
             }]
         }
 
@@ -83,6 +87,7 @@ class NethermindClient:
                 "Filter": [],
                 "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
                 "Limit": 1000
+                #Add pagination and higher limit handling
             }]
         }
 
@@ -141,15 +146,16 @@ class NethermindClient:
 
            contract = self.web3.eth.contract(
                address=checksum_instance,
-               abi=self.abi
+               abi = self.abi
            )
 
-           contract.functions.CreateLBP().call({'from': account.address})
+           contract.functions.createLBP().call({'from': account.address})
            return True
        except Exception as e:
            print(f"Validation failed with error: {str(e)}")
            return False
 
+           #small handles for execeptional cases
 
     def execute_create_lbp(self, instance_address: str, private_key: str) -> dict:
         """Execute CreateLBP on a circles backing instance"""
@@ -166,10 +172,10 @@ class NethermindClient:
                 abi=self.abi
             )
 
-            transaction = contract.functions.CreateLBP().build_transaction({
+            transaction = contract.functions.createLBP().build_transaction({
                 "from": account.address,  # Account address is already checksum
                 "nonce": self.web3.eth.get_transaction_count(account.address),
-                "gas": 500000,
+                "gas": 6000000,
                 "gasPrice": self.web3.eth.gas_price,
             })
 

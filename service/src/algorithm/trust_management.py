@@ -32,6 +32,7 @@ class TrustManagementAlgorithm:
                 print(f"Initialized with {len(self._trusted_accounts)} trusted accounts from block {self._last_trust_block}")
             except AttributeError as e:
                 print(f"Error initializing trust relations: {str(e)}")
+
                 self._trusted_accounts = set()
                 self._last_trust_block = 0
                 self._last_processed_block = 0
@@ -100,7 +101,7 @@ class TrustManagementAlgorithm:
                 # Pass private key for both validation and execution
                 if self.nethermind_client.validate_create_lbp(
                     instance_address=checksum_instance,
-                    private_key=self.private_key  # Use private key here
+                    private_key=self.private_key
                 ):
                     receipt = self.nethermind_client.execute_create_lbp(
                         instance_address=checksum_instance,
