@@ -33,11 +33,7 @@ contract CMGRedemptionHandlerTest is Test {
         bob = makeAddr("bob");
 
         // Deploy handler
-        handler = new CMGRedemptionHandler(
-            cmGroup,
-            owner,
-            "TestGroup"
-        );
+        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup");
     }
 
     // Test basic collateral management
