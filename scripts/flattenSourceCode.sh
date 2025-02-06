@@ -28,9 +28,12 @@ forge flatten src/core-members-group/CMGRedemptionHandler.sol > flattened/CMGRed
 forge fmt --check src/core-members-group/helpers/UpgradeableRenounceableProxy.sol
 forge flatten src/core-members-group/helpers/UpgradeableRenounceableProxy.sol > flattened/UpgradeableRenounceableProxy.flat.sol
 
-# Flatten the ActiveLBPBacker contract
-forge fmt --check src/membership-conditions/ActiveLBPBacker.sol
-forge flatten src/membership-conditions/ActiveLBPBacker.sol > flattened/ActiveLBPBacker.flat.sol
+# Flatten the ActiveLBPBacker condition contracts
+forge fmt --check src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol
+forge flatten src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol > flattened/ActiveOneUsdLBPBackerCondition.flat.sol
+
+forge fmt --check src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol
+forge flatten src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol > flattened/ActiveTenUsdLBPBackerCondition.flat.sol
 
 echo -e "${GREEN}Contract source code flattened for verification!${NC}"
 echo -e "${GREEN}Flattened files saved in ./flattened/ directory${NC}"
