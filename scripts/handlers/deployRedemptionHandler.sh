@@ -30,7 +30,7 @@ fi
 # set constructor params
 CMG_ADDRESS="0xc164522ebc7e6a8b4b08878cf9e330cfebf4850a"
 OWNER_ADDRESS="0x0e50fc4e7d629bC5EdD69B6DDDb3c22C6E60704b"
-GROUP_NAME="TestCMG-LBP-01"
+GROUP_NAME="TestCMGLBP01"
 
 if [ -z "$CMG_ADDRESS" ]; then
     echo -e "${RED}Error: CMG_ADDRESS not found in declarations${NC}"
@@ -54,11 +54,11 @@ echo -e "${BLUE}Deploying CMGRedemptionHandler...${NC}"
 
 # Deploy the handler contract
 HANDLER_ADDRESS=$(forge create \
+    src/core-members-group/CMGRedemptionHandler.sol:CMGRedemptionHandler \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    --constructor-args ${CMG_ADDRESS} ${OWNER_ADDRESS} ${GROUP_NAME} \
-    "src/core-members-group/CMGRedemptionHandler.sol:CMGRedemptionHandler" \
+    --constructor-args ${CMG_ADDRESS} ${OWNER_ADDRESS} "${GROUP_NAME}" \
     | grep "Deployed to" \
     | awk '{print $3}')
 

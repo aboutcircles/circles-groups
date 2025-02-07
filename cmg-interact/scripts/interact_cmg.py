@@ -440,6 +440,27 @@ def find_collateral(group_address, amount, partial):
     click.echo(f"Found amounts: {result[1]}")
 
 @cli.command()
+@click.argument("redemption_handler_address")
+@click.argument("group_address")
+@click.argument("amount", type=int)
+@click.option("--partial/--no-partial", default=False, help="Allow partial fills")
+def find_collateral_for_handler(redemption_handler_address, group_address, amount, partial):
+    """Find available collateral for redemption using specific redemption handler"""
+    redemption_handler_address = Web3.to_checksum_address(redemption_handler_address)
+    group_address = Web3.to_checksum_address(group_address)
+
+    handler = w3.eth.contract(address=redemption_handler_address, abi=redemption_handler_abi)
+
+    result = handler.functions.findCollateral(
+        group_address,
+        amount,
+        partial
+    ).call()
+
+    click.echo(f"Found collateral IDs: {result[0]}")
+    click.echo(f"Found amounts: {result[1]}")
+
+@cli.command()
 @click.argument("group_address")
 @click.argument("redemption_ids", nargs=-1, type=int)
 @click.argument("redemption_values", nargs=-1, type=int)
@@ -476,6 +497,32 @@ def sync_valid_collateral(collateral_ids):
     account = get_account()
 
     txn = redemption_handler.functions.syncValidCollateral(list(collateral_ids)).build_transaction({
+        'from': account.address,
+        'nonce': w3.eth.get_transaction_count(account.address),
+        'gas': 500000,
+        'gasPrice': w3.eth.gas_price
+    })
+
+    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    click.echo(f"Transaction hash: {tx_hash.hex()}")
+
+@cli.command()
+@click.argument("redemption_handler_address")
+@click.argument('addresses', nargs=-1, required=True)
+def sync_valid_collateral_for_handler(redemption_handler_address, addresses):
+    """Sync status of collateral IDs for a specific redemption handler"""
+    account = get_account()
+
+    redemption_handler_address = Web3.to_checksum_address(redemption_handler_address)
+    redemption_handler = w3.eth.contract(address=redemption_handler_address, abi=redemption_handler_abi)
+
+    # Convert addresses to uint256 token IDs
+    token_ids = [int(addr, 16) for addr in addresses]
+
+    txn = redemption_handler.functions.syncValidCollateral(token_ids).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
         'gas': 500000,
