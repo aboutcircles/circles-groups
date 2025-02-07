@@ -250,7 +250,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         // Trim arrays if needed
-        if (outputIdx < numActive) {
+        if (outputIdx < MAX_NUMBER_REDEMPTION_IDS) {
             assembly {
                 mstore(ids, outputIdx)
                 mstore(amounts, outputIdx)
