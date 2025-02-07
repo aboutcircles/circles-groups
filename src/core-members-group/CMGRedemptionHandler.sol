@@ -186,6 +186,45 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         emit ReturnedRedeemedCollateral(cmGroup, msg.sender, value);
     }
 
+    /// @notice View function to return active collateral with balances starting from offset
+    /// @param offset Starting position in active collateral array
+    /// @return ids Array of active collateral IDs
+    /// @return balances Array of vault balances for each ID
+    /// @return totalArrayLength Total length of active collateral array
+    function getActiveCollateral(uint256 offset)
+        public
+        view
+        returns (uint256[] memory ids, uint256[] memory balances, uint256 totalArrayLength)
+    {
+        address vault = _getGroupVault();
+        uint256 numActive = activeCollateralIds.length;
+        totalArrayLength = numActive;
+
+        if (numActive == 0 || offset >= numActive) {
+            return (new uint256[](0), new uint256[](0), numActive);
+        }
+
+        uint256 length = numActive - offset;
+        if (length > MAX_NUMBER_REDEMPTION_IDS) {
+            length = MAX_NUMBER_REDEMPTION_IDS;
+        }
+
+        ids = new uint256[](length);
+        balances = new uint256[](length);
+
+        // Build arrays of IDs and addresses for batch balance check
+        address[] memory accounts = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            ids[i] = activeCollateralIds[offset + i];
+            accounts[i] = vault;
+        }
+
+        // Get all balances in single call
+        balances = hub.balanceOfBatch(accounts, ids);
+
+        return (ids, balances, numActive);
+    }
+
     /// @notice Find available collateral IDs and amounts for redeeming a certain amount
     function findCollateral(address _group, uint256 _amount, bool _partialFillable)
         public
