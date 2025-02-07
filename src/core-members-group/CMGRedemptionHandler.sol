@@ -203,7 +203,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256 numActive = activeCollateralIds.length;
         if (numActive == 0) return (new uint256[](0), new uint256[](0));
 
-        // temporally "allocate" lengthy arrays (check this is sensible)
+        // temporally "allocate" lengthy arrays
         uint256[] memory ids = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
         uint256[] memory amounts = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
 
