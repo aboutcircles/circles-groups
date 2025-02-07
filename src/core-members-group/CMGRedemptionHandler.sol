@@ -107,7 +107,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
-            if (remainingBalance <= _minimalTrackingAmount) {
+            if (remainingBalance <= _minimalTrackingAmount && balances[i] != 0) {
                 _removeActiveId(id);
             }
         }
@@ -273,7 +273,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         returns (bytes4)
     {
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion, address beneficiary, bytes32 dataHash) = _expectingConversionReturn();
+        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
         // starting branch: receive groupId to initiate redemption
         if (ongoingConversion == 0 && _id == cmGroupId) {
             (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
@@ -282,7 +282,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             if (ids.length > 0) {
                 // todo: tstore _data so we can recover it on completion
-                _initiateConversion(_from, _value, _data);
+                _initiateConversion(_from, _value);
                 // note: we can't use the same redeem function because now we already hold the gCRC!
                 _redeemUponReceivedGroupCircles(_value, ids, amounts);
             }
@@ -292,11 +292,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             // expect this to be sent by the vault
             if (_getGroupVault() != _from) {
                 revert CGMHandlerRedemptionExpectedFromVault(_from);
-            }
-
-            // Also check data hash matches for the collateral being redeemed
-            if (dataHash != keccak256(_data)) {
-                revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
             }
 
             _clearConversion();
@@ -328,7 +323,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         bytes memory _data
     ) public override onlyHub returns (bytes4) {
         // check for expected conversion
-        (uint256 ongoingConversion, address beneficiary, bytes32 dataHash) = _expectingConversionReturn();
+        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
 
         // verify we are expecting a conversion
         if (ongoingConversion == 0) {
@@ -351,11 +346,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         // verify sender is the group vault
         if (_from != _getGroupVault()) {
             revert CGMHandlerRedemptionExpectedFromVault(_from);
-        }
-
-        // verify data hash matches
-        if (dataHash != keccak256(_data)) {
-            revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
         }
 
         // clear conversion state

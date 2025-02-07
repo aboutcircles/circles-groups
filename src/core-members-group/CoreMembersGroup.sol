@@ -62,8 +62,16 @@ contract CoreMembersGroup is
 
     /// @notice Only the Circles Hub can call this function
     modifier onlyHub() {
-        if (msg.sender != address(hub)) {
+        if (msg.sender != address(hub))  {
             revert CMGroupOnlyHub();
+        }
+        _;
+    }
+
+    /// @notice Only the Circles Hub or group Treasury can call this function
+    modifier onlyHubOrTreasury() {
+        if (msg.sender != address(standardTreasury))  {
+            revert CMGroupOnlyHubOrTreasury();
         }
         _;
     }
@@ -272,7 +280,7 @@ contract CoreMembersGroup is
     )
         external
         override
-        onlyHub
+        onlyHubOrTreasury
         returns (
             uint256[] memory _ids,
             uint256[] memory _values,

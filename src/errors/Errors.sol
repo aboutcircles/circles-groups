@@ -67,6 +67,8 @@ interface ICMGroupErrors {
     error CMGroupProxyAlreadyInitialised();
     /// @notice Only Hub can call
     error CMGroupOnlyHub();
+    /// @notice Only Hub Or Treasury can call
+    error CMGroupOnlyHubOrTreasury();
     /// @notice Only owner can call
     error CMGroupOnlyOwner();
     /// @notice Membership check failed for avatar on condition

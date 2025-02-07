@@ -84,15 +84,12 @@ contract CMGMintHandler is CMGHandler {
         returns (bytes4)
     {
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion,, bytes32 dataHash) = _expectingConversionReturn();
+        (uint256 ongoingConversion,) = _expectingConversionReturn();
 
         if (_from == address(0)) {
             // group CRC were minted here
             // so expect an ongoing conversion from collateral to gCRC
             if (ongoingConversion == _value && _id == cmGroupId) {
-                if (keccak256(_data) != dataHash) {
-                    revert CGMHandlerDataHashMismatchUponReceiving(dataHash, _data);
-                }
                 _clearConversion();
                 // return the gCRC at the conclusion of the original handler,
                 // so gracefully accept and return
@@ -108,7 +105,7 @@ contract CMGMintHandler is CMGHandler {
             // from is not zero (ie. not minted) && id is not gCRC
 
             // set our expectation lock (reverts if already ongoing)
-            _initiateConversion(_from, _value, _data);
+            _initiateConversion(_from, _value);
 
             // assume any tokens received (that are not gCRC)
             // to be an attempt to mint gCRC
@@ -160,7 +157,7 @@ contract CMGMintHandler is CMGHandler {
         }
 
         // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion,,) = _expectingConversionReturn();
+        (uint256 ongoingConversion,) = _expectingConversionReturn();
 
         if (ongoingConversion != uint256(0)) {
             // redemptions are handled by redemption handler,
@@ -173,7 +170,7 @@ contract CMGMintHandler is CMGHandler {
         // revert if ids reference our Core Members group directly
         address[] memory collateralAvatars = _doesNotContainGroupCircles(_ids);
         // enable the lock
-        _initiateConversion(_from, totalValue, _data);
+        _initiateConversion(_from, totalValue);
         // attempt group mint
         hub.groupMint(cmGroup, collateralAvatars, _values, _data);
         // tidy up afterwards
