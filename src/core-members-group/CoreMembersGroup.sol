@@ -70,7 +70,7 @@ contract CoreMembersGroup is
 
     /// @notice Only the Circles Hub or group Treasury can call this function
     modifier onlyHubOrTreasury() {
-        if (msg.sender != address(standardTreasury))  {
+        if (msg.sender != address(hub) && msg.sender != address(standardTreasury))  {
             revert CMGroupOnlyHubOrTreasury();
         }
         _;

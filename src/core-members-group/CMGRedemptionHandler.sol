@@ -107,7 +107,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
-            if (remainingBalance <= _minimalTrackingAmount && balances[i] != 0) {
+            if (remainingBalance <= _minimalTrackingAmount && indexInActiveIds[id] != 0) {
                 _removeActiveId(id);
             }
         }
