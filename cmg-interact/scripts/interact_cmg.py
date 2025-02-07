@@ -129,7 +129,7 @@ def set_service(service_address):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Service update transaction hash: {tx_hash.hex()}")
+    click.echo(f"Service update transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("mint_handler_address")
@@ -150,7 +150,7 @@ def set_mint_handler(mint_handler_address):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("redemption_handler_address")
@@ -171,7 +171,7 @@ def set_redemption_handler(redemption_handler_address):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("minimal_deposit", type=int)
@@ -190,7 +190,7 @@ def set_minimal_deposit(minimal_deposit):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("fee_collection_address")
@@ -211,7 +211,7 @@ def set_fee_collection(fee_collection_address):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("condition_address")
@@ -233,7 +233,7 @@ def set_membership_condition(condition_address, enabled):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("trust_receiver")
@@ -258,7 +258,7 @@ def trust(trust_receiver, expiry):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument('addresses', nargs=-1, required=True)
@@ -289,7 +289,7 @@ def trust_batch(addresses, expiry):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("flag")
@@ -311,7 +311,7 @@ def set_advanced_usage_flag(flag):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("metadata_digest")
@@ -333,7 +333,7 @@ def update_metadata_digest(metadata_digest):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 def register_short_name():
@@ -352,7 +352,7 @@ def register_short_name():
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Group contract transaction hash: {tx_hash.hex()}")
+    click.echo(f"Group contract transaction hash: 0x{tx_hash.hex()}")
 
     # Register for mint handler contract
     txn = mint_handler.functions.registerShortName().build_transaction({
@@ -366,7 +366,7 @@ def register_short_name():
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Mint handler transaction hash: {tx_hash.hex()}")
+    click.echo(f"Mint handler transaction hash: 0x{tx_hash.hex()}")
 
     # Register for redemption handler contract
     txn = redemption_handler.functions.registerShortName().build_transaction({
@@ -380,7 +380,7 @@ def register_short_name():
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Redemption handler transaction hash: {tx_hash.hex()}")
+    click.echo(f"Redemption handler transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("nonce", type=int)
@@ -399,7 +399,7 @@ def register_short_name_with_nonce(nonce):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument('addresses', nargs=-1, required=True)
@@ -420,7 +420,7 @@ def sync_trust(addresses):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("group_address")
@@ -488,7 +488,7 @@ def redeem(group_address, redemption_ids, redemption_values):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("collateral_ids", nargs=-1, type=int)
@@ -507,7 +507,7 @@ def sync_valid_collateral(collateral_ids):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("redemption_handler_address")
@@ -533,7 +533,7 @@ def sync_valid_collateral_for_handler(redemption_handler_address, addresses):
     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: {tx_hash.hex()}")
+    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 if __name__ == "__main__":
     cli()
