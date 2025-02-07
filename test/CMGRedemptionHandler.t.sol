@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+pragma solidity ^0.8.28;
+
+import {Test, console} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
+
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+
+import {CMGroupDeployer} from "src/core-members-group/helpers/CMGroupDeployer.sol";
+import {CoreMembersGroup } from "src/core-members-group/CoreMembersGroup.sol";
+import {CMGRedemptionHandler} from "src/core-members-group/CMGRedemptionHandler.sol";
+import {IHub} from "src/circles/IHub.sol";
+
+/**
+ * @title CMGRedemptionHandler
+ * @notice Foundry test suite for CMGRedemptionHandler contract.
+ */
+contract CirclesBackingFactoryTest is Test {
+    // -------------------------------------------------------------------------
+    // Constants
+    // -------------------------------------------------------------------------
+    uint256 internal constant FORK_BLOCK_NUMBER = 37997675;
+
+    // Addresses
+    IHub internal constant HUB_V2 = IHub(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8);
+
+    // Gnosis fork ID
+    uint256 internal gnosisFork;
+
+    address ADMIN = makeAddr("admin");
+    address groupMember = 0x05e7e9691a14353f9956dc8ac7B196f05f4dD44c;
+    CMGroupDeployer deployerHelperContract;
+    address cmGroup;
+    address mintHandler;
+    address redemptionHandler;
+
+    // -------------------------------------------------------------------------
+    // Setup
+    // -------------------------------------------------------------------------
+    function setUp() public {
+        // Fork from Gnosis
+        gnosisFork = vm.createFork(vm.envString("RPC_URL_GNOSIS"), FORK_BLOCK_NUMBER);
+        vm.selectFork(gnosisFork);
+
+        // Deploy factory
+        deployerHelperContract = new CMGroupDeployer();
+
+        address service = address(0x45351432);
+        address[] memory _initialConditions = new address[](0);
+
+        vm.recordLogs();
+        // deploy implementaion (from EOA)
+        vm.prank(ADMIN);
+        cmGroup = deployerHelperContract.createCMGroup(
+            service,
+            _initialConditions,
+            "TestGroup",
+            "TG",
+            0x0
+        );
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        for (uint i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("CMGroupCreated(address,address,address,address)")) {
+                mintHandler = address(uint160(uint256(logs[i].topics[3])));
+                redemptionHandler = abi.decode(logs[i].data, (address));
+            }
+        }
+
+        vm.prank(ADMIN);
+        // @notice `1838853579` is just some timestamp in the future
+        CoreMembersGroup(cmGroup).trust(groupMember, 1838853579);
+    }
+
+    function test_groupTokenMint() public {
+        uint256 MINT_AMOUNT = 3e18;
+        vm.prank(groupMember);
+        IERC1155(HUB_V2).safeTransferFrom(groupMember, mintHandler, uint256(uint160(groupMember)), MINT_AMOUNT, "");
+        assertEq(
+            IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup))),
+            MINT_AMOUNT
+        );
+    }
+
+    function test_automaticGroupTokenRedempton() public {
+        test_groupTokenMint();
+        uint256 initialMemberGroupTokenBalance = IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup)));
+
+        uint256 REDEEM_AMOUNT = 1e18;
+
+        vm.prank(groupMember);
+        IERC1155(HUB_V2).safeTransferFrom(groupMember, redemptionHandler, uint256(uint160(cmGroup)), REDEEM_AMOUNT, "");
+        
+        assertEq(
+            initialMemberGroupTokenBalance - REDEEM_AMOUNT,
+            IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup)))
+        );
+    }
+
+    function test_redeemFunciton() public {
+        test_groupTokenMint();
+        uint256 initialMemberGroupTokenBalance = IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup)));
+
+        uint256 REDEEM_AMOUNT = 1e18;
+
+        (uint256[] memory ids, uint256[] memory amounts) = CMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, REDEEM_AMOUNT, false);
+
+        vm.prank(groupMember);
+        IERC1155(HUB_V2).setApprovalForAll(redemptionHandler, true);
+        vm.prank(groupMember);
+        CMGRedemptionHandler(redemptionHandler).redeem(cmGroup, ids, amounts);
+
+        assertEq(
+            initialMemberGroupTokenBalance - REDEEM_AMOUNT,
+            IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup)))
+        );
+    }
+}
