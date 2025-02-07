@@ -29,7 +29,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     // Events
 
     /// @notice Emitted when a new conversion is initiated
-    event ConversionInitiated(address indexed beneficiary, uint256 amount, bytes32 dataHash);
+    event ConversionInitiated(address indexed beneficiary, uint256 amount);
 
     /// @notice Emitted when a conversion is completed and cleared
     event ConversionCleared();
@@ -172,19 +172,15 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     /// @notice Initiates a conversion process by storing the amount in transient storage
     /// @dev Uses transient storage to track ongoing conversions within a transaction
     /// @param _amount Amount to convert - must be non-zero
-    function _initiateConversion(address _beneficiary, uint256 _amount, bytes memory _data) internal {
+    function _initiateConversion(address _beneficiary, uint256 _amount) internal {
         // Revert if amount is zero
         if (_amount == uint256(0)) {
             revert CMGHandlerReceivedZeroAmount();
         }
 
-        // hash the data to store the digest
-        bytes32 dataHash = keccak256(_data);
-
         uint256 ongoingConversion;
         bytes32 conversionSlot = CONVERSION_SLOT;
         bytes32 beneficiarySlot = BENEFICIARY_SLOT;
-        bytes32 dataHashSlot = DATA_HASH_SLOT;
 
         // Load any existing conversion amount from transient storage
         assembly {
@@ -201,34 +197,30 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         assembly {
             tstore(conversionSlot, _amount)
             tstore(beneficiarySlot, _beneficiary)
-            tstore(dataHashSlot, dataHash)
         }
 
-        emit ConversionInitiated(_beneficiary, _amount, dataHash);
+        emit ConversionInitiated(_beneficiary, _amount);
     }
 
     /// @notice Checks if there is an ongoing conversion and returns the amount and beneficiary
     /// @dev Reads the current conversion amount and beneficiary from transient storage
     /// @return ongoingConversion The amount of the ongoing conversion, or 0 if none is active
     /// @return beneficiary The address of the beneficiary for the ongoing conversion
-    /// @return dataHash The hash of the conversion data
     function _expectingConversionReturn()
         internal
         view
-        returns (uint256 ongoingConversion, address beneficiary, bytes32 dataHash)
+        returns (uint256 ongoingConversion, address beneficiary)
     {
         bytes32 conversionSlot = CONVERSION_SLOT;
         bytes32 beneficiarySlot = BENEFICIARY_SLOT;
-        bytes32 dataHashSlot = DATA_HASH_SLOT;
 
         // Load the current conversion amount, beneficiary and data hash from transient storage
         assembly {
             ongoingConversion := tload(conversionSlot)
             beneficiary := tload(beneficiarySlot)
-            dataHash := tload(dataHashSlot)
         }
 
-        return (ongoingConversion, beneficiary, dataHash);
+        return (ongoingConversion, beneficiary);
     }
 
     /// @notice Clears the ongoing conversion by resetting transient storage
@@ -236,12 +228,10 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     function _clearConversion() internal {
         bytes32 conversionSlot = CONVERSION_SLOT;
         bytes32 beneficiarySlot = BENEFICIARY_SLOT;
-        bytes32 dataHashSlot = DATA_HASH_SLOT;
 
         assembly {
             tstore(conversionSlot, 0)
             tstore(beneficiarySlot, 0)
-            tstore(dataHashSlot, 0)
         }
 
         emit ConversionCleared();
