@@ -2,12 +2,12 @@
 pragma solidity >=0.8.28;
 
 import "src/circles/Core.sol";
-import "src/membership-conditions/projects/ces/CESCoreAddresses.sol";
+import "src/membership-conditions/projects/circles-backing-group/CirclesBackingLBPAddresses.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
 
 /// @title ActiveLBPBackerMembershipCondition
 /// @notice A membership condition that checks if the given avatar has an active LBP
-contract ActiveLBPBackerCondition is CirclesCoreAddresses, CESCoreAddresses, IMembershipCondition {
+contract ActiveOneUsdLBPBackerCondition is CirclesCoreAddresses, TestLBPOneUsdCoreAddresses, IMembershipCondition {
     // External functions
 
     /// @notice Checks whether the avatar is human (implied by check of LBP factory) and
