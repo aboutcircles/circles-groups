@@ -18,3 +18,11 @@ sketches/
 
 # dont commit flattened source code
 /flattened
+
+# python
+venv/
+__pycache__/
+*.py[cod]
+
+# abis
+abis/
