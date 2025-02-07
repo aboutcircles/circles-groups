@@ -26,7 +26,7 @@ jobs:
       - name: Build & push group-management-service (dev)
         uses: docker/build-push-action@v2
         with:
-          context: ./service
-          file: Dockerfile
+          context: ./service/
+          file: ./service/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/group-management-service:dev
