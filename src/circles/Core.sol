@@ -5,9 +5,21 @@ import "src/circles/IHub.sol";
 import "src/circles/INameRegistry.sol";
 import "src/circles/IStandardTreasury.sol";
 
+contract CirclesCoreAddresses {
+    // Structs
+
+    /// @notice CirclesCore defines core addresses of Circles
+    ///         protocol to interact with it.
+    struct CirclesCore {
+        IHub hub;
+        IStandardTreasury standardTreasury;
+        INameRegistryExtended nameRegistry;
+    }
+}
+
 /// @notice Circles Core Addresses list the constant addresses
 ///         of the deployed core contracts of Circles on Gnosis Chain.
-contract CirclesCoreAddresses {
+contract CirclesV2BetaAddresses {
     // Constants
 
     // these constants can be verified on
@@ -19,10 +31,14 @@ contract CirclesCoreAddresses {
     /// @dev Name Registry
     INameRegistryExtended internal nameRegistry =
         INameRegistryExtended(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
-    /// @dev Migration contract to migrate Circles from Hub v1 to Hub v2
-    address internal migration = address(0xD44B8dcFBaDfC78EA64c55B705BFc68199B56376);
-    /// @dev Lift ERC20 helps lift ERC1155 Circles out into an ERC20 wrapper contract
-    address internal liftERC20 = address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5);
-    /// @dev the original Circles Hub v1 contract
-    address internal hubV1 = address(0x29b9a7fBb8995b2423a71cC17cf9810798F6C543);
+    // /// @dev Migration contract to migrate Circles from Hub v1 to Hub v2
+    // address internal migration = address(0xD44B8dcFBaDfC78EA64c55B705BFc68199B56376);
+    // /// @dev Lift ERC20 helps lift ERC1155 Circles out into an ERC20 wrapper contract
+    // address internal liftERC20 = address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5);
+    // /// @dev the original Circles Hub v1 contract
+    // address internal hubV1 = address(0x29b9a7fBb8995b2423a71cC17cf9810798F6C543);
+
+    function getCirclesCore() external view returns (CirclesCoreAddresses.CirclesCore memory) {
+        return CirclesCoreAddresses.CirclesCore(hub, standardTreasury, nameRegistry);
+    }
 }
