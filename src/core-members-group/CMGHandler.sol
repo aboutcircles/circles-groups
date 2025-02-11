@@ -206,11 +206,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     /// @dev Reads the current conversion amount and beneficiary from transient storage
     /// @return ongoingConversion The amount of the ongoing conversion, or 0 if none is active
     /// @return beneficiary The address of the beneficiary for the ongoing conversion
-    function _expectingConversionReturn()
-        internal
-        view
-        returns (uint256 ongoingConversion, address beneficiary)
-    {
+    function _expectingConversionReturn() internal view returns (uint256 ongoingConversion, address beneficiary) {
         bytes32 conversionSlot = CONVERSION_SLOT;
         bytes32 beneficiarySlot = BENEFICIARY_SLOT;
 

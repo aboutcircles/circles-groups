@@ -7,7 +7,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 import {CMGroupDeployer} from "src/core-members-group/helpers/CMGroupDeployer.sol";
-import {CoreMembersGroup } from "src/core-members-group/CoreMembersGroup.sol";
+import {CoreMembersGroup} from "src/core-members-group/CoreMembersGroup.sol";
 import {CMGRedemptionHandler} from "src/core-members-group/CMGRedemptionHandler.sol";
 import {IHub} from "src/circles/IHub.sol";
 
@@ -51,16 +51,10 @@ contract CirclesBackingFactoryTest is Test {
         vm.recordLogs();
         // deploy implementaion (from EOA)
         vm.prank(ADMIN);
-        cmGroup = deployerHelperContract.createCMGroup(
-            service,
-            _initialConditions,
-            "TestGroup",
-            "TG",
-            0x0
-        );
+        cmGroup = deployerHelperContract.createCMGroup(service, _initialConditions, "TestGroup", "TG", 0x0);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        for (uint i = 0; i < logs.length; i++) {
+        for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics[0] == keccak256("CMGroupCreated(address,address,address,address)")) {
                 mintHandler = address(uint160(uint256(logs[i].topics[3])));
                 redemptionHandler = abi.decode(logs[i].data, (address));
@@ -76,10 +70,7 @@ contract CirclesBackingFactoryTest is Test {
         uint256 MINT_AMOUNT = 3e18;
         vm.prank(groupMember);
         IERC1155(HUB_V2).safeTransferFrom(groupMember, mintHandler, uint256(uint160(groupMember)), MINT_AMOUNT, "");
-        assertEq(
-            IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup))),
-            MINT_AMOUNT
-        );
+        assertEq(IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup))), MINT_AMOUNT);
     }
 
     function test_automaticGroupTokenRedempton() public {
@@ -90,7 +81,7 @@ contract CirclesBackingFactoryTest is Test {
 
         vm.prank(groupMember);
         IERC1155(HUB_V2).safeTransferFrom(groupMember, redemptionHandler, uint256(uint160(cmGroup)), REDEEM_AMOUNT, "");
-        
+
         assertEq(
             initialMemberGroupTokenBalance - REDEEM_AMOUNT,
             IERC1155(HUB_V2).balanceOf(groupMember, uint256(uint160(cmGroup)))
@@ -103,7 +94,8 @@ contract CirclesBackingFactoryTest is Test {
 
         uint256 REDEEM_AMOUNT = 1e18;
 
-        (uint256[] memory ids, uint256[] memory amounts) = CMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, REDEEM_AMOUNT, false);
+        (uint256[] memory ids, uint256[] memory amounts) =
+            CMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, REDEEM_AMOUNT, false);
 
         vm.prank(groupMember);
         IERC1155(HUB_V2).setApprovalForAll(redemptionHandler, true);
