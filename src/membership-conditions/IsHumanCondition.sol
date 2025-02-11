@@ -6,11 +6,22 @@ import "src/membership-conditions/IMembershipCondition.sol";
 
 /// @title isHuman membership condition
 /// @notice A membership condition that checks if the given avatar is registered as human in Circles hub
-contract IsHumanCondition is CirclesCoreAddresses, IMembershipCondition {
+contract IsHumanCondition is CirclesCoreAddresses, CirclesV2BetaAddresses, IMembershipCondition {
+    // State
+
+    /// @notice core Circles protocol addresses
+    CirclesCore public circlesCore;
+
+    // Constructor
+
+    constructor() {
+        circlesCore = getCirclesCore();
+    }
+
     // External functions
 
     /// @notice Checks whether the avatar is human on Circles hub.
     function passesMembershipCondition(address _avatar) external view returns (bool) {
-        return hub.isHuman(_avatar);
+        return circlesCore.hub.isHuman(_avatar);
     }
 }

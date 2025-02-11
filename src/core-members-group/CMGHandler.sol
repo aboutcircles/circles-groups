@@ -23,6 +23,8 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     uint256 public immutable cmGroupId;
     /// @notice owner
     address public immutable owner;
+    /// @notice Circles core addresses
+    CirclesCore public circlesCore;
 
     // Events
 
@@ -36,7 +38,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
 
     /// @notice Only the Circles Hub can call this function
     modifier onlyHub() {
-        if (msg.sender != address(hub)) {
+        if (msg.sender != address(circlesCore.hub)) {
             revert CMGHandlerOnlyHub();
         }
         _;
@@ -71,7 +73,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         }
     }
 
-    constructor(address _cmGroup, address _owner) {
+    constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore) {
         if (_cmGroup == address(0)) {
             // note: should not yet call on hub.isGroup() because address is not
             // registered as group yet in hub.
@@ -82,6 +84,8 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         cmGroupId = uint256(uint160(cmGroup));
         // store the group owner for ERC1155 safe transfers
         owner = _owner;
+        // store circles core addresses
+        circlesCore = _circlesCore;
     }
 
     // External functions
@@ -100,7 +104,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         if (_from != address(this)) {
             revert CMGHandlerOnlyTransferOwnCircles();
         }
-        hub.safeTransferFrom(_from, _to, _id, _value, _data);
+        circlesCore.hub.safeTransferFrom(_from, _to, _id, _value, _data);
     }
 
     /// @notice Safely transfers a batch of ERC1155 tokens through the Circles Hub.
@@ -121,30 +125,30 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         if (_from != address(this)) {
             revert CMGHandlerOnlyTransferOwnCircles();
         }
-        hub.safeBatchTransferFrom(_from, _to, _ids, _values, _data);
+        circlesCore.hub.safeBatchTransferFrom(_from, _to, _ids, _values, _data);
     }
 
     /// @notice Sets advanced usage flags for this group in the Hub
     /// @param _flag Advanced usage flag value to set
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
-        hub.setAdvancedUsageFlag(_flag);
+        circlesCore.hub.setAdvancedUsageFlag(_flag);
     }
 
     /// @notice Updates the metadata digest for this group in the name registry
     /// @param _metadataDigest New metadata digest value
     function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
-        nameRegistry.updateMetadataDigest(_metadataDigest);
+        circlesCore.nameRegistry.updateMetadataDigest(_metadataDigest);
     }
 
     /// @notice Registers a short name for this group in the name registry
     function registerShortName() external onlyOwner {
-        nameRegistry.registerShortName();
+        circlesCore.nameRegistry.registerShortName();
     }
 
     /// @notice Registers a short name for this group with a specified nonce
     /// @param _nonce Nonce value to use for short name registration
     function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
-        nameRegistry.registerShortNameWithNonce(_nonce);
+        circlesCore.nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
     // Internal functions

@@ -38,7 +38,7 @@ contract CirclesV2BetaAddresses {
     // /// @dev the original Circles Hub v1 contract
     // address internal hubV1 = address(0x29b9a7fBb8995b2423a71cC17cf9810798F6C543);
 
-    function getCirclesCore() external view returns (CirclesCoreAddresses.CirclesCore memory) {
+    function getCirclesCore() public view returns (CirclesCoreAddresses.CirclesCore memory) {
         return CirclesCoreAddresses.CirclesCore(hub, standardTreasury, nameRegistry);
     }
 }

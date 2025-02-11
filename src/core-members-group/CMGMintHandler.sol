@@ -23,11 +23,13 @@ contract CMGMintHandler is CMGHandler {
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
+    constructor(address _cmGroup, address _owner, string memory _name, CirclesCore memory _circlesCore)
+        CMGHandler(_cmGroup, _owner, _circlesCore)
+    {
         // append "-minter" to group's name to register organization
         string memory orgName = string.concat(_name, "-minter");
         // register handler as organization in hub
-        hub.registerOrganization(orgName, bytes32(0));
+        circlesCore.hub.registerOrganization(orgName, bytes32(0));
     }
 
     // External functions
@@ -38,7 +40,7 @@ contract CMGMintHandler is CMGHandler {
     /// @param _backer Address that is trusted by the CMgroup
     /// @param _expiry Expiry time until when trust is valid
     function mirrorTrust(address _backer, uint96 _expiry) external onlyCMGroup {
-        hub.trust(_backer, _expiry);
+        circlesCore.hub.trust(_backer, _expiry);
     }
 
     /// @notice Sync trust relationships from the CMgroup to the handler.
@@ -52,14 +54,14 @@ contract CMGMintHandler is CMGHandler {
         address trustee;
         for (uint256 i = 0; i < length; i++) {
             trustee = _trustRelations[i];
-            if (hub.isTrusted(cmGroup, trustee)) {
-                TypeDefinitions.TrustMarker memory marker = hub.trustMarkers(cmGroup, trustee);
-                hub.trust(trustee, marker.expiry);
+            if (circlesCore.hub.isTrusted(cmGroup, trustee)) {
+                TypeDefinitions.TrustMarker memory marker = circlesCore.hub.trustMarkers(cmGroup, trustee);
+                circlesCore.hub.trust(trustee, marker.expiry);
             } else {
                 // if handler trusts this trustee
                 // untrust by setting expiry to block.timestamp
-                if (hub.isTrusted(address(this), trustee)) {
-                    hub.trust(trustee, uint96(block.timestamp));
+                if (circlesCore.hub.isTrusted(address(this), trustee)) {
+                    circlesCore.hub.trust(trustee, uint96(block.timestamp));
                 }
             }
         }
@@ -115,11 +117,11 @@ contract CMGMintHandler is CMGHandler {
             collateralAvatars[0] = address(uint160(_id));
             amounts[0] = _value;
             // initiate groupMint (which will call back, but expectation lock is set)
-            hub.groupMint(cmGroup, collateralAvatars, amounts, _data);
+            circlesCore.hub.groupMint(cmGroup, collateralAvatars, amounts, _data);
             // tidy up before transfering
             _clearConversion();
             // return the freshly minted gCRC to sender
-            hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
+            circlesCore.hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
 
             // emit event for clarity
             emit ReturnedMintedGroupCircles(cmGroup, _from, _value);
@@ -172,11 +174,11 @@ contract CMGMintHandler is CMGHandler {
         // enable the lock
         _initiateConversion(_from, totalValue);
         // attempt group mint
-        hub.groupMint(cmGroup, collateralAvatars, _values, _data);
+        circlesCore.hub.groupMint(cmGroup, collateralAvatars, _values, _data);
         // tidy up afterwards
         _clearConversion();
         // return the freshly minted gCRC to sender
-        hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
+        circlesCore.hub.safeTransferFrom(address(this), _from, cmGroupId, totalValue, _data);
 
         // emit event for clarity
         emit ReturnedMintedGroupCircles(cmGroup, _from, totalValue);

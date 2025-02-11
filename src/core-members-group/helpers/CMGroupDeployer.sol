@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
+import "src/circles/Core.sol";
 import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
 
-contract CMGroupDeployer {
+contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     // State variables
 
     /// @notice address of the deployed mastercopy for the CMGroup

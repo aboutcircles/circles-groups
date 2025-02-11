@@ -43,14 +43,16 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
+    constructor(address _cmGroup, address _owner, string memory _name, CirclesCore memory _circlesCore)
+        CMGHandler(_cmGroup, _owner, _circlesCore)
+    {
         // append "-redeemer" to group's name to register organization
         string memory orgName = string.concat(_name, "-redeemer");
         // register handler as organization in hub
-        hub.registerOrganization(orgName, bytes32(0));
+        circlesCore.hub.registerOrganization(orgName, bytes32(0));
         // the redemption handler only trusts the CM Group so that over paths
         // it only accepts group Circles
-        hub.trust(_cmGroup, INDEFINITE_FUTURE);
+        circlesCore.hub.trust(_cmGroup, INDEFINITE_FUTURE);
     }
 
     // External functions
@@ -76,7 +78,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256[] memory _amounts
     ) external onlyCMGroup {
         // CM group always registers with standard treasury
-        address vault = standardTreasury.vaults(cmGroup);
+        address vault = circlesCore.standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
             // if vault has not been deployed, then it should be impossible to get this callback
             revert CMGHandlerLogicAssertion();
@@ -89,7 +91,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             accounts[i] = vault;
         }
 
-        uint256[] memory balances = hub.balanceOfBatch(accounts, _collateralIds);
+        uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
 
         for (uint256 i = 0; i < _collateralIds.length; i++) {
             uint256 id = _collateralIds[i];
@@ -126,7 +128,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         // get balances for all IDs in single call
-        uint256[] memory balances = hub.balanceOfBatch(accounts, _collateralIds);
+        uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
 
         // update tracking for each ID based on balance
         for (uint256 i = 0; i < _collateralIds.length; i++) {
@@ -178,7 +180,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         // return the collateral to msg.sender.
 
         // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
-        hub.safeTransferFrom(msg.sender, address(standardTreasury), cmGroupId, value, data);
+        circlesCore.hub.safeTransferFrom(msg.sender, address(circlesCore.standardTreasury), cmGroupId, value, data);
 
         // the vault will directly transfer to msg.sender, so no need for acceptance handler
 
@@ -220,7 +222,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         // Get all balances in single call
-        balances = hub.balanceOfBatch(accounts, ids);
+        balances = circlesCore.hub.balanceOfBatch(accounts, ids);
 
         return (ids, balances, numActive);
     }
@@ -256,7 +258,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 id = activeCollateralIds[localCursor];
 
             // Check how much collateral is available in the vault for this ID
-            uint256 balance = hub.balanceOf(vault, id);
+            uint256 balance = circlesCore.hub.balanceOf(vault, id);
 
             // Only process IDs that have a non-zero balance
             if (balance > 0) {
@@ -341,7 +343,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             _clearConversion();
             // return the collateral with the redemption data (sent back via vault to us)
             // todo: consider mirroring back the original data when stored in tstorage - now we send the "redemption structured data" which is redundant for receiver
-            hub.safeTransferFrom(address(this), beneficiary, _id, _value, _data);
+            circlesCore.hub.safeTransferFrom(address(this), beneficiary, _id, _value, _data);
 
             // emit clarification event of returned collateral
             emit ReturnedRedeemedCollateral(cmGroup, beneficiary, _value);
@@ -396,7 +398,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         _clearConversion();
 
         // forward tokens to beneficiary
-        hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
+        circlesCore.hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
 
         // emit clarification event of returned collateral
         emit ReturnedRedeemedCollateral(cmGroup, beneficiary, totalValue);
@@ -431,7 +433,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         //   the redemption amounts in (this/the active) handler, to update active ids for next search
         // - vault will send the requested collateral back to original sender, ie this redemption handler,
         //   so expect to receive the redemption collateral back in this address
-        hub.safeTransferFrom(address(this), address(standardTreasury), cmGroupId, _value, redemptionData);
+        circlesCore.hub.safeTransferFrom(
+            address(this), address(circlesCore.standardTreasury), cmGroupId, _value, redemptionData
+        );
     }
 
     /// @dev Add an ID to the 'activeIds' array and set indexInActiveIds for quick removal.
@@ -489,7 +493,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function _getGroupVault() internal view returns (address) {
         // get target group's vault from treasury's mapping
         // as CMG it is always created with standard treasury
-        address vault = standardTreasury.vaults(cmGroup);
+        address vault = circlesCore.standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
             // if no gCRC has been minted, vault is not yet deployed
             revert CMGHandlerVaultNotFound(address(cmGroup));
