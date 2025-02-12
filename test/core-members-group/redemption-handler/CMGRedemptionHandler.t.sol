@@ -3,8 +3,9 @@ pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {CMGRedemptionHandler} from "src/core-members-group/CMGRedemptionHandler.sol";
+import "src/circles/Core.sol";
 
-contract CMGRedemptionHandlerTest is Test {
+contract CMGRedemptionHandlerTest is Test, CirclesCoreAddresses, CirclesV2BetaAddresses {
     // Constants
     uint256 public constant CRC = 1e18;
     uint256 public constant MAX_NUMBER_REDEMPTION_IDS = 100;
@@ -33,7 +34,7 @@ contract CMGRedemptionHandlerTest is Test {
         bob = makeAddr("bob");
 
         // Deploy handler
-        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup");
+        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup", );
     }
 
     // Test basic collateral management

@@ -23,7 +23,7 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
     uint256 public immutable cmGroupId;
     /// @notice owner
     address public immutable owner;
-    /// @notice Circles core addresses
+    /// @notice Circles core protocol addresses
     CirclesCore public circlesCore;
 
     // Events

@@ -46,13 +46,15 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
         string memory _symbol,
         bytes32 _metadataDigest
     ) external returns (address) {
+        // load Circles v2 core protocol addresses
+        CirclesCore memory circlesCore = getCirclesCore();
         // group and handlers owned by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // deploy the handlers
-        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name);
+        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesCore);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name, circlesCore);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
             owner,
@@ -62,7 +64,8 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
             _initialConditions,
             _name,
             _symbol,
-            _metadataDigest
+            _metadataDigest,
+            circlesCore
         );
 
         emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));

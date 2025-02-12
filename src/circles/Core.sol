@@ -20,7 +20,7 @@ contract CirclesCoreAddresses {
 /// @notice Circles Core Addresses list the constant addresses
 ///         of the deployed core contracts of Circles on Gnosis Chain.
 contract CirclesV2BetaAddresses {
-    // Constants
+    // State
 
     // these constants can be verified on
     // https://gnosis.blockscout.com/address/0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8?tab=contract
@@ -37,6 +37,8 @@ contract CirclesV2BetaAddresses {
     // address internal liftERC20 = address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5);
     // /// @dev the original Circles Hub v1 contract
     // address internal hubV1 = address(0x29b9a7fBb8995b2423a71cC17cf9810798F6C543);
+
+    // Public functions
 
     function getCirclesCore() public view returns (CirclesCoreAddresses.CirclesCore memory) {
         return CirclesCoreAddresses.CirclesCore(hub, standardTreasury, nameRegistry);

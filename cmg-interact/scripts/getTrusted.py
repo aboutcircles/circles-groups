@@ -1,3 +1,4 @@
+import requests
 
 class Truster:
     def __init__(self, rpc_url):
@@ -62,4 +63,5 @@ if __name__ == "__main__":
     truster = Truster('https://rpc.aboutcircles.com')
     trusters = truster.get_trusters(sys.argv[1])
     print(f"Addresses trusted by {sys.argv[1]}:")
+    print(f"Number of trusted addresses: {len(trusters)}")
     print(" ".join(sorted(trusters)))
