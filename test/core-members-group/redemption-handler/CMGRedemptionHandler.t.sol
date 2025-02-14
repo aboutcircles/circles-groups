@@ -20,6 +20,10 @@ contract CMGRedemptionHandlerTest is Test, CirclesCoreAddresses, CirclesV2BetaAd
     address public alice;
     address public bob;
 
+    // State
+
+    CirclesCore public circlesCore;
+
     // Handler instance
     CMGRedemptionHandler public handler;
 
@@ -34,7 +38,7 @@ contract CMGRedemptionHandlerTest is Test, CirclesCoreAddresses, CirclesV2BetaAd
         bob = makeAddr("bob");
 
         // Deploy handler
-        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup", );
+        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup", circlesCore);
     }
 
     // Test basic collateral management

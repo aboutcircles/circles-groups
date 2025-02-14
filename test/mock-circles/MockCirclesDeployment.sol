@@ -2,11 +2,12 @@
 pragma solidity >=0.8.28;
 
 import "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
+import "src/circles/Core.sol";
 import "test/mock-circles/MockHub.sol";
 import "test/mock-circles/MockStandardTreasury.sol";
 import "test/mock-circles/MockVault.sol";
 
-contract MockCirclesDeployment {
+contract MockCirclesDeployment is CirclesCoreAddresses, CirclesV2BetaAddresses {
     // State
     address public mockHub;
     address public mockStandardTreasury;
