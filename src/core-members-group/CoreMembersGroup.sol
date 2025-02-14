@@ -128,6 +128,9 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         // register group in hub and set the mint policy to this address
         _state().circlesCore.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
+        // store the core Circles protocol addresses
+        _state().circlesCore = _circlesCore;
+
         emit OwnerSet(_owner);
     }
 
