@@ -23,15 +23,17 @@ contract MockHub is ERC1155 {
 
     // State
 
+    /// @notice mint policies for groups
+    mapping(address => IMintPolicy) public mintPolicies;
+    /// @notice standard treasury
     MockStandardTreasury public standardTreasury;
-
     /// @notice registrations of avatars and their type
     mapping(address => AvatarTypes) public registrations;
-
     /// @notice simple trust relations
     mapping(address => mapping(address => bool)) public trusts;
 
     // Constructor
+
     constructor() ERC1155("") {
         standardTreasury = new MockStandardTreasury();
     }
@@ -45,9 +47,22 @@ contract MockHub is ERC1155 {
         _mint(_human, toTokenId(_human), _amount, "");
     }
 
-    function registerGroup(address _group) public {
-        require(registrations[_group] == AvatarTypes.Unregistered, "group address already registered");
-        registrations[_group] = AvatarTypes.Group;
+    function registerGroup(
+        address _mint,
+        string calldata, /*_name*/
+        string calldata, /*_symbol*/
+        bytes32 /*_metadataDigest*/
+    ) public {
+        require(registrations[msg.sender] == AvatarTypes.Unregistered, "group address already registered");
+        // store mint policy
+        mintPolicies[msg.sender] = IMintPolicy(_mint);
+        // register group
+        registrations[msg.sender] = AvatarTypes.Group;
+    }
+
+    function registerOrganization(string calldata, /*_name*/ bytes32 /*_metadataDigest*/ ) public {
+        require(registrations[msg.sender] == AvatarTypes.Unregistered, "organization address already registered");
+        registrations[msg.sender] = AvatarTypes.Organization;
     }
 
     function personalMint(address[] memory _humans, uint256 amount) public {
@@ -92,6 +107,12 @@ contract MockHub is ERC1155 {
         // batch transfer collateral directly to vault
         // (in Circles v2 beta this goes over Standard Treasury, but here we can simplify)
         _safeBatchTransferFrom(msg.sender, vault, collateralIds, _amounts, _data);
+    }
+
+    function burn(uint256 _id, uint256 _amount, bytes memory /*_data*/ ) public {
+        // todo: beforeBurn policy hook is not mocked
+
+        _burn(msg.sender, _id, _amount);
     }
 
     function trust(address _truster, address _trustee, bool _trusting) public {
