@@ -2,7 +2,9 @@ import requests
 import json
 from typing import Set
 from web3 import Web3
+import time
 from config.settings import settings
+from web3.exceptions import ContractLogicError
 
 class NethermindClient:
     def __init__(self, rpc_url: str):
@@ -43,119 +45,198 @@ class NethermindClient:
         response.raise_for_status()
         return response.json().get('result')
 
-    def fetch_backing_status(self) -> tuple[set[tuple[str, str]], set[str], int]:
+    def fetch_backing_status(self) -> tuple[set[tuple[str, str, int]], set[str], int]:
+            """
+            Fetch both initiated and completed backings.
+            Returns:
+                - Set of (backer, instance) pairs needing CreateLBP
+                - Set of completed backer addresses
+                - Latest block number
+            """
+            # Query CirclesBackingInitiated events
+            initiated_query = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "circles_query",
+                "params": [{
+                    "Namespace": "CrcV2",
+                    "Table": "CirclesBackingInitiated",
+                    "Columns": [
+                        "backer",
+                        "circlesBackingInstance",
+                        "blockNumber",
+                        "timestamp"
+                    ],
+                    "Filter": [],
+                    "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
+                    "Limit": 1000
+                    #Add pagination and higher limit handling
+                }]
+            }
+
+            # Query CirclesBackingCompleted events
+            completed_query = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "circles_query",
+                "params": [{
+                    "Namespace": "CrcV2",
+                    "Table": "CirclesBackingCompleted",
+                    "Columns": [
+                        "backer",
+                        "circlesBackingInstance",
+                        "blockNumber"
+                    ],
+                    "Filter": [],
+                    "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
+                    "Limit": 1000
+                    #Add pagination and higher limit handling
+                }]
+            }
+
+            initiated_response = requests.post(self.rpc_url, json=initiated_query)
+            completed_response = requests.post(self.rpc_url, json=completed_query)
+
+            initiated_result = initiated_response.json().get("result", {})
+            completed_result = completed_response.json().get("result", {})
+
+            # Process initiated events
+            initiated_pairs = set()
+            latest_block = self._cache['last_processed_block']
+
+            if initiated_result.get('rows'):
+                initiated_cols = initiated_result['columns']
+                backer_idx = initiated_cols.index('backer')
+                instance_idx = initiated_cols.index('circlesBackingInstance')
+                block_idx = initiated_cols.index('blockNumber')
+                timestamp_idx = initiated_cols.index('timestamp')
+
+                for row in initiated_result['rows']:
+                    backer = row[backer_idx].lower()
+                    instance = row[instance_idx].lower()
+                    timestamp = int(row[timestamp_idx])
+                    initiated_pairs.add((backer, instance, timestamp))
+                    latest_block = max(latest_block, int(row[block_idx]))
+
+            # Process completed events
+            completed_pairs = set()
+            completed_backers = set()
+
+            if completed_result.get('rows'):
+                completed_cols = completed_result['columns']
+                backer_idx = completed_cols.index('backer')
+                instance_idx = completed_cols.index('circlesBackingInstance')
+                block_idx = completed_cols.index('blockNumber')
+
+                for row in completed_result['rows']:
+                    backer = row[backer_idx].lower()
+                    instance = row[instance_idx].lower()
+                    completed_pairs.add((backer, instance))
+                    completed_backers.add(backer)
+                    latest_block = max(latest_block, int(row[block_idx]))
+
+            # Find pairs needing CreateLBP
+            fallback_pairs = {(backer, instance, timestamp)
+                                 for backer, instance, timestamp in initiated_pairs
+                                 if (backer, instance) not in completed_pairs}
+
+            return fallback_pairs, completed_backers, latest_block
+
+    def validate_create_lbp(self, backer_address: str, instance_address: str, initiated_timestamp: int, private_key: str) -> bool:
         """
-        Fetch both initiated and completed backings.
-        Returns:
-            - Set of (backer, instance) pairs needing CreateLBP
-            - Set of completed backer addresses
-            - Latest block number
+        Validate if CreateLBP can be called
+        Returns True if:
+        - createLBP can be called successfully
+        - LBP already exists (AlreadyCreated error)
+
+        Args:
+            backer_address: Address of the backer from fetch_backing_status
+            instance_address: Address of the backing instance from fetch_backing_status
+            initiated_timestamp: Timestamp when backing was initiated
+            private_key: Private key for transaction signing
         """
-        # Query CirclesBackingInitiated events
-        initiated_query = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "circles_query",
-            "params": [{
-                "Namespace": "CrcV2",
-                "Table": "CirclesBackingInitiated",
-                "Columns": [
-                    "backer",
-                    "circlesBackingInstance",
-                    "blockNumber"
-                ],
-                "Filter": [],
-                "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
-                "Limit": 1000
-                #Add pagination and higher limit handling
-            }]
-        }
+        def send_slack_notification(error_type: str, details: str = ""):
+            try:
 
-        # Query CirclesBackingCompleted events
-        completed_query = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "circles_query",
-            "params": [{
-                "Namespace": "CrcV2",
-                "Table": "CirclesBackingCompleted",
-                "Columns": [
-                    "backer",
-                    "circlesBackingInstance",
-                    "blockNumber"
-                ],
-                "Filter": [],
-                "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
-                "Limit": 1000
-                #Add pagination and higher limit handling
-            }]
-        }
+                message = (
+                    f"*LBP Creation Error*\n"
+                    f"Error Type: `{error_type}`\n"
+                    f"Backer Address: `{backer_address}`\n"
+                    f"Instance Address: `{instance_address}`\n"
+                )
 
-        initiated_response = requests.post(self.rpc_url, json=initiated_query)
-        completed_response = requests.post(self.rpc_url, json=completed_query)
+                payload = {"text": message}
+                response = requests.post(
+                    settings.slack_webhook_url,
+                    data=json.dumps(payload),
+                    headers={'Content-Type': 'application/json'}
+                )
+                response.raise_for_status()
+                print(f"Slack notification sent for {error_type}")
+            except Exception as e:
+                print(f"Failed to send Slack notification: {str(e)}")
 
-        initiated_result = initiated_response.json().get("result", {})
-        completed_result = completed_response.json().get("result", {})
+        try:
+            checksum_instance = self.web3.to_checksum_address(instance_address)
+            checksum_backer = self.web3.to_checksum_address(backer_address)
+            account = self.web3.eth.account.from_key(private_key)
 
-        # Process initiated events
-        initiated_pairs = set()
-        latest_block = self._cache['last_processed_block']
+            print(f"Instance address: {checksum_instance}")
+            print(f"Backer address: {checksum_backer}")
+            print(f"Executor address: {account.address}")
 
-        if initiated_result.get('rows'):
-            initiated_cols = initiated_result['columns']
-            backer_idx = initiated_cols.index('backer')
-            instance_idx = initiated_cols.index('circlesBackingInstance')
-            block_idx = initiated_cols.index('blockNumber')
+            contract = self.web3.eth.contract(
+                address=checksum_instance,
+                abi=self.abi
+            )
 
-            for row in initiated_result['rows']:
-                backer = row[backer_idx].lower()
-                instance = row[instance_idx].lower()
-                initiated_pairs.add((backer, instance))
-                latest_block = max(latest_block, int(row[block_idx]))
+            try:
+                contract.functions.createLBP().call({'from': account.address})
+                return True
 
-        # Process completed events
-        completed_pairs = set()
-        completed_backers = set()
+            except ContractLogicError as e:
+                error_message = str(e)
+                print(f"Contract Logic Error: {error_message}")
 
-        if completed_result.get('rows'):
-            completed_cols = completed_result['columns']
-            backer_idx = completed_cols.index('backer')
-            instance_idx = completed_cols.index('circlesBackingInstance')
-            block_idx = completed_cols.index('blockNumber')
+                if "AlreadyCreated" in error_message:
+                    print("LBP already exists - proceeding with normal flow")
+                    return True
 
-            for row in completed_result['rows']:
-                backer = row[backer_idx].lower()
-                instance = row[instance_idx].lower()
-                completed_pairs.add((backer, instance))
-                completed_backers.add(backer)
-                latest_block = max(latest_block, int(row[block_idx]))
+                elif "InsufficientBackingAssetBalance" in error_message:
+                    print("Insufficient backing balance detected")
+                    send_slack_notification(
+                        "Insufficient Backing Balance",
+                        "Action Required: Check actual balances in contract"
+                    )
+                    return False
 
-        # Find pairs needing CreateLBP
-        fallback_pairs = initiated_pairs - completed_pairs
+                elif "OrderNotFilledYet" in error_message:
+                    current_time = int(time.time())
+                    minutes_elapsed = (current_time - initiated_timestamp) // 60
 
-        return fallback_pairs, completed_backers, latest_block
+                    print(f"Cowswap order not filled yet. Waiting time: {minutes_elapsed} minutes")
 
-    def validate_create_lbp(self, instance_address: str, private_key: str) -> bool:
-       """Validate if CreateLBP can be called"""
-       try:
-           checksum_instance = self.web3.to_checksum_address(instance_address)
-           account = self.web3.eth.account.from_key(private_key)
+                    if minutes_elapsed >= 20:
+                        send_slack_notification(
+                            "Order Not Filled - Long Wait",
+                            "⚠️ Order pending for over 20 minutes!\nAction Required: Please investigate Cowswap status."
+                        )
+                    else:
+                        send_slack_notification(
+                            "Order Not Filled",
+                            f"Order still processing for {minutes_elapsed}."
+                        )
+                    return False
 
-           print(f"Instance address: {checksum_instance}")
-           print(f"Account address: {account.address}")
+                # Handle any other contract errors
+                send_slack_notification("Unknown Contract Error", f"Error: {error_message}")
+                return False
 
-           contract = self.web3.eth.contract(
-               address=checksum_instance,
-               abi = self.abi
-           )
-
-           contract.functions.createLBP().call({'from': account.address})
-           return True
-       except Exception as e:
-           print(f"Validation failed with error: {str(e)}")
-           return False
-
-           #small handles for execeptional cases
+        except Exception as e:
+            error_msg = str(e)
+            print(f"Contract call failed with error: {error_msg}")
+            send_slack_notification("Contract Setup Error", f"Failed to setup or call contract: {error_msg}")
+            return False
 
     def execute_create_lbp(self, instance_address: str, private_key: str) -> dict:
         """Execute CreateLBP on a circles backing instance"""

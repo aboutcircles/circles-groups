@@ -20,6 +20,7 @@ class Settings:
         # File paths
         self.supergroup_abi_path = os.path.join(self.CONFIG_DIR, 'SuperGroupABI.json')
         self.circles_backing_abi_path = os.path.join(self.CONFIG_DIR, 'CirclesBackingABI.json')
+        self.slack_webhook_url = self._get_env('SLACK_WEBHOOK_URL')
         # # Algorithm settings
         # self.max_trusted = int(self._get_env('MAX_TRUSTED', '10000'))
         # self.change_threshold = int(self._get_env('CHANGE_THRESHOLD', '100'))

@@ -85,39 +85,42 @@ class TrustManagementAlgorithm:
         self._last_processed_block = current_block
 
 
-    def _handle_incomplete_backings(self, fallback_pairs: set[tuple[str, str]]):
-        """Process backings that need CreateLBP calls"""
-        print(f"Processing {len(fallback_pairs)} incomplete backings")
+    def _handle_incomplete_backings(self, fallback_pairs: set[tuple[str, str, int]]):
+                """Process backings that need CreateLBP calls"""
+                print(f"Processing {len(fallback_pairs)} incomplete backings")
 
-        for _, instance in fallback_pairs:
-            print(f"\nProcessing instance: {instance}")
+                for backer, instance, timestamp in fallback_pairs:
+                    print(f"\nProcessing instance: {instance}")
 
-            try:
-                checksum_instance = self.web3.to_checksum_address(instance)
+                    try:
+                        checksum_instance = self.web3.to_checksum_address(instance)
+                        checksum_backer = self.web3.to_checksum_address(backer)
 
-                print(f"Original instance address: {instance}")
-                print(f"Checksum instance address: {checksum_instance}")
+                        # print(f"Original instance address: {instance}")
+                        # print(f"Checksum instance address: {checksum_instance}")
 
-                # Pass private key for both validation and execution
-                if self.nethermind_client.validate_create_lbp(
-                    instance_address=checksum_instance,
-                    private_key=self.private_key
-                ):
-                    receipt = self.nethermind_client.execute_create_lbp(
-                        instance_address=checksum_instance,
-                        private_key=self.private_key
-                    )
-                    if receipt['status'] == 1:
-                        print(f"Successfully executed CreateLBP for instance {checksum_instance}")
-                    else:
-                        print(f"CreateLBP failed for instance {checksum_instance}")
-                else:
-                    print(f"CreateLBP validation failed for instance {checksum_instance}")
+                        # Pass private key for both validation and execution
+                        if self.nethermind_client.validate_create_lbp(
+                            instance_address=checksum_instance,
+                            backer_address=checksum_backer,
+                            initiated_timestamp=timestamp,
+                            private_key=self.private_key
+                        ):
+                            receipt = self.nethermind_client.execute_create_lbp(
+                                instance_address=checksum_instance,
+                                private_key=self.private_key
+                            )
+                            if receipt['status'] == 1:
+                                print(f"Successfully executed CreateLBP for instance {checksum_instance}")
+                            else:
+                                print(f"CreateLBP failed for instance {checksum_instance}")
+                        else:
+                            print(f"CreateLBP validation failed for instance {checksum_instance}")
 
-            except Exception as e:
-                print(f"Error processing instance {instance}: {str(e)}")
-                print(f"Error type: {type(e)}")
-                continue
+                    except Exception as e:
+                        print(f"Error processing instance {instance}: {str(e)}")
+                        print(f"Error type: {type(e)}")
+                        continue
 
 
     def _handle_completed_backers(self, completed_backers: set[str]):
