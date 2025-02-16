@@ -29,7 +29,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice Array of all currently tracked collateral token IDs that have sufficient balance
     uint256[] public activeCollateralIds;
 
-    /// @notice Maps collateral token ID to its index position in activeCollateralIds array for O(1) lookups
+    /// @notice Maps collateral token ID to its index position in activeCollateralIds array for O(1) lookups. Index starts from one to reserve zero for 'not active'
     mapping(uint256 => uint256) public indexInActiveIds;
 
     /// @notice Cursor tracking current position in activeCollateralIds when searching for available collateral
@@ -60,10 +60,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function registerDeposit(uint256[] memory collateralIds) external onlyCMGroup {
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 id = collateralIds[i];
-            // if the id was registered as zero-collateral, add it now
-            if (indexInActiveIds[id] == 0) {
-                _addActiveId(id);
-            }
+            // no-op if already tracked
+            _addActiveId(id);
         }
     }
 
@@ -107,7 +105,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
-            if (remainingBalance <= _minimalTrackingAmount && indexInActiveIds[id] != 0) {
+            if (remainingBalance <= _minimalTrackingAmount) {
                 _removeActiveId(id);
             }
         }
@@ -134,11 +132,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 balance = balances[i];
 
             // add to active tracking if has balance above minimal amount but not tracked
-            if (balance > minimalAmount && indexInActiveIds[id] == 0) {
+            if (balance > minimalAmount) {
                 _addActiveId(id);
             }
             // remove from active tracking if has balance below minimal amount but is tracked
-            else if (balance <= minimalAmount && indexInActiveIds[id] != 0) {
+            else if (balance <= minimalAmount) {
                 _removeActiveId(id);
             }
         }
@@ -392,9 +390,13 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     /// @dev Add an ID to the 'activeIds' array and set indexInActiveIds for quick removal.
     function _addActiveId(uint256 id) internal {
+        if (indexInActiveIds[id] != uint256(0)) {
+            // already tracked, don't add duplicates
+            return;
+        }
         // Store index mapping for quick lookup/removal later
-        // Index is current length before adding new element
-        indexInActiveIds[id] = activeCollateralIds.length;
+        // Index is current length before adding new element plus one to avoid zero
+        indexInActiveIds[id] = activeCollateralIds.length + 1;
 
         // Add the new ID to end of active IDs array
         activeCollateralIds.push(id);
@@ -404,6 +406,13 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function _removeActiveId(uint256 id) internal {
         // Get index of id to remove and last index in array
         uint256 idx = indexInActiveIds[id];
+        if (idx == uint256(0)) {
+            // nothing to remove if index in active ids is zero.
+            return;
+        }
+        // correct offset for index in array
+        idx -= uint256(1);
+        // get last index from array length
         uint256 lastIdx = activeCollateralIds.length - 1;
 
         // If id to remove isn't the last element, we need to swap with last element
@@ -413,8 +422,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 lastId = activeCollateralIds[lastIdx];
             // Move last element into the slot we're removing
             activeCollateralIds[idx] = lastId;
-            // Update the index mapping for the moved element
-            indexInActiveIds[lastId] = idx;
+            // Update the index mapping for the moved element (again offset from 1)
+            indexInActiveIds[lastId] = idx + 1;
         }
 
         // Remove last element from array (either the element we wanted to remove
