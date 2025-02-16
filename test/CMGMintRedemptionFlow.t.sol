@@ -246,7 +246,7 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
                 abi.encode(BaseMintPolicyDefinitions.BaseRedemptionPolicy(redemptionIds, redemptionAmounts));
             // Pack into Metadata struct (similar encoding as in protocol contracts).
             bytes32 METADATATYPE_GROUPREDEEM = keccak256("CIRCLESv2:RESERVED_DATA:CirclesGroupRedeem");
-            bytes memory redemptionData = abi.encode(METADATATYPE_GROUPREDEEM, "", userData);
+            bytes memory redemptionData = abi.encode(TypeDefinitions.Metadata(METADATATYPE_GROUPREDEEM, "", userData));
             streams[0] = TypeDefinitions.Stream({
                 sourceCoordinate: indexes[0],
                 flowEdgeIds: new uint16[](1),
