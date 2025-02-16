@@ -3,7 +3,7 @@ import json
 from typing import Set
 from web3 import Web3
 import time
-from config.settings import settings
+from src.config.settings import settings
 from web3.exceptions import ContractLogicError
 
 class NethermindClient:

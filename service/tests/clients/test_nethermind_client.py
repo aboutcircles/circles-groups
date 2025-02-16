@@ -1,19 +1,22 @@
 import pytest
 import time
+import sys
+import os
+from web3 import Web3
 from unittest.mock import Mock, patch
 from web3.exceptions import ContractLogicError
 from src.clients.nethermind import NethermindClient
 
-import sys
-import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 class TestNethermindClient:
     @pytest.fixture
-    def mock_web3(self):
-        with patch('web3.Web3') as mock:
-            yield mock
+    def mock_web3(self, mock_contract):  # Pass mock_contract here
+        mock = Mock(spec=Web3)
+        mock.eth = Mock()  # Mock the eth attribute
+        mock.eth.contract.return_value = mock_contract  # Mock the contract method of eth
+        return mock
 
     @pytest.fixture
     def mock_contract(self):
@@ -28,8 +31,8 @@ class TestNethermindClient:
     def test_validate_create_lbp_success(self, client, mock_contract):
         """Test successful LBP creation validation"""
         result = client.validate_create_lbp(
-            backer_address="0x1234...",
-            instance_address="0x5678...",
+            backer_address="0x1234567890abcdef1234567890abcdef12345678",
+            instance_address="0x567890abcdef1234567890abcdef123456789012",
             initiated_timestamp=int(time.time()) - 600,  # 10 minutes ago
             private_key="mock_key"
         )
@@ -42,8 +45,8 @@ class TestNethermindClient:
         )
 
         result = client.validate_create_lbp(
-            backer_address="0x1234...",
-            instance_address="0x5678...",
+            backer_address="0x1234567890abcdef1234567890abcdef12345678",
+            instance_address="0x567890abcdef1234567890abcdef123456789012",
             initiated_timestamp=int(time.time()) - 600,
             private_key="mock_key"
         )
@@ -58,15 +61,14 @@ class TestNethermindClient:
 
         with patch('requests.post') as mock_slack:
             result = client.validate_create_lbp(
-                backer_address="0x1234...",
-                instance_address="0x5678...",
+                backer_address="0x1234567890abcdef1234567890abcdef12345678",
+                instance_address="0x567890abcdef1234567890abcdef123456789012",
                 initiated_timestamp=current_time - 600,  # 10 minutes ago
                 private_key="mock_key"
             )
 
             assert result is False
             assert mock_slack.called
-            # Verify Slack message content for recent order
 
     def test_validate_create_lbp_order_not_filled_old(self, client, mock_contract):
         """Test OrderNotFilledYet error for orders over 20 minutes old"""
@@ -77,15 +79,14 @@ class TestNethermindClient:
 
         with patch('requests.post') as mock_slack:
             result = client.validate_create_lbp(
-                backer_address="0x1234...",
-                instance_address="0x5678...",
+                backer_address="0x1234567890abcdef1234567890abcdef12345678",
+                instance_address="0x567890abcdef1234567890abcdef123456789012",
                 initiated_timestamp=current_time - 1500,  # 25 minutes ago
                 private_key="mock_key"
             )
 
             assert result is False
             assert mock_slack.called
-            # Verify Slack message content for old order
 
     def test_validate_create_lbp_insufficient_balance(self, client, mock_contract):
         """Test InsufficientBackingAssetBalance error"""
@@ -95,8 +96,8 @@ class TestNethermindClient:
 
         with patch('requests.post') as mock_slack:
             result = client.validate_create_lbp(
-                backer_address="0x1234...",
-                instance_address="0x5678...",
+                backer_address="0x1234567890abcdef1234567890abcdef12345678",
+                instance_address="0x567890abcdef1234567890abcdef123456789012",
                 initiated_timestamp=int(time.time()) - 600,
                 private_key="mock_key"
             )
@@ -110,8 +111,8 @@ class TestNethermindClient:
             "result": {
                 "columns": ["backer", "circlesBackingInstance", "blockNumber", "timestamp"],
                 "rows": [
-                    ["0x1234...", "0x5678...", "100", str(int(time.time()) - 1200)],
-                    ["0x4321...", "0x8765...", "101", str(int(time.time()) - 600)]
+                    ["0x1234567890abcdef1234567890abcdef12345678", "0x567890abcdef1234567890abcdef123456789012", "100", str(int(time.time()) - 1200)],
+                    ["0x4321abcdef1234567890abcdef1234567890abcd", "0x8765abcdef1234567890abcdef12345678901234", "101", str(int(time.time()) - 600)]
                 ]
             }
         }
@@ -121,7 +122,6 @@ class TestNethermindClient:
             fallback_pairs, completed_backers, latest_block = client.fetch_backing_status()
 
             assert len(fallback_pairs) > 0
-            # Verify tuple structure (backer, instance, timestamp)
             for pair in fallback_pairs:
                 assert len(pair) == 3
                 assert isinstance(pair[2], int)
