@@ -274,13 +274,15 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
         // starting branch: receive groupId to initiate redemption
         if (ongoingConversion == 0 && _id == cmGroupId) {
-            (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
-            // move the cursor forward to cycle through other collateral next time
-            cursor = (cursor + ids.length) % activeCollateralIds.length;
-
-            if (ids.length > 0) {
-                // todo: tstore _data so we can recover it on completion
-                _initiateConversion(_from, _value);
+            _initiateConversion(_from, _value);
+            if (_data.length != 0) {
+                // use redemption data from stream
+                hub.safeTransferFrom(address(this), address(standardTreasury), _id, _value, _data);
+            } else {
+                // find redemption
+                (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
+                // move the cursor forward to cycle through other collateral next time
+                cursor = (cursor + ids.length) % activeCollateralIds.length;
                 // note: we can't use the same redeem function because now we already hold the gCRC!
                 _redeemUponReceivedGroupCircles(_value, ids, amounts);
             }
