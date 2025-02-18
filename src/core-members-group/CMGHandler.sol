@@ -73,6 +73,8 @@ abstract contract CMGHandler is CirclesCoreAddresses, ERC1155Holder, ICMGHandler
         }
     }
 
+    // Constructor
+
     constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore) {
         if (_cmGroup == address(0)) {
             // note: should not yet call on hub.isGroup() because address is not
