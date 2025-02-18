@@ -19,7 +19,10 @@ contract CoreMembersGroupStorage is CirclesCoreAddresses {
         address service;
         uint256 minimalDeposit;
         address feeCollection;
-        CirclesCore circlesCore;
+        // CirclesCore circlesCore;
+        IHub hub;
+        IStandardTreasury standardTreasury;
+        INameRegistryExtended nameRegistry;
         address[] membershipConditions;
     }
 

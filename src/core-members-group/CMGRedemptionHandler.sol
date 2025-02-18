@@ -50,9 +50,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         string memory orgName = string.concat(_name, "-redeemer");
         // register handler as organization in hub
         circlesCore.hub.registerOrganization(orgName, bytes32(0));
-        // the redemption handler only trusts the CM Group so that over paths
-        // it only accepts group Circles
-        circlesCore.hub.trust(_cmGroup, INDEFINITE_FUTURE);
     }
 
     // External functions

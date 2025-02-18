@@ -55,7 +55,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
 
     /// @notice Only the Circles Hub can call this function
     modifier onlyHub() {
-        if (msg.sender != address(_state().circlesCore.hub)) {
+        if (msg.sender != address(_state().hub)) {
             revert CMGroupOnlyHub();
         }
         _;
@@ -63,10 +63,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
 
     /// @notice Only the Circles Hub or group Treasury can call this function
     modifier onlyHubOrTreasury() {
-        if (
-            msg.sender != address(_state().circlesCore.hub)
-                && msg.sender != address(_state().circlesCore.standardTreasury)
-        ) {
+        if (msg.sender != address(_state().hub) && msg.sender != address(_state().standardTreasury)) {
             revert CMGroupOnlyHubOrTreasury();
         }
         _;
@@ -117,7 +114,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         _setRedemptionHandler(_redemptionHandler);
         _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
 
-        // set initial conditions
+        // // set initial conditions
         for (uint256 i = 0; i < _initialConditions.length; i++) {
             _addMembershipCondition(_initialConditions[i]);
         }
@@ -126,10 +123,12 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         _state().feeCollection = _owner;
 
         // store the core Circles protocol addresses
-        _state().circlesCore = _circlesCore;
+        _state().hub = _circlesCore.hub;
+        _state().standardTreasury = _circlesCore.standardTreasury;
+        _state().nameRegistry = _circlesCore.nameRegistry;
 
         // register group in hub and set the mint policy to this address
-        _state().circlesCore.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+        _state().hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
         emit OwnerSet(_owner);
     }
@@ -233,7 +232,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
             // first check whether the core member is currently trusted;
             for (uint256 i = 0; i < length; i++) {
                 coreMember = _coreMembers[i];
-                if (_state().circlesCore.hub.isTrusted(address(this), coreMember)) {
+                if (_state().hub.isTrusted(address(this), coreMember)) {
                     _trust(coreMember, _expiry);
                 }
             }
@@ -308,24 +307,24 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
     /// @notice Sets advanced usage flags for this group in the Hub
     /// @param _flag Advanced usage flag value to set
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
-        _state().circlesCore.hub.setAdvancedUsageFlag(_flag);
+        _state().hub.setAdvancedUsageFlag(_flag);
     }
 
     /// @notice Updates the metadata digest for this group in the name registry
     /// @param _metadataDigest New metadata digest value
     function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
-        _state().circlesCore.nameRegistry.updateMetadataDigest(_metadataDigest);
+        _state().nameRegistry.updateMetadataDigest(_metadataDigest);
     }
 
     /// @notice Registers a short name for this group in the name registry
     function registerShortName() external onlyOwner {
-        _state().circlesCore.nameRegistry.registerShortName();
+        _state().nameRegistry.registerShortName();
     }
 
     /// @notice Registers a short name for this group with a specified nonce
     /// @param _nonce Nonce value to use for short name registration
     function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
-        _state().circlesCore.nameRegistry.registerShortNameWithNonce(_nonce);
+        _state().nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
     // View functions
@@ -434,7 +433,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
     /// @param _expiry Timestamp when trust expires. If >= current time,
     ///         establishes trust. If < current time, serves to untrust.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
-        _state().circlesCore.hub.trust(_trustReceiver, _expiry);
+        _state().hub.trust(_trustReceiver, _expiry);
         address mintHandler_ = _state().mintHandler;
         if (mintHandler_ != address(0)) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
