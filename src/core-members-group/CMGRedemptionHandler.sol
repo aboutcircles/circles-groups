@@ -283,8 +283,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         return (ids, amounts);
     }
 
-    // Public view functions
-
     function structureRedemptionData(uint256[] memory _redemptionIds, uint256[] memory _redemptionValues)
         public
         pure
