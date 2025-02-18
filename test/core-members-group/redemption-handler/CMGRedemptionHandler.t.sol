@@ -42,29 +42,29 @@ contract CMGRedemptionHandlerTest is Test {
         cmGroup = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
     }
 
-    // Test basic collateral management
-    function testRegisterCollateral() public {}
+    // // Test basic collateral management
+    // function testRegisterCollateral() public {}
 
-    // Test redemption functionality
-    function testBasicRedemption() public {}
-    function testPartialRedemption() public {}
-    function testMaxRedeemPerIdLimit() public {}
+    // // Test redemption functionality
+    // function testBasicRedemption() public {}
+    // function testPartialRedemption() public {}
+    // function testMaxRedeemPerIdLimit() public {}
 
-    // Test collateral search functionality
-    function testFindCollateralSimple() public {}
-    function testFindCollateralComplex() public {}
-    function testFindCollateralWithCursor() public {}
+    // // Test collateral search functionality
+    // function testFindCollateralSimple() public {}
+    // function testFindCollateralComplex() public {}
+    // function testFindCollateralWithCursor() public {}
 
-    // Test ERC1155 reception
-    function testSingleTokenReception() public {}
-    function testBatchTokenReception() public {}
+    // // Test ERC1155 reception
+    // function testSingleTokenReception() public {}
+    // function testBatchTokenReception() public {}
 
-    // Test conversion state management
-    function testConversionStateFlow() public {}
-    function testFailOngoingConversion() public {}
+    // // Test conversion state management
+    // function testConversionStateFlow() public {}
+    // function testFailOngoingConversion() public {}
 
-    // Test edge cases
-    function testInsufficientCollateral() public {}
-    function testZeroAmountRedemption() public {}
-    function testEmptyCollateralList() public {}
+    // // Test edge cases
+    // function testInsufficientCollateral() public {}
+    // function testZeroAmountRedemption() public {}
+    // function testEmptyCollateralList() public {}
 }

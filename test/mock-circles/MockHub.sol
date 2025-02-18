@@ -38,6 +38,8 @@ contract MockHub is ERC1155 {
         standardTreasury = new MockStandardTreasury();
     }
 
+    // todo implement treasuries()
+
     // Public functions
 
     function registerHuman(address _human, uint256 _amount) public {

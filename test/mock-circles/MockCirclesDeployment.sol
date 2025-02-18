@@ -68,7 +68,7 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // deploy the handlers
         CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesMockCore);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name, circlesMockCore);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, circlesMockCore);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
             owner,

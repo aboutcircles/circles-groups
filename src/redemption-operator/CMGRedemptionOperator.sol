@@ -18,6 +18,11 @@ contract CMGRedemptionOperator is CirclesCoreAddresses, CirclesTypes, ICMGRedemp
     /// @notice total amount redeemed for caller (beneficiary)
     event OperatorRedeemedCollateral(address indexed group, address indexed beneficiary, uint256 totalAmount);
 
+    /// @notice total amount redeemed for caller (beneficiary) given requested amount
+    event OperatorRedeemedFoundCollateral(
+        address indexed group, address indexed beneficiary, uint256 totalFoundAmount, uint256 requestedAmount
+    );
+
     // Modifiers
 
     /// @notice Reentrancy guard for nonReentrant functions.
@@ -51,7 +56,7 @@ contract CMGRedemptionOperator is CirclesCoreAddresses, CirclesTypes, ICMGRedemp
     /// @param _redemptionIds Array of collateral token IDs to redeem
     /// @param _redemptionValues Array of amounts to redeem for each collateral token ID
     function redeem(address _group, uint256[] memory _redemptionIds, uint256[] memory _redemptionValues)
-        public
+        external
         nonReentrant
     {
         ICMGRedemptionHandler redemptionHandler = ICMGRedemptionHandler(_assertGroupAndRedemptionHandler(_group));
@@ -79,6 +84,51 @@ contract CMGRedemptionOperator is CirclesCoreAddresses, CirclesTypes, ICMGRedemp
 
         // emit clarification event of returned collateral
         emit OperatorRedeemedCollateral(_group, msg.sender, value);
+    }
+
+    /// @notice Find collateral in a Core Members Group that matches a desired redemption value, then redeem
+    /// @dev The caller must have pre-approved this contract as an ERC1155 operator
+    /// @dev The redemption data is structured by the group's redemption handler to ensure compatibility
+    /// @dev Emits OperatorRedeemedFoundCollateral event with group, beneficiary (msg.sender), total found amount and requested amount
+    /// @dev The collateral tokens will be sent directly to msg.sender by the group's vault
+    /// @param _group Address of the Core Members Group to redeem from
+    /// @param _amountToRedeem Total amount of group Circles to redeem for collateral
+    /// @param _partialFillable If true, will accept partial fills of _amountToRedeem, otherwise requires exact match
+    function redeemWithFoundCollateral(address _group, uint256 _amountToRedeem, bool _partialFillable)
+        external
+        nonReentrant
+    {
+        ICMGRedemptionHandler redemptionHandler = ICMGRedemptionHandler(_assertGroupAndRedemptionHandler(_group));
+
+        // find collateral using groups redemption handler
+        (uint256[] memory collateralIds, uint256[] memory amounts) =
+            redemptionHandler.findCollateral(_group, _amountToRedeem, _partialFillable);
+
+        uint256 totalValueFound = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            totalValueFound += amounts[i];
+        }
+
+        if (totalValueFound > _amountToRedeem) {
+            revert CMGRedemptionOperatorFoundCollateralExceedsAmountRequested(_amountToRedeem, totalValueFound);
+        }
+
+        if (!_partialFillable && totalValueFound != _amountToRedeem) {
+            revert CMGRedemptionOperatorFailedToFindSufficientCollateral(_amountToRedeem, totalValueFound);
+        }
+
+        // rely on the redemption handler to structure the data in case other formats are adopted
+        bytes memory data = redemptionHandler.structureRedemptionData(collateralIds, amounts);
+
+        // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
+        circlesCore.hub.safeTransferFrom(
+            msg.sender, address(circlesCore.standardTreasury), _toTokenId(_group), totalValueFound, data
+        );
+
+        // the vault will directly transfer to msg.sender, so no need for acceptance handler
+
+        // emit clarification event of returned collateral
+        emit OperatorRedeemedFoundCollateral(_group, msg.sender, totalValueFound, _amountToRedeem);
     }
 
     // Internal functions

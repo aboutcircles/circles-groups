@@ -54,7 +54,7 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // deploy the handlers
         CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesCore);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name, circlesCore);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, circlesCore);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
             owner,

@@ -6,6 +6,7 @@ import "circles-contracts-v2/hub/TypeDefinitions.sol";
 import "src/circles/Core.sol";
 import "src/errors/Errors.sol";
 import "src/core-members-group/CMGHandler.sol";
+import "src/core-members-group/ICMGMintHandler.sol";
 
 /// @notice CoreMembers group (CMG) Mint Handler is deployed by the CMgroup
 ///         and functions as a helper for group mints. It mirrors the
@@ -15,7 +16,15 @@ import "src/core-members-group/CMGHandler.sol";
 ///         For path-based group mints the handler can not enforce
 ///         custom requirements (eg. extended membership to the group),
 ///         so for a general framework one should use ERC1155 operators.
-contract CMGMintHandler is CMGHandler {
+contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
+    // Constants
+
+    /// @dev single transient slot where to store conversion amount in progress
+    ///      to handle acceptance call gracefully
+    bytes32 internal constant CONVERSION_SLOT = keccak256("CONVERSION_SLOT");
+    /// @dev single transient slot where to store beneficiary address
+    bytes32 internal constant BENEFICIARY_SLOT = keccak256("BENEFICIARY_SLOT");
+
     // Events
 
     /// @notice Clarification event to report handler returned minted group Circles to beneficiary
@@ -184,5 +193,152 @@ contract CMGMintHandler is CMGHandler {
         emit ReturnedMintedGroupCircles(cmGroup, _from, totalValue);
 
         return this.onERC1155BatchReceived.selector;
+    }
+
+    // Owner interaction helper functions
+
+    /// @notice Safely transfers a single ERC1155 token through the Circles Hub.
+    /// @dev Only callable by the owner of this contract. Reverts if _from is not this contract.
+    /// @param _from The address currently holding the token to be transferred.
+    /// @param _to The address to which the token will be transferred.
+    /// @param _id The ID of the token being transferred.
+    /// @param _value The amount of the token being transferred.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeTransferFrom(address _from, address _to, uint256 _id, uint256 _value, bytes calldata _data)
+        external
+        onlyOwner
+    {
+        if (_from != address(this)) {
+            revert CMGHandlerOnlyTransferOwnCircles();
+        }
+        circlesCore.hub.safeTransferFrom(_from, _to, _id, _value, _data);
+    }
+
+    /// @notice Safely transfers a batch of ERC1155 tokens through the Circles Hub.
+    /// @dev Only callable by the owner of this contract. Reverts if _from is not this contract.
+    /// @dev Only callable by the owner of this contract.
+    /// @param _from The address currently holding the tokens to be transferred.
+    /// @param _to The address to which the tokens will be transferred.
+    /// @param _ids An array of token IDs being transferred.
+    /// @param _values An array of amounts being transferred for each token ID.
+    /// @param _data Additional data with no specified format, sent in call to `_to`.
+    function safeBatchTransferFrom(
+        address _from,
+        address _to,
+        uint256[] calldata _ids,
+        uint256[] calldata _values,
+        bytes calldata _data
+    ) external onlyOwner {
+        if (_from != address(this)) {
+            revert CMGHandlerOnlyTransferOwnCircles();
+        }
+        circlesCore.hub.safeBatchTransferFrom(_from, _to, _ids, _values, _data);
+    }
+
+    /// @notice Sets advanced usage flags for this group in the Hub
+    /// @param _flag Advanced usage flag value to set
+    function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
+        circlesCore.hub.setAdvancedUsageFlag(_flag);
+    }
+
+    /// @notice Updates the metadata digest for this group in the name registry
+    /// @param _metadataDigest New metadata digest value
+    function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
+        circlesCore.nameRegistry.updateMetadataDigest(_metadataDigest);
+    }
+
+    /// @notice Registers a short name for this group in the name registry
+    function registerShortName() external onlyOwner {
+        circlesCore.nameRegistry.registerShortName();
+    }
+
+    /// @notice Registers a short name for this group with a specified nonce
+    /// @param _nonce Nonce value to use for short name registration
+    function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
+        circlesCore.nameRegistry.registerShortNameWithNonce(_nonce);
+    }
+
+    // Internal functions
+
+    /// @notice Checks if token IDs do not contain group circles and converts to avatar addresses
+    /// @dev Used internally to validate batch transfers don't contain group circles.
+    ///      Token IDs from hub are trusted to be valid addresses after conversion.
+    /// @param _ids Array of token IDs to check and convert
+    /// @return Array of collateral avatar addresses converted from token IDs
+    function _doesNotContainGroupCircles(uint256[] memory _ids) internal view returns (address[] memory) {
+        uint256 length = _ids.length;
+        address[] memory collateralAvatars = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            if (_ids[i] == cmGroupId) {
+                revert CMGHandlerRefuseGroupCircles();
+            }
+            // confidently cast to address, as ids are given by hub
+            collateralAvatars[i] = address(uint160(_ids[i]));
+        }
+        return collateralAvatars;
+    }
+
+    /// @notice Initiates a conversion process by storing the amount in transient storage
+    /// @dev Uses transient storage to track ongoing conversions within a transaction
+    /// @param _amount Amount to convert - must be non-zero
+    function _initiateConversion(address _beneficiary, uint256 _amount) internal {
+        // Revert if amount is zero
+        if (_amount == uint256(0)) {
+            revert CMGHandlerReceivedZeroAmount();
+        }
+
+        uint256 ongoingConversion;
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        // Load any existing conversion amount from transient storage
+        assembly {
+            ongoingConversion := tload(conversionSlot)
+        }
+
+        // Revert if there is already an ongoing conversion
+        if (ongoingConversion != uint256(0)) {
+            // don't initiate a new conversion if one is ongoing
+            revert CMGHandlerConversionOngoing(ongoingConversion);
+        }
+
+        // Store the new conversion amount, beneficiary and data hash in transient storage
+        assembly {
+            tstore(conversionSlot, _amount)
+            tstore(beneficiarySlot, _beneficiary)
+        }
+
+        emit ConversionInitiated(_beneficiary, _amount);
+    }
+
+    /// @notice Checks if there is an ongoing conversion and returns the amount and beneficiary
+    /// @dev Reads the current conversion amount and beneficiary from transient storage
+    /// @return ongoingConversion The amount of the ongoing conversion, or 0 if none is active
+    /// @return beneficiary The address of the beneficiary for the ongoing conversion
+    function _expectingConversionReturn() internal view returns (uint256 ongoingConversion, address beneficiary) {
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        // Load the current conversion amount, beneficiary and data hash from transient storage
+        assembly {
+            ongoingConversion := tload(conversionSlot)
+            beneficiary := tload(beneficiarySlot)
+        }
+
+        return (ongoingConversion, beneficiary);
+    }
+
+    /// @notice Clears the ongoing conversion by resetting transient storage
+    /// @dev Clears conversion amount, beneficiary and data hash slots
+    function _clearConversion() internal {
+        bytes32 conversionSlot = CONVERSION_SLOT;
+        bytes32 beneficiarySlot = BENEFICIARY_SLOT;
+
+        assembly {
+            tstore(conversionSlot, 0)
+            tstore(beneficiarySlot, 0)
+        }
+
+        emit ConversionCleared();
     }
 }

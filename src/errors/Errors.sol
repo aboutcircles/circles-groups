@@ -72,6 +72,10 @@ interface ICMGRedemptionOperatorErrors {
     error CMGRedemptionOperatorHandlerOfGroupZeroAddress();
     /// @notice only support non-custom groups with standard treasury
     error CMGRedemptionOperatorOnlySupportStandardTreasuryGroups(address treasury);
+    /// @notice Prevent redeeming more than requested
+    error CMGRedemptionOperatorFoundCollateralExceedsAmountRequested(uint256 requestedAmount, uint256 foundAmount);
+    /// @notice if not partially fillable, found amount must be exactly requested amount
+    error CMGRedemptionOperatorFailedToFindSufficientCollateral(uint256 requestedAmount, uint256 foundAmount);
     /// @notice invalid calling parameters
     error CMGRedemptionOperatorInvalidCallingParameters();
 }
