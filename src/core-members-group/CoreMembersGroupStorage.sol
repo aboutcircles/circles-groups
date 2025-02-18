@@ -19,8 +19,8 @@ contract CoreMembersGroupStorage is CirclesCoreAddresses {
         address service;
         uint256 minimalDeposit;
         address feeCollection;
-        address[] membershipConditions;
         CirclesCore circlesCore;
+        address[] membershipConditions;
     }
 
     function _state() internal pure returns (State storage state) {

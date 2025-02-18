@@ -125,11 +125,11 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         // set fee collection to be by default the owner
         _state().feeCollection = _owner;
 
-        // register group in hub and set the mint policy to this address
-        _state().circlesCore.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
-
         // store the core Circles protocol addresses
         _state().circlesCore = _circlesCore;
+
+        // register group in hub and set the mint policy to this address
+        _state().circlesCore.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
         emit OwnerSet(_owner);
     }
