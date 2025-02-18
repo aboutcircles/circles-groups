@@ -2,43 +2,44 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {CMGRedemptionHandler} from "src/core-members-group/CMGRedemptionHandler.sol";
-import "src/circles/Core.sol";
+import "test/mock-circles/MockCirclesDeployment.sol";
 
-contract CMGRedemptionHandlerTest is Test, CirclesCoreAddresses, CirclesV2BetaAddresses {
+contract CMGRedemptionHandlerTest is Test {
     // Constants
     uint256 public constant CRC = 1e18;
     uint256 public constant MAX_NUMBER_REDEMPTION_IDS = 100;
     uint256 public constant MAX_REDEEM_PER_ID = 500 * CRC;
 
+    // State
+
+    /// @notice Mock Circles Deployment
+    MockCirclesDeployment public mockCircles;
+
     // Test addresses
     address public cmGroup;
     address public owner;
-    address public vault;
-    address public mockHub;
-    address public mockTreasury;
+    address public service;
     address public alice;
     address public bob;
 
-    // State
-
-    CirclesCore public circlesCore;
-
     // Handler instance
-    CMGRedemptionHandler public handler;
+    CMGRedemptionHandler public redemptionHandler;
 
     function setUp() public {
         // Create test addresses
-        cmGroup = makeAddr("cmGroup");
         owner = makeAddr("owner");
-        vault = makeAddr("vault");
-        mockHub = makeAddr("hub");
-        mockTreasury = makeAddr("treasury");
+        service = makeAddr("service");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
 
-        // Deploy handler
-        handler = new CMGRedemptionHandler(cmGroup, owner, "TestGroup", circlesCore);
+        mockCircles = new MockCirclesDeployment();
+    }
+
+    // Test group deployment
+    function testCreateCoreMembersGroupWithoutInitialConditions() public {
+        address[] memory noInitialConditions = new address[](0);
+
+        cmGroup = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
     }
 
     // Test basic collateral management

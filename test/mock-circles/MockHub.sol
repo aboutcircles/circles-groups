@@ -115,8 +115,8 @@ contract MockHub is ERC1155 {
         _burn(msg.sender, _id, _amount);
     }
 
-    function trust(address _truster, address _trustee, bool _trusting) public {
-        trusts[_truster][_trustee] = _trusting;
+    function trust(address _trustee, bool _trusting) public {
+        trusts[msg.sender][_trustee] = _trusting;
     }
 
     // View functions
