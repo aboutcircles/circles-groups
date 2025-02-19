@@ -23,6 +23,9 @@ forge flatten src/core-members-group/CMGMintHandler.sol > flattened/CMGMintHandl
 forge fmt --check src/core-members-group/CMGRedemptionHandler.sol
 forge flatten src/core-members-group/CMGRedemptionHandler.sol > flattened/CMGRedemptionHandler.flat.sol
 
+# Flatten the CMGRedemptionOperator contract
+forge fmt --check src/redemption-operator/CMGRedemptionOperator.sol
+forge flatten src/redemption-operator/CMGRedemptionOperator.sol > flattened/CMGRedemptionOperator.flat.sol
 
 # Flatten the UpgradeableRenounceableProxy contract
 forge fmt --check src/core-members-group/helpers/UpgradeableRenounceableProxy.sol
