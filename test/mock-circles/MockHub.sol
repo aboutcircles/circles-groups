@@ -31,14 +31,14 @@ contract MockHub is ERC1155 {
     mapping(address => AvatarTypes) public registrations;
     /// @notice simple trust relations
     mapping(address => mapping(address => bool)) public trusts;
+    /// @notice treasury mapping for groups
+    mapping(address => address) public treasuries;
 
     // Constructor
 
     constructor() ERC1155("") {
         standardTreasury = new MockStandardTreasury();
     }
-
-    // todo implement treasuries()
 
     // Public functions
 
@@ -60,6 +60,8 @@ contract MockHub is ERC1155 {
         mintPolicies[msg.sender] = IMintPolicy(_mint);
         // register group
         registrations[msg.sender] = AvatarTypes.Group;
+        // register standardTreasury for this group
+        treasuries[msg.sender] = address(standardTreasury);
     }
 
     function registerOrganization(string calldata, /*_name*/ bytes32 /*_metadataDigest*/ ) public {
@@ -117,8 +119,8 @@ contract MockHub is ERC1155 {
         _burn(msg.sender, _id, _amount);
     }
 
-    function trust(address _trustee, bool _trusting) public {
-        trusts[msg.sender][_trustee] = _trusting;
+    function trust(address _trustee, uint96 _expiry) public {
+        trusts[msg.sender][_trustee] = _expiry > block.timestamp;
     }
 
     // View functions

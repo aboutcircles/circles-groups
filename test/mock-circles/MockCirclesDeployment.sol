@@ -5,6 +5,7 @@ import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
+import "src/redemption-operator/CMGRedemptionOperator.sol";
 import "src/circles/Core.sol";
 import "src/circles/IHub.sol";
 import "src/circles/INameRegistry.sol";
@@ -20,6 +21,8 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
     MockStandardTreasury public mockStandardTreasury;
     /// @notice address of the deployed mastercopy for the CMGroup
     CoreMembersGroup public masterCopyCMGroup;
+    /// @notice address of the deployed redemption operator
+    CMGRedemptionOperator public redemptionOperator;
 
     // Events
 
@@ -45,6 +48,9 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
         // deploy a master copy for Core Members group
         masterCopyCMGroup = new CoreMembersGroup();
         emit MasterCopyDeployed(address(masterCopyCMGroup));
+
+        // deploy redemption operator
+        redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
     }
 
     function getCirclesCore() public view returns (CirclesCore memory) {

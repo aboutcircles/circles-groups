@@ -109,7 +109,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         // note: that cursor can also have been pulled back when removing active ids,
         // but the aim here is to simply cycle the cursor so that next call to find collateral
         // starts at a scrambled index.
-        cursor = (cursor + _collateralIds.length) % activeCollateralIds.length;
+        if (activeCollateralIds.length > 0) {
+            cursor = (cursor + _collateralIds.length) % activeCollateralIds.length;
+        } else {
+            cursor = 0;
+        }
     }
 
     /// @notice Sync status of provided collateral IDs, updating tracked status based on vault balances
