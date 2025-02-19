@@ -221,11 +221,8 @@ class NethermindClient:
                             "Order Not Filled - Long Wait",
                             "⚠️ Order pending for over 20 minutes!\nAction Required: Please investigate Cowswap status."
                         )
-                    else:
-                        send_slack_notification(
-                            "Order Not Filled",
-                            f"Order still processing for {minutes_elapsed}."
-                        )
+                    # Update initiated_timestamp to start a new 1-hour window
+                    initiated_timestamp = current_time + (60 * 60)  # Add 1 hour
                     return False
 
                 # Handle any other contract errors
