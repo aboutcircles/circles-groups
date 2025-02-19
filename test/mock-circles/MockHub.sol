@@ -93,6 +93,18 @@ contract MockHub is ERC1155 {
         // call on standard treasury to ensureVault and get vault address
         address vault = standardTreasury.ensureVault(_group);
 
+        // convert collateral avatars to collateral ids for policy check
+        uint256[] memory collateralIds = new uint256[](_collateralAvatars.length);
+        for (uint256 i = 0; i < _collateralAvatars.length; i++) {
+            collateralIds[i] = toTokenId(_collateralAvatars[i]);
+        }
+
+        // call beforeMintPolicy on group
+        require(
+            mintPolicies[_group].beforeMintPolicy(msg.sender, _group, collateralIds, _amounts, _data),
+            "mint policy rejected"
+        );
+
         // sum total amounts
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < _amounts.length; i++) {
@@ -101,12 +113,6 @@ contract MockHub is ERC1155 {
 
         // mint to caller the group circles (toTokenId(_group))
         _mint(msg.sender, toTokenId(_group), totalAmount, "");
-
-        // convert collateral avatars to collateral ids
-        uint256[] memory collateralIds = new uint256[](_collateralAvatars.length);
-        for (uint256 i = 0; i < _collateralAvatars.length; i++) {
-            collateralIds[i] = toTokenId(_collateralAvatars[i]);
-        }
 
         // batch transfer collateral directly to vault
         // (in Circles v2 beta this goes over Standard Treasury, but here we can simplify)
