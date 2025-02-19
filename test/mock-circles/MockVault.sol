@@ -23,7 +23,8 @@ contract MockVault is ERC1155Holder {
 
     // Constructor
 
-    constructor() {
+    constructor(MockHub _hub) {
+        hub = _hub;
         standardTreasury = MockStandardTreasury(msg.sender);
     }
 

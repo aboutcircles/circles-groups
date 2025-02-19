@@ -24,7 +24,7 @@ contract MockStandardTreasury is TypeDefinitions, ERC1155Holder {
     function ensureVault(address _group) public returns (address) {
         require(hub.isGroup(_group), "not a group");
         if (address(vaults[_group]) == address(0)) {
-            vaults[_group] = new MockVault();
+            vaults[_group] = new MockVault(hub);
         }
         return address(vaults[_group]);
     }
