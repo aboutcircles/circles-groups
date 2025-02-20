@@ -8,6 +8,8 @@ import "src/core-members-group/CMGHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 
+import {console} from "forge-std/console.sol";
+
 /// @title CMGRedemptionHandler
 /// @notice Redemption handler contract for Core Members Groups (CMG) in the Circles protocol
 /// @dev Manages redemption of group Circles (gCRC) for collateral tokens held in the group's vault
@@ -268,7 +270,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             // Note: We purposely don't remove zero balance IDs here to maintain view function status
 
             // Advance cursor with wraparound, using modulo to cycle back to start
-            localCursor = (localCursor + 1) % numActive;
+            localCursor = numActive == 0 ? 0 : (localCursor + 1) % numActive;
         }
 
         // If not partial fillable and we couldn't find enough collateral, revert
