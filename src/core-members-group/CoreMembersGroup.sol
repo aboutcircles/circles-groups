@@ -7,7 +7,6 @@ import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
-import "src/core-members-group/ICMGRedemptionHandler.sol";
 import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
 
@@ -20,9 +19,6 @@ contract CoreMembersGroup is
     ICMGroupErrors
 {
     // Constants
-
-    /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
-    uint256 public constant MAX_DEPOSIT_AMOUNT_MINIMUM = 10 ** 15;
 
     /// @notice The maximum number of membership conditions allowed.
     uint256 public constant MAX_CONDITIONS = 10;
@@ -40,10 +36,6 @@ contract CoreMembersGroup is
     /// @notice Track redemptionHandler contract changes
     /// @param newRedemptionHandler New redemptionHandler contract address.
     event RedemptionHandlerUpdated(address indexed newRedemptionHandler);
-
-    /// @notice Event emitted when minimal deposit amount is updated
-    /// @param minimalDeposit New minimal deposit value.
-    event MinimalDepositUpdated(uint256 minimalDeposit);
 
     /// @notice Event emitted when owner is set during setup
     /// @param owner New owner address.
@@ -118,7 +110,6 @@ contract CoreMembersGroup is
         _setService(_service);
         _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
-        _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
 
         // set initial conditions
         for (uint256 i = 0; i < _initialConditions.length; i++) {
@@ -173,16 +164,6 @@ contract CoreMembersGroup is
     /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
     function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
         _setRedemptionHandler(_redemptionHandler);
-    }
-
-    /// @notice Change minimal deposit amount for the group
-    /// @param _minimalDeposit New minimal deposit amount
-    /// @dev Must not exceed MAX_DEPOSIT_AMOUNT_MINIMUM. Only owner can change.
-    function setMinimalDeposit(uint256 _minimalDeposit) external onlyOwner {
-        if (_minimalDeposit > MAX_DEPOSIT_AMOUNT_MINIMUM) {
-            revert CMGroupInvalidCallingParameters();
-        }
-        _setMinimalDeposit(_minimalDeposit);
     }
 
     /// @notice Change the fee collection address
@@ -240,28 +221,15 @@ contract CoreMembersGroup is
         }
     }
 
-    /// @notice Policy that registers minting of circles to track membership in group.
-    /// @param _collateral Array of collateral token IDs being deposited.
+    /// @notice Policy that returns true.
     /// @return Returns true to allow the mint.
     function beforeMintPolicy(
         address, /*_minter*/
         address, /*_group*/
-        uint256[] calldata _collateral,
-        uint256[] calldata _amounts,
+        uint256[] calldata, /*_collateral*/
+        uint256[] calldata, /*_amounts*/
         bytes calldata /*_data*/
-    ) external override onlyHub returns (bool) {
-        // ensure the amounts are not zero as sanity check
-        for (uint256 i = 0; i < _amounts.length; i++) {
-            if (_amounts[i] < _state().minimalDeposit) {
-                // hub already checks no amount is zero in _groupMint,
-                // but assert here that each deposit is at least minimally significant
-                // to avoid that the group's vault collects dust, which makes the
-                // redemption (and redemption bookkeeping) less efficient.
-                revert CMGroupInteractionAmountIsBelowMinimum(_collateral[i], _amounts[i], _state().minimalDeposit);
-            }
-        }
-        // register deposit with redemption handler
-        _registerDeposit(_collateral);
+    ) external view override onlyHub returns (bool) {
         return true;
     }
 
@@ -279,6 +247,7 @@ contract CoreMembersGroup is
         bytes calldata _data
     )
         external
+        view
         override
         onlyHubOrTreasury
         returns (
@@ -295,9 +264,6 @@ contract CoreMembersGroup is
         // and no collateral gets burnt upon redemption
         _burnIds = new uint256[](0);
         _burnValues = new uint256[](0);
-
-        // register redemption with redemption handler
-        _registerRedemption(redemption.redemptionIds, redemption.redemptionValues);
 
         // standard treasury checks whether the total sums add up to the amount of group Circles redeemed
         // so we can simply decode and pass the request back to treasury.
@@ -355,13 +321,6 @@ contract CoreMembersGroup is
         return _state().service;
     }
 
-    /// @notice returns the minimal deposit amount for mints. The same minimal
-    ///         amount must remain in the vault collateral in order to track
-    ///         the id as active collateral for searches for redemption
-    function minimalDeposit() external view returns (uint256) {
-        return _state().minimalDeposit;
-    }
-
     /// @notice Returns the address that receives fees collected by this group
     function feeCollection() external view returns (address) {
         return _state().feeCollection;
@@ -386,11 +345,6 @@ contract CoreMembersGroup is
     function _setRedemptionHandler(address _redemptionHandler) internal {
         _state().redemptionHandler = _redemptionHandler;
         emit RedemptionHandlerUpdated(_redemptionHandler);
-    }
-
-    function _setMinimalDeposit(uint256 _minimalDeposit) internal {
-        _state().minimalDeposit = _minimalDeposit;
-        emit MinimalDepositUpdated(_minimalDeposit);
     }
 
     function _addMembershipCondition(address _condition) internal {
@@ -450,21 +404,5 @@ contract CoreMembersGroup is
         // passed all membership conditions,
         // true by default if no conditions set
         return (true, address(0));
-    }
-
-    function _registerDeposit(uint256[] memory _collateralIds) internal {
-        address redemptionHandler_ = _state().redemptionHandler;
-        if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds);
-        }
-    }
-
-    function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
-        address redemptionHandler_ = _state().redemptionHandler;
-        if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(
-                _state().minimalDeposit, _collateralIds, _amounts
-            );
-        }
     }
 }

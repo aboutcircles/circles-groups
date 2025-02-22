@@ -15,7 +15,6 @@ contract CoreMembersGroupStorage {
         address mintHandler;
         address redemptionHandler;
         address service;
-        uint256 minimalDeposit;
         address feeCollection;
         address[] membershipConditions;
     }
