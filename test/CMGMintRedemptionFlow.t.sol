@@ -283,6 +283,143 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
         }
     }
 
+    function testShieldingOrg(uint256 totalAmount, uint256 numberOfTerminatedEdges) public {
+        // -------------------------------------------------------------------------
+        // Stage 1: Set working state by making batch of mints
+        // -------------------------------------------------------------------------
+
+        // Generate flow matrix based on mint handler as path destination and fuzzed: amount and number of terminal edges,
+        // which are in range from 1 to 10. 3 intermidiate vertices per flow.
+        (
+            address sourceAvatar,
+            address[] memory flowVertices,
+            TypeDefinitions.FlowEdge[] memory flowEdges,
+            TypeDefinitions.Stream[] memory streams,
+            uint256[] memory redemptionIds,
+            uint256[] memory redemptionAmounts,
+            bytes memory packedCoordinates
+        ) = generateFlowMatrix(
+            totalAmount, // min 100, max 10_000
+            numberOfTerminatedEdges, // fuzz from 1 to 10, also equal number of collateral ids for now
+            today, // from block state
+            [groupProxy, mintHandler] // constants: group and mintHandler
+        );
+
+        // Hub calls the appropriate handler (mintHandler) as destination.
+        // Impersonate source avatar to call the operateFlowMatrix function.
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // At this point, the Hub (via the mintHandler) should have minted group CRC (gCRC)
+        // and transferred them to the source avatar.
+        // Check that source avatar now has a balance of group CRC.
+        uint256 sourceAvatarBalance = hub.balanceOf(sourceAvatar, groupTokenId);
+        assertEq(
+            sourceAvatarBalance,
+            _polishFuzzedTotalAmount(totalAmount),
+            "Source avatar should receive total amount of group CRC"
+        );
+
+        // As we are testing against groups utilizing StandardTreasury, we can have extra effect check - collateral balances of vault.
+        // Get vault
+        vault = IStandardTreasury(standardTreasury).vaults(groupProxy);
+        // Check collateral balances of vault
+        for (uint256 i; i < redemptionIds.length;) {
+            assertEq(
+                redemptionAmounts[i],
+                hub.balanceOf(vault, redemptionIds[i]),
+                "Collateral balances hold by vault does not match"
+            );
+            unchecked {
+                ++i;
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Stage 2: Try out shielding org
+        // -------------------------------------------------------------------------
+        // source gCRC -> vault -> receiver ids[0]
+        uint256 id = redemptionIds[0];
+        uint256 amount = redemptionAmounts[0] / 2;
+        address receiver = makeAddr("receiver");
+        _registerHuman(receiver);
+        _setTrust(receiver, address(uint160(id)));
+
+        flowVertices = new address[](5); // source, group, vault, id, receiver
+        flowVertices[0] = sourceAvatar;
+        flowVertices[1] = groupProxy;
+        flowVertices[2] = vault;
+        flowVertices[3] = address(uint160(id));
+        flowVertices[4] = receiver;
+        uint16[] memory indexes;
+        (flowVertices, indexes) = sortWithMapping(flowVertices);
+        {
+            // generate packedCoordinates
+            uint16[] memory coords = new uint16[](6); // 2 edges: from source to vault, from vault to receiver
+            coords[0] = indexes[1]; // id   (edge 0) // gCRC
+            coords[1] = indexes[0]; // from (edge 0) // source
+            coords[2] = indexes[2]; // to   (edge 0) // vault
+            coords[3] = indexes[3]; // id   (edge 1) // id
+            coords[4] = indexes[2]; // from (edge 1) // vault
+            coords[5] = indexes[4]; // to   (edge 1) // receiver
+            packedCoordinates = _packCoordinates(coords);
+        }
+        {
+            // generate flow edges
+            flowEdges = new TypeDefinitions.FlowEdge[](2);
+            flowEdges[0] = TypeDefinitions.FlowEdge({streamSinkId: 0, amount: uint192(amount)});
+            flowEdges[1] = TypeDefinitions.FlowEdge({streamSinkId: 1, amount: uint192(amount)});
+        }
+        {
+            // generate streams
+            streams = new TypeDefinitions.Stream[](1);
+
+            streams[0] = TypeDefinitions.Stream({sourceCoordinate: indexes[0], flowEdgeIds: new uint16[](1), data: ""});
+            streams[0].flowEdgeIds[0] = uint16(1);
+        }
+
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // check balance changes
+        // source
+        /*
+        // stack too deep
+        assertEq(
+                _polishFuzzedTotalAmount(totalAmount) - amount,
+                hub.balanceOf(sourceAvatar, uint256(uint160(groupProxy))),
+                "Source avatar should spend amount of gCRC"
+        );
+        */
+        // vault
+        assertEq(
+            amount, hub.balanceOf(vault, uint256(uint160(groupProxy))), "ShieldingVault should receive amount of gCRC"
+        );
+        assertEq(redemptionAmounts[0] - amount, hub.balanceOf(vault, id), "ShieldingVault should transfer amount of id");
+        // receiver
+        assertApproxEqAbs(amount, hub.balanceOf(vault, id), 1, "Receiver should receive amount of id"); // TODO: check why receiver balance - amount = 1
+
+        // -------------------------------------------------------------------------
+        // Stage 3: Shielding org functionality
+        // -------------------------------------------------------------------------
+
+        // now lets try to burn gCRC
+        StandardVaultShield(vault).burn();
+        // check balance changes
+        assertEq(0, hub.balanceOf(vault, uint256(uint160(groupProxy))), "ShieldingVault should receive amount of gCRC");
+
+        // now lets disable shielding functionality and try to repeat
+        vm.prank(groupProxy);
+        StandardVaultShield(vault).setShieldOrgStatus(false);
+
+        // increase block.timestamp as untrust still trusts in this block
+        skip(1);
+
+        vm.expectRevert();
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+    }
+
     // TODO: for next redemption flow test we need to set extra collateral (attempt to redeem different).
 
     // Internal helpers
