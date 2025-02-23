@@ -9,6 +9,8 @@ import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
 import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
+import "src/circles/IStandardTreasury.sol";
+import {IShieldingOrg} from "src/circles/IShieldingOrg.sol";
 
 contract CoreMembersGroup is
     Initializable,
@@ -275,6 +277,13 @@ contract CoreMembersGroup is
         // so we can simply decode and pass the request back to treasury.
         // The redemption will fail if it does not contain (sufficient of) these Circles
         return (redemption.redemptionIds, redemption.redemptionValues, _burnIds, _burnValues);
+    }
+
+    /// @notice Enables/disables shielding org functionality on treasury Vault.
+    /// @param enable True to enable, false to disable
+    function setVaultShieldingOrgStatus(bool enable) external onlyOwner {
+        address vault = IStandardTreasury(TREASURY).vaults(address(this));
+        IShieldingOrg(vault).setShieldOrgStatus(enable);
     }
 
     /// @notice Sets advanced usage flags for this group in the Hub
