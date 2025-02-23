@@ -23,6 +23,11 @@ contract CoreMembersGroup is
     /// @notice The maximum number of membership conditions allowed.
     uint256 public constant MAX_CONDITIONS = 10;
 
+    // Immutable
+
+    /// @notice The treasury used by this group.
+    address public immutable TREASURY;
+
     // Events
 
     /// @notice Track service address changes
@@ -62,7 +67,7 @@ contract CoreMembersGroup is
 
     /// @notice Only the Circles Hub or group Treasury can call this function
     modifier onlyHubOrTreasury() {
-        if (msg.sender != address(hub) && msg.sender != address(standardTreasury)) {
+        if (msg.sender != address(hub) && msg.sender != TREASURY) {
             revert CMGroupOnlyHubOrTreasury();
         }
         _;
@@ -87,7 +92,8 @@ contract CoreMembersGroup is
     // Constructor
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor(address treasury) {
+        TREASURY = treasury;
         _disableInitializers();
     }
 
@@ -120,7 +126,7 @@ contract CoreMembersGroup is
         _state().feeCollection = _owner;
 
         // register group in hub and set the mint policy to this address
-        hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+        hub.registerCustomGroup(address(this), TREASURY, _name, _symbol, _metadataDigest);
 
         emit OwnerSet(_owner);
     }
