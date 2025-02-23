@@ -10,7 +10,10 @@ contract CMGroupDeployer {
     // State variables
 
     /// @notice address of the deployed mastercopy for the CMGroup
-    CoreMembersGroup public masterCopyCMGroup;
+    CoreMembersGroup public immutable masterCopyCMGroup;
+
+    /// @notice address of the treasury used by mastercopy for the CMGroup
+    address public immutable TREASURY;
 
     // Events
 
@@ -29,9 +32,10 @@ contract CMGroupDeployer {
 
     // Constructor
 
-    constructor() {
+    constructor(address _treasury) {
+        TREASURY = _treasury;
         // deploy a master copy for Core Members group
-        masterCopyCMGroup = new CoreMembersGroup();
+        masterCopyCMGroup = new CoreMembersGroup(_treasury);
         emit MasterCopyDeployed(address(masterCopyCMGroup));
     }
 
@@ -51,7 +55,7 @@ contract CMGroupDeployer {
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // deploy the handlers
         CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, _name);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), TREASURY, owner, _name);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
             owner,
