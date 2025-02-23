@@ -7,6 +7,7 @@ import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
 import "src/core-members-group/CMGHandler.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
+import "src/circles/IStandardTreasury.sol";
 
 /// @notice
 contract CMGRedemptionHandler is CMGHandler, CirclesTypes {
@@ -14,6 +15,9 @@ contract CMGRedemptionHandler is CMGHandler, CirclesTypes {
 
     /// @notice Indefinite future, or approximated with uint96.max
     uint96 internal constant INDEFINITE_FUTURE = type(uint96).max;
+
+    /// @dev Treasury
+    IStandardTreasury internal immutable TREASURY;
 
     // Events
 
@@ -23,7 +27,10 @@ contract CMGRedemptionHandler is CMGHandler, CirclesTypes {
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
+    constructor(address _cmGroup, address _treasury, address _owner, string memory _name)
+        CMGHandler(_cmGroup, _owner)
+    {
+        TREASURY = IStandardTreasury(_treasury);
         // append "-redeemer" to group's name to register organization
         string memory orgName = string.concat(_name, "-redeemer");
         // register handler as organization in hub
@@ -56,7 +63,7 @@ contract CMGRedemptionHandler is CMGHandler, CirclesTypes {
         if (ongoingConversion == 0 && _id == cmGroupId) {
             _initiateConversion(_from, _value);
             // use redemption data from stream
-            hub.safeTransferFrom(address(this), address(standardTreasury), _id, _value, _data);
+            hub.safeTransferFrom(address(this), address(TREASURY), _id, _value, _data);
         } else if (ongoingConversion == _value && _id != cmGroupId) {
             // continuation branch: receive a single collateral id
 
@@ -149,7 +156,7 @@ contract CMGRedemptionHandler is CMGHandler, CirclesTypes {
     function _getGroupVault() internal view returns (address) {
         // get target group's vault from treasury's mapping
         // as CMG it is always created with standard treasury
-        address vault = standardTreasury.vaults(cmGroup); // Question: it is constant address per group, why extra read? TODO: generally fix: excess external calls/storage/constants.
+        address vault = TREASURY.vaults(cmGroup); // Question: it is constant address per group, why extra read? TODO: generally fix: excess external calls/storage/constants.
         if (vault == address(0)) {
             // if no gCRC has been minted, vault is not yet deployed
             revert CMGHandlerVaultNotFound(address(cmGroup));
