@@ -4,6 +4,10 @@ pragma solidity ^0.8.28;
 import "forge-std/Test.sol";
 import "forge-std/StdCheats.sol";
 import "circles-contracts-v2/hub/Hub.sol";
+import "circles-contracts-v2/hub/IHub.sol";
+import {IStandardTreasury} from "src/circles/IStandardTreasury.sol";
+import {StandardVaultShield} from "src/treasury/StandardVaultShieldO.sol";
+import {StandardTreasuryOverriden} from "src/treasury/StandardTreasuryOverriden.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
 import "src/core-members-group/helpers/CMGroupDeployer.sol";
 import {FlowMatrixGenerator} from "test/helpers/FlowMatrixGenerator.sol";
@@ -17,8 +21,10 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
 
     // Hub instance (the fork uses the real deployed Hub)
     Hub hub = Hub(HUB);
-    // StandardTreasury instance (interface declared inside src/circles/IStandardTreasury; inhereted by CoreMembersGroup).
-    IStandardTreasury standardTreasury = IStandardTreasury(address(0x08F90aB73A515308f03A718257ff9887ED330C6e));
+    address nameRegistry = address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474);
+    // StandardTreasuryOverriden instance.
+    address standardTreasury;
+    //  old StandardTreasury address(0x08F90aB73A515308f03A718257ff9887ED330C6e)
 
     // Deployer for CoreMembersGroup
     CMGroupDeployer cmgDeployer;
@@ -39,8 +45,12 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
         gnosisFork = vm.createFork(rpcUrl);
         vm.selectFork(gnosisFork);
 
+        // Deploy overriden version of standard treasury
+        StandardVaultShield standardVaultShield = new StandardVaultShield(nameRegistry);
+        standardTreasury = address(new StandardTreasuryOverriden(IHubV2(address(hub)), address(standardVaultShield)));
+
         // Deploy the CMGroupDeployer (which deploys the CoreMembersGroup master copy)
-        cmgDeployer = new CMGroupDeployer();
+        cmgDeployer = new CMGroupDeployer(standardTreasury);
 
         // setup Hub today
         today = hub.day(block.timestamp);
@@ -107,7 +117,7 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
 
         // As we are testing against groups utilizing StandardTreasury, we can have extra effect check - collateral balance of vault.
         // Get vault
-        vault = standardTreasury.vaults(groupProxy);
+        vault = IStandardTreasury(standardTreasury).vaults(groupProxy);
         // Check single collateral balance of vault
         assertEq(
             redemptionAmounts[0],
@@ -154,7 +164,7 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
 
         // As we are testing against groups utilizing StandardTreasury, we can have extra effect check - collateral balances of vault.
         // Get vault
-        vault = standardTreasury.vaults(groupProxy);
+        vault = IStandardTreasury(standardTreasury).vaults(groupProxy);
         // Check collateral balances of vault
         for (uint256 i; i < redemptionIds.length;) {
             assertEq(
@@ -220,12 +230,12 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
         {
             // generate packedCoordinates
             uint16[] memory coords = new uint16[](6); // 2 edges: from friend to source, from source to redemptionHandler
-            coords[0] = indexes[0]; // id   (edge 0)
-            coords[1] = indexes[0]; // from (edge 0)
-            coords[2] = indexes[1]; // to   (edge 0)
-            coords[3] = indexes[2]; // id   (edge 1)
-            coords[4] = indexes[1]; // from (edge 1)
-            coords[5] = indexes[3]; // to   (edge 1)
+            coords[0] = indexes[0]; // id   (edge 0) // friend
+            coords[1] = indexes[0]; // from (edge 0) // friend
+            coords[2] = indexes[1]; // to   (edge 0) // source
+            coords[3] = indexes[2]; // id   (edge 1) // group
+            coords[4] = indexes[1]; // from (edge 1) // source
+            coords[5] = indexes[3]; // to   (edge 1) // redemptionHandler
             packedCoordinates = _packCoordinates(coords);
         }
         {
@@ -291,9 +301,9 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
     {
         // Initialize the indexes array to track original positions.
         // Each position i starts with the value i.
-        indexes = new uint16[](arr.length);
+        uint16[] memory permutation = new uint16[](arr.length);
         for (uint16 i; i < arr.length;) {
-            indexes[i] = i;
+            permutation[i] = i;
             unchecked {
                 ++i;
             }
@@ -311,11 +321,17 @@ contract CMGMintRedemptionFlowTest is Test, FlowMatrixGenerator {
                     arr[j + 1] = temp;
 
                     // Swap corresponding indexes to maintain mapping
-                    uint16 tempIndex = indexes[j];
-                    indexes[j] = indexes[j + 1];
-                    indexes[j + 1] = tempIndex;
+                    uint16 tempIndex = permutation[j];
+                    permutation[j] = permutation[j + 1];
+                    permutation[j + 1] = tempIndex;
                 }
             }
+        }
+
+        indexes = new uint16[](arr.length);
+        for (uint16 i = 0; i < arr.length; i++) {
+            // Place i at the index specified by arr[i]
+            indexes[permutation[i]] = i;
         }
         return (arr, indexes);
     }
