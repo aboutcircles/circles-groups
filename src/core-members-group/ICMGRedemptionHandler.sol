@@ -38,6 +38,18 @@ interface ICMGRedemptionHandler {
         view
         returns (uint256[] memory ids, uint256[] memory amounts);
 
+    /// @notice Find available collateral IDs and amounts for redeeming a certain amount
+    /// @param group Group address to find collateral for
+    /// @param amount Amount to find collateral for
+    /// @param partialFillable Whether partial fills are acceptable
+    /// @param cursor Custom starting position for searching collateral
+    /// @return ids Array of collateral IDs found
+    /// @return amounts Array of amounts for each collateral ID
+    function findCollateralWithCursor(address group, uint256 amount, bool partialFillable, uint256 cursor)
+        external
+        view
+        returns (uint256[] memory ids, uint256[] memory amounts);
+
     /// @notice Structure redemption data for use in transfers
     /// @param redemptionIds Array of redemption IDs
     /// @param redemptionValues Array of redemption values
@@ -46,4 +58,8 @@ interface ICMGRedemptionHandler {
         external
         pure
         returns (bytes memory);
+
+    /// @notice Gets the current cursor position for redemption searches
+    /// @return Current cursor value
+    function cursor() external view returns (uint256);
 }

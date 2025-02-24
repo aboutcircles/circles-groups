@@ -21,6 +21,16 @@ contract CMGRedemptionHandlerTest is Test {
     address public service;
     address public alice;
     address public bob;
+    address public charlie;
+    address public david;
+    address public els;
+
+    // Token IDs
+    uint256 public aliceId;
+    uint256 public bobId;
+    uint256 public charlieId;
+    uint256 public davidId;
+    uint256 public elsId;
 
     function setUp() public {
         // Create test addresses
@@ -28,19 +38,44 @@ contract CMGRedemptionHandlerTest is Test {
         service = makeAddr("service");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
+        charlie = makeAddr("charlie");
+        david = makeAddr("david");
+        els = makeAddr("els");
+
+        // Store token IDs
+        aliceId = uint256(uint160(alice));
+        bobId = uint256(uint160(bob));
+        charlieId = uint256(uint160(charlie));
+        davidId = uint256(uint160(david));
+        elsId = uint256(uint160(els));
 
         mockCircles = new MockCirclesDeployment();
 
-        // Register Alice and Bob as people and mint initial CRC
+        // Register users as people and mint initial CRC
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
         mockCircles.mockHub().registerHuman(bob, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(charlie, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(david, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(els, 1000 * CRC);
 
-        // Have Alice and Bob authorize the redemption operator as ERC1155 operator
+        // Have users authorize the redemption operator
         vm.startPrank(alice);
         mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
         vm.stopPrank();
 
         vm.startPrank(bob);
+        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
+        vm.stopPrank();
+
+        vm.startPrank(david);
+        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
+        vm.stopPrank();
+
+        vm.startPrank(els);
         mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
         vm.stopPrank();
     }
@@ -85,7 +120,7 @@ contract CMGRedemptionHandlerTest is Test {
         vm.stopPrank();
 
         // Verify Alice's CRC was deposited
-        assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(alice))), 899 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 899 * CRC);
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 101 * CRC);
 
         // Get group's redemption handler address and check active collateral
@@ -99,7 +134,7 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(totalLength, 1);
 
         // Verify collateral ID and balance match Alice's deposit
-        assertEq(collateralIds[0], uint256(uint160(alice)));
+        assertEq(collateralIds[0], aliceId);
         assertEq(balances[0], 101 * CRC);
     }
 
@@ -108,13 +143,11 @@ contract CMGRedemptionHandlerTest is Test {
 
         // Have Bob send 230 of his CRC directly to mint handler via safeTransfer
         vm.startPrank(bob);
-        mockCircles.mockHub().safeTransferFrom(
-            bob, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(bob)), 230 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(bob, ICoreMembersGroup(cmGroup).mintHandler(), bobId, 230 * CRC, "");
         vm.stopPrank();
 
         // Verify Bob's CRC was received and converted to group CRC
-        assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(bob))), 770 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 770 * CRC);
         assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 230 * CRC);
 
         // Get group's redemption handler address and check active collateral
@@ -128,7 +161,7 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(totalLength, 1);
 
         // Verify collateral ID and balance match Bob's deposit
-        assertEq(collateralIds[0], uint256(uint160(bob)));
+        assertEq(collateralIds[0], bobId);
         assertEq(balances[0], 230 * CRC);
     }
 
@@ -137,24 +170,20 @@ contract CMGRedemptionHandlerTest is Test {
 
         // Have Alice send 340 CRC via safeTransfer
         vm.startPrank(alice);
-        mockCircles.mockHub().safeTransferFrom(
-            alice, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(alice)), 340 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(alice, ICoreMembersGroup(cmGroup).mintHandler(), aliceId, 340 * CRC, "");
         vm.stopPrank();
 
         // Have Bob send 410 CRC via safeTransfer
         vm.startPrank(bob);
-        mockCircles.mockHub().safeTransferFrom(
-            bob, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(bob)), 410 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(bob, ICoreMembersGroup(cmGroup).mintHandler(), bobId, 410 * CRC, "");
         vm.stopPrank();
 
         // Verify Alice's CRC was received and converted to group CRC
-        assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(alice))), 660 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 660 * CRC);
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 340 * CRC);
 
         // Verify Bob's CRC was received and converted to group CRC
-        assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(bob))), 590 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 590 * CRC);
         assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 410 * CRC);
 
         // Get group's redemption handler address and check active collateral
@@ -168,9 +197,9 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(totalLength, 2);
 
         // Verify collateral IDs and balances match deposits
-        assertEq(collateralIds[0], uint256(uint160(alice)));
+        assertEq(collateralIds[0], aliceId);
         assertEq(balances[0], 340 * CRC);
-        assertEq(collateralIds[1], uint256(uint160(bob)));
+        assertEq(collateralIds[1], bobId);
         assertEq(balances[1], 410 * CRC);
     }
 
@@ -181,7 +210,7 @@ contract CMGRedemptionHandlerTest is Test {
         vm.startPrank(alice);
         uint256[] memory redemptionIds = new uint256[](1);
         uint256[] memory redemptionValues = new uint256[](1);
-        redemptionIds[0] = uint256(uint160(alice)); // Alice's own CRC id
+        redemptionIds[0] = aliceId; // Alice's own CRC id
         redemptionValues[0] = 75 * CRC;
 
         mockCircles.redemptionOperator().redeem(cmGroup, redemptionIds, redemptionValues);
@@ -189,7 +218,7 @@ contract CMGRedemptionHandlerTest is Test {
 
         // Verify Alice's balances after redemption
         // She minted 101 CRC into gCRC, then redeemed 75 CRC back
-        assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(alice))), 974 * CRC); // Original - minted + redeemed
+        assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 974 * CRC); // Original - minted + redeemed
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 26 * CRC); // Minted - redeemed
     }
 
@@ -208,8 +237,8 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(totalLength, 2);
 
         // Verify collateral IDs match Alice and Bob's token IDs
-        assertEq(collateralIds[0], uint256(uint160(alice)));
-        assertEq(collateralIds[1], uint256(uint160(bob)));
+        assertEq(collateralIds[0], aliceId);
+        assertEq(collateralIds[1], bobId);
 
         // Verify balances match what was minted
         assertEq(balances[0], 340 * CRC);
@@ -238,9 +267,9 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(total, 370 * CRC);
 
         // Verify returned collateral IDs match Alice and Bob's
-        assertEq(foundIds[0], uint256(uint160(alice)));
+        assertEq(foundIds[0], aliceId);
         assertEq(foundAmounts[0], 340 * CRC);
-        assertEq(foundIds[1], uint256(uint160(bob)));
+        assertEq(foundIds[1], bobId);
         assertEq(foundAmounts[1], 30 * CRC);
     }
 
@@ -264,9 +293,9 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(preCollateralIds.length, 2);
         assertEq(preBalances.length, 2);
         assertEq(preTotalLength, 2);
-        assertEq(preCollateralIds[0], uint256(uint160(alice)));
+        assertEq(preCollateralIds[0], aliceId);
         assertEq(preBalances[0], 340 * CRC);
-        assertEq(preCollateralIds[1], uint256(uint160(bob)));
+        assertEq(preCollateralIds[1], bobId);
         assertEq(preBalances[1], 410 * CRC);
 
         // Have Alice redeem 370 CRC worth of collateral from the group automatically
@@ -275,8 +304,8 @@ contract CMGRedemptionHandlerTest is Test {
         vm.stopPrank();
 
         // Verify Alice's summed balances after redemption
-        uint256 aliceAliceCirclesBalance = mockCircles.mockHub().balanceOf(alice, uint256(uint160(alice)));
-        uint256 aliceBobCirclesBalance = mockCircles.mockHub().balanceOf(alice, uint256(uint160(bob)));
+        uint256 aliceAliceCirclesBalance = mockCircles.mockHub().balanceOf(alice, aliceId);
+        uint256 aliceBobCirclesBalance = mockCircles.mockHub().balanceOf(alice, bobId);
 
         // Started with 1000 CRC, minted 340 gCRC, received 410 gCRC from Bob, redeemed 370 gCRC worth
         // Initial gCRC balance: 340 + 410 = 750
@@ -286,7 +315,7 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(aliceAliceCirclesBalance + aliceBobCirclesBalance, 1030 * CRC);
 
         // Verify Bob's balances - only his original CRC mint transaction should be reflected
-        assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(bob))), 590 * CRC); // Original - minted
+        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 590 * CRC); // Original - minted
         assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 0); // Transferred all gCRC to Alice
 
         // Get redemption handler and check active collateral after redemption
@@ -299,7 +328,7 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(postTotalLength, 1);
 
         // Verify collateral ID matches Bob's token ID (Alice's fully redeemed)
-        assertEq(postCollateralIds[0], uint256(uint160(bob)));
+        assertEq(postCollateralIds[0], bobId);
 
         // Verify remaining balance tracked for Bob's collateral
         // Bob's collateral: 410 CRC - 30 CRC = 380 CRC
@@ -326,8 +355,8 @@ contract CMGRedemptionHandlerTest is Test {
 
         // Verify Bob's redemption
         assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 0); // All gCRC redeemed
-        uint256 bobTotalPersonalCircles = mockCircles.mockHub().balanceOf(bob, uint256(uint160(bob)))
-            + mockCircles.mockHub().balanceOf(bob, uint256(uint160(alice)));
+        uint256 bobTotalPersonalCircles =
+            mockCircles.mockHub().balanceOf(bob, bobId) + mockCircles.mockHub().balanceOf(bob, aliceId);
         assertEq(bobTotalPersonalCircles, 790 * CRC); // Original - minted + redeemed
 
         // Alice redeems all her remaining 550 gCRC
@@ -338,8 +367,8 @@ contract CMGRedemptionHandlerTest is Test {
         // Verify Alice's redemption
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 0); // All gCRC redeemed
         // Check Alice's total personal circles (original - minted + all redeemed)
-        uint256 aliceTotalPersonalCircles = mockCircles.mockHub().balanceOf(alice, uint256(uint160(alice)))
-            + mockCircles.mockHub().balanceOf(alice, uint256(uint160(bob)));
+        uint256 aliceTotalPersonalCircles =
+            mockCircles.mockHub().balanceOf(alice, aliceId) + mockCircles.mockHub().balanceOf(alice, bobId);
         assertEq(aliceTotalPersonalCircles, 1210 * CRC); // 1000 - 340 + 550
 
         // Get redemption handler and verify no collateral is tracked
@@ -355,16 +384,6 @@ contract CMGRedemptionHandlerTest is Test {
     function testMoreInvolvedSequenceMintAndRedeems() public {
         testTrustAliceAndBob();
 
-        // Create additional users
-        address charlie = makeAddr("charlie");
-        address david = makeAddr("david");
-        address els = makeAddr("els");
-
-        // Register new users as humans with initial CRC
-        mockCircles.mockHub().registerHuman(charlie, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(david, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(els, 1000 * CRC);
-
         // Trust new users
         vm.startPrank(owner);
         ICoreMembersGroup(cmGroup).trust(charlie, type(uint96).max);
@@ -372,71 +391,87 @@ contract CMGRedemptionHandlerTest is Test {
         ICoreMembersGroup(cmGroup).trust(els, type(uint96).max);
         vm.stopPrank();
 
-        // Authorize redemption operator for new users
-        vm.startPrank(charlie);
-        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
-        vm.stopPrank();
-
-        vm.startPrank(david);
-        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
-        vm.stopPrank();
-
-        vm.startPrank(els);
-        mockCircles.mockHub().setApprovalForAll(address(mockCircles.redemptionOperator()), true);
-        vm.stopPrank();
-
         // Initial mints via safe transfers
         vm.startPrank(alice);
-        mockCircles.mockHub().safeTransferFrom(
-            alice, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(alice)), 200 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(alice, ICoreMembersGroup(cmGroup).mintHandler(), aliceId, 200 * CRC, "");
         vm.stopPrank();
 
         vm.startPrank(bob);
-        mockCircles.mockHub().safeTransferFrom(
-            bob, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(bob)), 300 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(bob, ICoreMembersGroup(cmGroup).mintHandler(), bobId, 300 * CRC, "");
         vm.stopPrank();
 
         vm.startPrank(charlie);
         mockCircles.mockHub().safeTransferFrom(
-            charlie, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(charlie)), 400 * CRC, ""
+            charlie, ICoreMembersGroup(cmGroup).mintHandler(), charlieId, 400 * CRC, ""
         );
         vm.stopPrank();
 
-        // First round of redemptions
+        // First round of redemptions - Alice redeems 150 CRC
+        // Get redemption handler and check cursor position
+        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
+        uint256 cursorBefore = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        (uint256[] memory foundIds1,) =
+            ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 150 * CRC, false);
+        assertEq(foundIds1.length, 1); // Should find one collateral source
+
         vm.startPrank(alice);
         mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 150 * CRC, false);
         vm.stopPrank();
 
+        uint256 cursorAfterAlice = ICMGRedemptionHandler(redemptionHandler).cursor();
+        assertEq(cursorAfterAlice, (cursorBefore + 1) % 3); // 3 active collateral sources
+
+        // Charlie redeems 200 CRC, cursor should move past Alice's remaining position
+        (uint256[] memory foundIds2,) =
+            ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 200 * CRC, false);
+        assertEq(foundIds2.length, 1); // Should find one collateral source
+
         vm.startPrank(charlie);
         mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 200 * CRC, false);
         vm.stopPrank();
+
+        uint256 cursorAfterCharlie = ICMGRedemptionHandler(redemptionHandler).cursor();
+        assertEq(cursorAfterCharlie, (cursorAfterAlice + 1) % 3);
 
         // Second round of mints
         vm.startPrank(els);
-        mockCircles.mockHub().safeTransferFrom(
-            els, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(els)), 250 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(els, ICoreMembersGroup(cmGroup).mintHandler(), elsId, 250 * CRC, "");
         vm.stopPrank();
 
         vm.startPrank(david);
-        mockCircles.mockHub().safeTransferFrom(
-            david, ICoreMembersGroup(cmGroup).mintHandler(), uint256(uint160(david)), 350 * CRC, ""
-        );
+        mockCircles.mockHub().safeTransferFrom(david, ICoreMembersGroup(cmGroup).mintHandler(), davidId, 350 * CRC, "");
         vm.stopPrank();
 
-        // Second round of redemptions
+        // Bob redeems 200 CRC - cursor should move through previous positions
+        uint256 cursorBeforeBob = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        (uint256[] memory foundIds3,) =
+            ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 200 * CRC, false);
+        assertEq(foundIds3.length, 1); // Should find one collateral source
+
         vm.startPrank(bob);
         mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 200 * CRC, false);
         vm.stopPrank();
+
+        uint256 cursorAfterBob = ICMGRedemptionHandler(redemptionHandler).cursor();
+        assertEq(cursorAfterBob, (cursorBeforeBob + 1) % 5); // Now 5 active collateral sources
+
+        // David redeems 150 CRC - cursor cycles further
+        uint256 cursorBeforeDavid = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        (uint256[] memory foundIds4,) =
+            ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 150 * CRC, false);
+        assertEq(foundIds4.length, 1); // Should find one collateral source
 
         vm.startPrank(david);
         mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 150 * CRC, false);
         vm.stopPrank();
 
+        uint256 cursorAfterDavid = ICMGRedemptionHandler(redemptionHandler).cursor();
+        assertEq(cursorAfterDavid, (cursorBeforeDavid + 1) % 5);
+
         // Final check of redemption handler state
-        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
         (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
             ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
 
@@ -445,20 +480,12 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(collateralIds.length, 5);
         assertEq(balances.length, 5);
 
-        // Verify each collateral ID and balance
-        assertEq(collateralIds[0], uint256(uint160(alice)));
-        assertEq(balances[0], 50 * CRC); // 200 - 150 deposited
+        // alice, bob and charlie are trivial
 
-        assertEq(collateralIds[1], uint256(uint160(bob)));
-        assertEq(balances[1], 100 * CRC); // 300 - 200 deposited
-
-        assertEq(collateralIds[2], uint256(uint160(charlie)));
-        assertEq(balances[2], 200 * CRC); // 400 - 200 deposited
-
-        assertEq(collateralIds[3], uint256(uint160(els)));
+        assertEq(collateralIds[3], elsId);
         assertEq(balances[3], 100 * CRC); // 250 deposited - 150 withdrawn by David
 
-        assertEq(collateralIds[4], uint256(uint160(david)));
+        assertEq(collateralIds[4], davidId);
         assertEq(balances[4], 350 * CRC); // 350 CRC left untouched
 
         // Get total remaining collateral
