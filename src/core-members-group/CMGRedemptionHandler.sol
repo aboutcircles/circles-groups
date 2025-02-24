@@ -212,7 +212,10 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
         // Get all balances in single call
         balances = circlesCore.hub.balanceOfBatch(accounts, ids);
-        console.log("Retrieved balances from vault");
+        console.log("Retrieved balances from vault:");
+        for (uint256 i = 0; i < numActive; i++) {
+            console.log("Balance for ID", ids[i], ":", balances[i]);
+        }
 
         return (ids, balances, numActive);
     }
