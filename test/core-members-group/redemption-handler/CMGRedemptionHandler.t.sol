@@ -558,7 +558,8 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(cursorAfterFirst, 0); // Should be back at start
 
         // David redeems 400 more gCRC - should get from Alice since cursor wrapped to start
-        (uint256[] memory foundIds,) = ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 400 * CRC, false);
+        (uint256[] memory foundIds,) =
+            ICMGRedemptionHandler(redemptionHandler).findCollateral(cmGroup, 400 * CRC, false);
         assertEq(foundIds.length, 1);
         assertEq(foundIds[0], aliceId);
 
@@ -577,30 +578,4 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(balances[1], 1500 * CRC); // Bob: 2000 - 500 = 1500
         assertEq(balances[2], 1500 * CRC); // Charlie: 2000 - 500 = 1500
     }
-
-    // // Test basic collateral management
-    // function testRegisterCollateral() public {}
-
-    // // Test redemption functionality
-    // function testBasicRedemption() public {}
-    // function testPartialRedemption() public {}
-    // function testMaxRedeemPerIdLimit() public {}
-
-    // // Test collateral search functionality
-    // function testFindCollateralSimple() public {}
-    // function testFindCollateralComplex() public {}
-    // function testFindCollateralWithCursor() public {}
-
-    // // Test ERC1155 reception
-    // function testSingleTokenReception() public {}
-    // function testBatchTokenReception() public {}
-
-    // // Test conversion state management
-    // function testConversionStateFlow() public {}
-    // function testFailOngoingConversion() public {}
-
-    // // Test edge cases
-    // function testInsufficientCollateral() public {}
-    // function testZeroAmountRedemption() public {}
-    // function testEmptyCollateralList() public {}
 }

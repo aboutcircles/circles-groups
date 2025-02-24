@@ -3,9 +3,10 @@ pragma solidity >=0.8.28;
 
 import "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "circles-contracts-v2/groups/IMintPolicy.sol";
+import "circles-contracts-v2/hub/TypeDefinitions.sol";
 import "test/mock-circles/MockStandardTreasury.sol";
 
-contract MockHub is ERC1155 {
+contract MockHub is ERC1155, TypeDefinitions {
     // Enum
 
     /// @notice avatar types
@@ -29,8 +30,8 @@ contract MockHub is ERC1155 {
     MockStandardTreasury public standardTreasury;
     /// @notice registrations of avatars and their type
     mapping(address => AvatarTypes) public registrations;
-    /// @notice simple trust relations
-    mapping(address => mapping(address => bool)) public trusts;
+    /// @notice trust relations with their expiry time
+    mapping(address => mapping(address => TrustMarker)) public trustMarkers;
     /// @notice treasury mapping for groups
     mapping(address => address) public treasuries;
 
@@ -87,7 +88,7 @@ contract MockHub is ERC1155 {
 
         // check collateral avatars are trusted by group
         for (uint256 i = 0; i < _collateralAvatars.length; i++) {
-            require(trusts[_group][_collateralAvatars[i]], "collateral avatar not trusted by group");
+            require(isTrusted(_group, _collateralAvatars[i]), "collateral avatar not trusted by group");
         }
 
         // call on standard treasury to ensureVault and get vault address
@@ -126,13 +127,13 @@ contract MockHub is ERC1155 {
     }
 
     function trust(address _trustee, uint96 _expiry) public {
-        trusts[msg.sender][_trustee] = _expiry > block.timestamp;
+        trustMarkers[msg.sender][_trustee] = TrustMarker(address(1), _expiry);
     }
 
     // View functions
 
     function isTrusted(address _truster, address _trustee) public view returns (bool) {
-        return trusts[_truster][_trustee];
+        return trustMarkers[_truster][_trustee].expiry > block.timestamp;
     }
 
     function isHuman(address _avatar) public view returns (bool) {
