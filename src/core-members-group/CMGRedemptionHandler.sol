@@ -186,31 +186,25 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice View function to return active collateral with balances starting from offset
     /// @return ids Array of active collateral IDs
     /// @return balances Array of vault balances for each ID
-    /// @return totalArrayLength Total length of active collateral array
-    function getActiveCollateral()
-        public
-        view
-        returns (uint256[] memory ids, uint256[] memory balances, uint256 totalArrayLength)
-    {
+    /// @return numActive Total length of active collateral array
+    function getActiveCollateral() public view returns (uint256[] memory, uint256[] memory, uint256) {
         // todo: if ever necessary consider making this a range request
         address vault = _getGroupVault();
         console.log("Vault address:", vault);
 
         uint256 numActive = activeCollateralIds.length;
         console.log("Total active collateral count:", numActive);
-        totalArrayLength = numActive;
 
         if (numActive == 0) {
             console.log("No collateral is actively being tracked");
             return (new uint256[](0), new uint256[](0), numActive);
         }
 
-        ids = new uint256[](numActive);
-        balances = new uint256[](numActive);
-
         // Build arrays of IDs and addresses for batch balance check
+        uint256[] memory ids = new uint256[](numActive);
+        uint256[] memory balances = new uint256[](numActive);
         address[] memory accounts = new address[](numActive);
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < numActive; i++) {
             ids[i] = activeCollateralIds[i];
             accounts[i] = vault;
             console.log("Adding ID to return:", ids[i]);

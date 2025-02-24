@@ -60,10 +60,6 @@ interface ICMGHandlerErrors {
     error CMGHandlerLogicAssertion();
 }
 
-interface ICMGRedemptionHandler {
-    error CMGRedemptionHandlerOffset
-}
-
 interface ICMGPrimaryGroupRegistryErrors {
     /// @notice to register primary group caller must be registered human and group must be group
     error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);

@@ -19,11 +19,10 @@ interface ICMGRedemptionHandler {
     function syncValidCollateral(uint256[] memory collateralIds) external;
 
     /// @notice View function to return active collateral with balances starting from offset
-    /// @param offset Starting position in active collateral array
     /// @return ids Array of active collateral IDs
     /// @return balances Array of vault balances for each ID
     /// @return totalArrayLength Total length of active collateral array
-    function getActiveCollateral(uint256 offset)
+    function getActiveCollateral()
         external
         view
         returns (uint256[] memory ids, uint256[] memory balances, uint256 totalArrayLength);

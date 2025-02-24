@@ -91,7 +91,7 @@ contract CMGRedemptionHandlerTest is Test {
         // Get group's redemption handler address and check active collateral
         address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
         (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
-            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral(0);
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
 
         // Verify single collateral is tracked
         assertEq(collateralIds.length, 1);
@@ -120,7 +120,7 @@ contract CMGRedemptionHandlerTest is Test {
         // Get group's redemption handler address and check active collateral
         address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
         (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
-            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral(0);
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
 
         // Verify single collateral is tracked
         assertEq(collateralIds.length, 1);
@@ -161,7 +161,7 @@ contract CMGRedemptionHandlerTest is Test {
 
         // Get list of active collateral from offset 0
         (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
-            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral(0);
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
 
         // Verify returned array lengths match expected active collateral count
         assertEq(collateralIds.length, 2);
