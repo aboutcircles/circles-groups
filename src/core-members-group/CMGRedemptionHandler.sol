@@ -45,6 +45,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore)
         CMGHandler(_cmGroup, _owner, _circlesCore)
     {
+        console.log("Constructing CMGRedemptionHandler for group:", _cmGroup);
+        console.log("Owner:", _owner);
         // Redemption handler does not need to register as an organization in the graph
     }
 
@@ -53,11 +55,14 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice Registers collateral amounts that are being deposited
     /// @param collateralIds Identifiers of collaterals being deposited
     function registerDeposit(uint256[] memory collateralIds) external onlyCMGroup {
+        console.log("registerDeposit called with", collateralIds.length, "collateral IDs");
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 id = collateralIds[i];
+            console.log("Processing collateral ID:", id);
             // no-op if already tracked
             _addActiveId(id);
         }
+        console.log("After registerDeposit, active collateral count:", activeCollateralIds.length);
     }
 
     /// @notice Registers collateral amounts that are being redeemed, and whether
@@ -70,10 +75,15 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256[] memory _collateralIds,
         uint256[] memory _amounts
     ) external onlyCMGroup {
+        console.log("registerRedemption called with minimal tracking amount:", _minimalTrackingAmount);
+        console.log("Number of collateral IDs:", _collateralIds.length);
+
         // CM group always registers with standard treasury
         address vault = circlesCore.standardTreasury.vaults(cmGroup);
+        console.log("Vault address:", vault);
         if (vault == address(0)) {
             // if vault has not been deployed, then it should be impossible to get this callback
+            console.log("ERROR: Vault not found");
             revert CMGHandlerLogicAssertion();
         }
 
@@ -85,10 +95,16 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
+        console.log("Retrieved balances from vault");
 
         for (uint256 i = 0; i < _collateralIds.length; i++) {
             uint256 id = _collateralIds[i];
+            console.log("Processing collateral ID:", id);
+            console.log("Balance:", balances[i]);
+            console.log("Redemption amount:", _amounts[i]);
+
             if (balances[i] < _amounts[i]) {
+                console.log("ERROR: Insufficient balance");
                 revert CMGHandlerEarlyRevertCollateralNotPresent();
             }
             uint256 remainingBalance;
@@ -98,10 +114,12 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
                 // nor is this remaining balance stored
                 remainingBalance = balances[i] - _amounts[i];
             }
+            console.log("Remaining balance:", remainingBalance);
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
             if (remainingBalance <= _minimalTrackingAmount) {
+                console.log("Removing ID from tracking due to low balance:", id);
                 // no-op if id not tracked -- should not occur
                 _removeActiveId(id);
             }
@@ -116,13 +134,19 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         } else {
             cursor = 0;
         }
+        console.log("New cursor position:", cursor);
     }
 
     /// @notice Sync status of provided collateral IDs, updating tracked status based on vault balances
     /// @param _collateralIds Array of collateral IDs to check and sync
     function syncValidCollateral(uint256[] memory _collateralIds) external {
+        console.log("syncValidCollateral called with", _collateralIds.length, "IDs");
+
         address vault = _getGroupVault();
+        console.log("Vault address:", vault);
+
         uint256 minimalAmount = ICoreMembersGroup(cmGroup).minimalDeposit();
+        console.log("Minimal deposit amount:", minimalAmount);
 
         // expand addresses array for batch balance check
         address[] memory accounts = new address[](_collateralIds.length);
@@ -132,62 +156,69 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
         // get balances for all IDs in single call
         uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
+        console.log("Retrieved balances from vault");
 
         // update tracking for each ID based on balance
         for (uint256 i = 0; i < _collateralIds.length; i++) {
             uint256 id = _collateralIds[i];
             uint256 balance = balances[i];
+            console.log("Processing ID:", id);
+            console.log("Balance:", balance);
 
             // add to active tracking if has balance above minimal amount but not tracked
             if (balance > minimalAmount) {
+                console.log("Adding ID to tracking:", id);
                 // no-op if already tracked
                 _addActiveId(id);
             }
             // remove from active tracking if has balance below minimal amount but is tracked
             else if (balance <= minimalAmount) {
+                console.log("Removing ID from tracking:", id);
                 // no-op if id not tracked - should not occur
                 _removeActiveId(id);
             }
         }
+        console.log("Active collateral count after sync:", activeCollateralIds.length);
     }
 
     // Public functions
 
     /// @notice View function to return active collateral with balances starting from offset
-    /// @param offset Starting position in active collateral array
     /// @return ids Array of active collateral IDs
     /// @return balances Array of vault balances for each ID
     /// @return totalArrayLength Total length of active collateral array
-    function getActiveCollateral(uint256 offset)
+    function getActiveCollateral()
         public
         view
         returns (uint256[] memory ids, uint256[] memory balances, uint256 totalArrayLength)
     {
+        // todo: if ever necessary consider making this a range request
         address vault = _getGroupVault();
+        console.log("Vault address:", vault);
+
         uint256 numActive = activeCollateralIds.length;
+        console.log("Total active collateral count:", numActive);
         totalArrayLength = numActive;
 
-        if (numActive == 0 || offset >= numActive) {
+        if (numActive == 0) {
+            console.log("No collateral is actively being tracked");
             return (new uint256[](0), new uint256[](0), numActive);
         }
 
-        uint256 length = numActive - offset;
-        if (length > MAX_NUMBER_REDEMPTION_IDS) {
-            length = MAX_NUMBER_REDEMPTION_IDS;
-        }
-
-        ids = new uint256[](length);
-        balances = new uint256[](length);
+        ids = new uint256[](numActive);
+        balances = new uint256[](numActive);
 
         // Build arrays of IDs and addresses for batch balance check
-        address[] memory accounts = new address[](length);
+        address[] memory accounts = new address[](numActive);
         for (uint256 i = 0; i < length; i++) {
-            ids[i] = activeCollateralIds[offset + i];
+            ids[i] = activeCollateralIds[i];
             accounts[i] = vault;
+            console.log("Adding ID to return:", ids[i]);
         }
 
         // Get all balances in single call
         balances = circlesCore.hub.balanceOfBatch(accounts, ids);
+        console.log("Retrieved balances from vault");
 
         return (ids, balances, numActive);
     }
@@ -204,6 +235,10 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         view
         returns (uint256[] memory, uint256[] memory)
     {
+        console.log("findCollateral called for group:", _group);
+        console.log("Amount:", _amount);
+        console.log("Partial fillable:", _partialFillable);
+        console.log("Using stored cursor:", cursor);
         // use stored cursor by default
         return findCollateralWithCursor(_group, _amount, _partialFillable, cursor);
     }
@@ -221,15 +256,24 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         view
         returns (uint256[] memory, uint256[] memory)
     {
+        console.log("findCollateralWithCursor called");
+        console.log("Group:", _group);
+        console.log("Amount:", _amount);
+        console.log("Partial fillable:", _partialFillable);
+        console.log("Cursor:", _cursor);
+
         // sanity check as the operator for groups might get mixed up
         // once many groups and their operators are authorized.
         if (_group != address(cmGroup)) {
+            console.log("ERROR: Invalid group");
             revert CGMHandlerOperatorUnservicedGroup(_group);
         }
 
         address vault = _getGroupVault();
+        console.log("Vault address:", vault);
 
         uint256 numActive = activeCollateralIds.length;
+        console.log("Number of active collateral:", numActive);
         if (numActive == 0) return (new uint256[](0), new uint256[](0));
 
         // temporally "allocate" lengthy arrays
@@ -239,25 +283,30 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256 remaining = _amount;
         uint256 outputIdx = 0;
         uint256 localCursor = _cursor % numActive;
+        console.log("Initial local cursor:", localCursor);
 
         // Keep looking for collateral while we still need more and haven't hit array bounds
         while (remaining > 0 && outputIdx < MAX_NUMBER_REDEMPTION_IDS && outputIdx < numActive) {
             // Get the next collateral ID based on our cursor position
             uint256 id = activeCollateralIds[localCursor];
+            console.log("Processing ID:", id);
 
             // Check how much collateral is available in the vault for this ID
             uint256 balance = circlesCore.hub.balanceOf(vault, id);
+            console.log("Balance:", balance);
 
             // Only process IDs that have a non-zero balance
             if (balance > 0) {
                 // Calculate redemption amount - take either remaining amount needed
                 // or full balance, whichever is smaller
                 uint256 toRedeem = remaining < balance ? remaining : balance;
+                console.log("Initial redemption amount:", toRedeem);
 
                 // Cap individual redemption amounts to prevent over-concentration
                 if (toRedeem > MAX_REDEEM_PER_ID) {
                     toRedeem = MAX_REDEEM_PER_ID;
                 }
+                console.log("Final redemption amount:", toRedeem);
 
                 // Record this ID and amount in our output arrays
                 ids[outputIdx] = id;
@@ -266,20 +315,25 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
                 // Update remaining amount needed and advance output index
                 remaining -= toRedeem;
                 outputIdx++;
+                console.log("Remaining amount:", remaining);
+                console.log("Output index:", outputIdx);
             }
             // Note: We purposely don't remove zero balance IDs here to maintain view function status
 
             // Advance cursor with wraparound, using modulo to cycle back to start
             localCursor = numActive == 0 ? 0 : (localCursor + 1) % numActive;
+            console.log("New local cursor:", localCursor);
         }
 
         // If not partial fillable and we couldn't find enough collateral, revert
         if (!_partialFillable && remaining > 0) {
+            console.log("ERROR: Could not fill redemption request");
             revert CMGHandlerCouldNotFillRedemptionRequest();
         }
 
         // Trim arrays if needed
         if (outputIdx < MAX_NUMBER_REDEMPTION_IDS) {
+            console.log("Trimming arrays to length:", outputIdx);
             assembly {
                 mstore(ids, outputIdx)
                 mstore(amounts, outputIdx)
@@ -301,60 +355,83 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Internal helpers
 
-    function _redeemUponReceivedGroupCircles(
-        uint256 _value,
-        uint256[] memory _redemptionIds,
-        uint256[] memory _redemptionValues
-    ) internal {
-        // formulate the data to send to standard treasury to redeem gCRC for collateral
-        bytes memory redemptionData = structureRedemptionData(_redemptionIds, _redemptionValues);
-        // send gCRC to standard treasury,
-        // - standardTreasury will call beforeRedemption on group policy (is CMGroup)
-        // - if this redemption handler is connected to the group then the group will register
-        //   the redemption amounts in (this/the active) handler, to update active ids for next search
-        // - vault will send the requested collateral back to original sender, ie this redemption handler,
-        //   so expect to receive the redemption collateral back in this address
-        circlesCore.hub.safeTransferFrom(
-            address(this), address(circlesCore.standardTreasury), cmGroupId, _value, redemptionData
-        );
-    }
+    // function _redeemUponReceivedGroupCircles(
+    //     uint256 _value,
+    //     uint256[] memory _redemptionIds,
+    //     uint256[] memory _redemptionValues
+    // ) internal {
+    //     console.log("_redeemUponReceivedGroupCircles called");
+    //     console.log("Value:", _value);
+    //     console.log("Number of redemption IDs:", _redemptionIds.length);
+
+    //     // formulate the data to send to standard treasury to redeem gCRC for collateral
+    //     bytes memory redemptionData = structureRedemptionData(_redemptionIds, _redemptionValues);
+
+    //     console.log("Sending gCRC to standard treasury");
+    //     // send gCRC to standard treasury,
+    //     // - standardTreasury will call beforeRedemption on group policy (is CMGroup)
+    //     // - if this redemption handler is connected to the group then the group will register
+    //     //   the redemption amounts in (this/the active) handler, to update active ids for next search
+    //     // - vault will send the requested collateral back to original sender, ie this redemption handler,
+    //     //   so expect to receive the redemption collateral back in this address
+    //     circlesCore.hub.safeTransferFrom(
+    //         address(this), address(circlesCore.standardTreasury), cmGroupId, _value, redemptionData
+    //     );
+    // }
 
     /// @dev Add an ID to the 'activeIds' array and set indexInActiveIds for quick removal.
     function _addActiveId(uint256 id) internal {
+        console.log("_addActiveId called for ID:", id);
+        console.log("Current index in active IDs:", indexInActiveIds[id]);
+
         if (indexInActiveIds[id] != uint256(0)) {
+            console.log("ID already tracked, returning");
             // already tracked, don't add duplicates
             return;
         }
+
         // Store index mapping for quick lookup/removal later
         // Index is current length before adding new element plus one to avoid zero
         indexInActiveIds[id] = activeCollateralIds.length + 1;
+        console.log("New index in active IDs:", indexInActiveIds[id]);
 
         // Add the new ID to end of active IDs array
         activeCollateralIds.push(id);
+        console.log("Active collateral count after add:", activeCollateralIds.length);
     }
 
     /// @dev Remove an ID from 'activeCollateralIds' array via swap-and-pop to keep it O(1).
     function _removeActiveId(uint256 id) internal {
+        console.log("_removeActiveId called for ID:", id);
+
         // Get index of id to remove and last index in array
         uint256 idx = indexInActiveIds[id];
+        console.log("Index in active IDs:", idx);
+
         if (idx == uint256(0)) {
+            console.log("ID not tracked, returning");
             // nothing to remove if index in active ids is zero.
             return;
         }
+
         // correct offset for index in array
         idx -= uint256(1);
         // get last index from array length
         uint256 lastIdx = activeCollateralIds.length - 1;
+        console.log("Array length:", activeCollateralIds.length);
+        console.log("Last index:", lastIdx);
 
         // If id to remove isn't the last element, we need to swap with last element
         // to maintain array continuity when we pop
         if (idx != lastIdx) {
             // Get the last element's id
             uint256 lastId = activeCollateralIds[lastIdx];
+            console.log("Last ID:", lastId);
             // Move last element into the slot we're removing
             activeCollateralIds[idx] = lastId;
             // Update the index mapping for the moved element (again offset from 1)
             indexInActiveIds[lastId] = idx + 1;
+            console.log("Updated index for last ID:", indexInActiveIds[lastId]);
         }
 
         // Remove last element from array (either the element we wanted to remove
@@ -362,11 +439,13 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         activeCollateralIds.pop();
         // Clear the index mapping for removed id
         delete indexInActiveIds[id];
+        console.log("Active collateral count after remove:", activeCollateralIds.length);
 
         // If cursor was past the removed index, decrement it
         // to maintain proper position in the now-shorter array
         if (cursor > idx) {
             cursor--;
+            console.log("Updated cursor position:", cursor);
         }
     }
 
@@ -377,8 +456,10 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         address vault = circlesCore.standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
             // if no gCRC has been minted, vault is not yet deployed
+            console.log("ERROR: Vault not found for group:", cmGroup);
             revert CMGHandlerVaultNotFound(address(cmGroup));
         }
+        console.log("Retrieved vault address:", vault);
         return vault;
     }
 }

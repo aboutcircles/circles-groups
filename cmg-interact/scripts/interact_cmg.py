@@ -55,12 +55,11 @@ with open("abis/CMGRedemptionHandler.json") as f:
     redemption_handler_data = json.load(f)
     redemption_handler_abi = redemption_handler_data["abi"]
 
-# Contract addresses on Gnosis Chain
-with open("../deployments/CMGroup-gnosis.txt") as f:
-    deployment_logs = json.loads(f.read())
-    group_address = deployment_logs[0]["address"]
-    GROUP_ADDRESS = Web3.to_checksum_address(group_address)
-    print(f"Group address: {GROUP_ADDRESS}")
+# Get group address from environment
+GROUP_ADDRESS = Web3.to_checksum_address(os.getenv("GROUP_ADDRESS"))
+if not GROUP_ADDRESS:
+    raise Exception("GROUP_ADDRESS not found in environment variables")
+print(f"Group address: {GROUP_ADDRESS}")
 
 # Create contract instances
 group = w3.eth.contract(address=GROUP_ADDRESS, abi=group_abi)
