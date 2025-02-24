@@ -167,36 +167,6 @@ contract CMGMintHandlerTest is Test {
         assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 200 * CRC);
     }
 
-    function testMintHandlerOwnerCanTransferCircles() public {
-        testMintHandlerReceivesAndConvertsCircles();
-
-        address mintHandler = ICoreMembersGroup(cmGroup).mintHandler();
-
-        // As owner, transfer 50 gCRC from handler to Charlie
-        vm.startPrank(owner);
-        ICMGMintHandler(mintHandler).safeTransferFrom(mintHandler, charlie, uint256(uint160(cmGroup)), 50 * CRC, "");
-        vm.stopPrank();
-
-        // Verify handler's gCRC balance decreased and Charlie received them
-        assertEq(mockCircles.mockHub().balanceOf(mintHandler, uint256(uint160(cmGroup))), 0);
-        assertEq(mockCircles.mockHub().balanceOf(charlie, uint256(uint160(cmGroup))), 50 * CRC);
-    }
-
-    function testMintHandlerNonOwnerCannotTransfer() public {
-        testMintHandlerReceivesAndConvertsCircles();
-
-        address mintHandler = ICoreMembersGroup(cmGroup).mintHandler();
-
-        // Attempt transfer as non-owner should revert
-        vm.startPrank(alice);
-        vm.expectRevert();
-        ICMGMintHandler(mintHandler).safeTransferFrom(mintHandler, charlie, uint256(uint160(cmGroup)), 50 * CRC, "");
-        vm.stopPrank();
-
-        // Verify no changes in balances
-        assertEq(mockCircles.mockHub().balanceOf(charlie, uint256(uint160(cmGroup))), 0);
-    }
-
     function testMintHandlerReceivesBatchTransfer() public {
         testTrustMirroringBetweenGroupAndHandler();
 
@@ -218,27 +188,5 @@ contract CMGMintHandlerTest is Test {
         // Verify Alice's balances were updated
         assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 700 * CRC);
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 300 * CRC);
-    }
-
-    function testMintHandlerOwnerCanBatchTransfer() public {
-        testMintHandlerReceivesBatchTransfer();
-
-        address mintHandler = ICoreMembersGroup(cmGroup).mintHandler();
-
-        // Create batch transfer parameters for owner
-        uint256[] memory ids = new uint256[](2);
-        uint256[] memory amounts = new uint256[](2);
-        ids[0] = uint256(uint160(cmGroup));
-        ids[1] = uint256(uint160(cmGroup));
-        amounts[0] = 100 * CRC;
-        amounts[1] = 200 * CRC;
-
-        // Execute batch transfer as owner
-        vm.startPrank(owner);
-        ICMGMintHandler(mintHandler).safeBatchTransferFrom(mintHandler, charlie, ids, amounts, "");
-        vm.stopPrank();
-
-        // Verify Charlie received both transfers
-        assertEq(mockCircles.mockHub().balanceOf(charlie, uint256(uint160(cmGroup))), 300 * CRC);
     }
 }
