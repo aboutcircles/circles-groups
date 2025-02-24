@@ -352,7 +352,7 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(totalLength, 0);
     }
 
-    function testComplexSequenceMintAndRedeems() public {
+    function testMoreInvolvedSequenceMintAndRedeems() public {
         testTrustAliceAndBob();
 
         // Create additional users
