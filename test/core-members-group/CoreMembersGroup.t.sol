@@ -73,8 +73,8 @@ contract CoreMembersGroupTest is Test {
         assertTrue(mintHandler != address(0));
         assertTrue(redemptionHandler != address(0));
 
-        // Verify minimal deposit was set
-        assertEq(ICoreMembersGroup(cmGroup).minimalDeposit(), 10 ** 15);
+        // Verify minimal deposit was set to zero
+        assertEq(ICoreMembersGroup(cmGroup).minimalDeposit(), 0);
     }
 
     function testChangeOwner() public {
@@ -289,6 +289,7 @@ contract CoreMembersGroupTest is Test {
         testDeployAndInitialize();
 
         vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).setMinimalDeposit(10 ** 15);
         ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
         vm.stopPrank();
 

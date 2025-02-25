@@ -112,7 +112,8 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         _setService(_service);
         _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
-        _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
+        // set initial minimal deposit to zero - no minimal deposit
+        _setMinimalDeposit(0);
 
         // // set initial conditions
         for (uint256 i = 0; i < _initialConditions.length; i++) {
@@ -482,9 +483,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
     function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(
-                _state().minimalDeposit, _collateralIds, _amounts
-            );
+            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }
     }
 }

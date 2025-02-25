@@ -30,6 +30,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     ///      2. Promotes spread-out distribution of redemptions across multiple collateral sources
     uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
 
+    /// @notice Maximum allowed minimal tracking amount
+    uint256 public constant MAX_MINIMAL_TRACKING_AMOUNT = 10 ** 19;
+
     // Storage
 
     /// @notice Array of all currently tracked collateral token IDs that have sufficient balance
@@ -41,15 +44,32 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice Cursor tracking current position in activeCollateralIds when searching for available collateral
     uint256 public cursor;
 
+    /// @notice Minimal balance required to track collateral
+    uint256 public minimalTrackingAmount;
+
+    // Events
+
+    event MinimalTrackingAmountUpdated(uint256 amount);
+
     // Constructor
 
     constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore)
         CMGHandler(_cmGroup, _owner, _circlesCore)
     {
-        // Redemption handler does not need to register as an organization in the graph
+        // Set default minimal tracking amount
+        minimalTrackingAmount = 10 ** 15;
     }
 
     // External functions
+
+    /// @notice Set the minimal tracking amount (owner only)
+    function setMinimalTrackingAmount(uint256 _amount) external onlyOwner {
+        if (_amount > MAX_MINIMAL_TRACKING_AMOUNT) {
+            revert CMGHandlerInvalidCallingParameters();
+        }
+        minimalTrackingAmount = _amount;
+        emit MinimalTrackingAmountUpdated(_amount);
+    }
 
     /// @notice Registers collateral amounts that are being deposited
     /// @param collateralIds Identifiers of collaterals being deposited
@@ -63,14 +83,9 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     /// @notice Registers collateral amounts that are being redeemed, and whether
     ///         to keep tracking the id as active collateral
-    /// @param _minimalTrackingAmount Stop tracking amounts below this amount
     /// @param _collateralIds Identifiers of collaterals being redeemed
     /// @param _amounts Amounts of each collateral being redeemed
-    function registerRedemption(
-        uint256 _minimalTrackingAmount,
-        uint256[] memory _collateralIds,
-        uint256[] memory _amounts
-    ) external onlyCMGroup {
+    function registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) external onlyCMGroup {
         // CM group always registers with standard treasury
         address vault = circlesCore.standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
@@ -103,7 +118,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
-            if (remainingBalance <= _minimalTrackingAmount) {
+            if (remainingBalance <= minimalTrackingAmount) {
                 // no-op if id not tracked -- should not occur
                 _removeActiveId(id);
             }
@@ -125,8 +140,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function syncValidCollateral(uint256[] memory _collateralIds) external {
         address vault = _getGroupVault();
 
-        uint256 minimalAmount = ICoreMembersGroup(cmGroup).minimalDeposit();
-
         // expand addresses array for batch balance check
         address[] memory accounts = new address[](_collateralIds.length);
         for (uint256 i = 0; i < _collateralIds.length; i++) {
@@ -142,12 +155,12 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 balance = balances[i];
 
             // add to active tracking if has balance above minimal amount but not tracked
-            if (balance > minimalAmount) {
+            if (balance > minimalTrackingAmount) {
                 // no-op if already tracked
                 _addActiveId(id);
             }
             // remove from active tracking if has balance below minimal amount but is tracked
-            else if (balance <= minimalAmount) {
+            else if (balance <= minimalTrackingAmount) {
                 // no-op if id not tracked - should not occur
                 _removeActiveId(id);
             }
