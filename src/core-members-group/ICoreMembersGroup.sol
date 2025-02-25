@@ -9,7 +9,7 @@ interface ICoreMembersGroup {
     function setRedemptionHandler(address _redemptionHandler) external;
     function setMinimalDeposit(uint256 _minimalDeposit) external;
     function trust(address _trustReceiver, uint96 _expiry) external;
-    function trustBatch(address[] memory _coreMembers, uint96 _expiry) external;
+    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry) external;
     function setOwner(address _owner) external;
     function setMembershipCondition(address _condition, bool _enabled) external;
     function setAdvancedUsageFlag(bytes32 _flag) external;

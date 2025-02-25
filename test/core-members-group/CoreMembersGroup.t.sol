@@ -112,14 +112,14 @@ contract CoreMembersGroupTest is Test {
         // Old service can no longer call service functions
         vm.startPrank(service);
         vm.expectRevert();
-        ICoreMembersGroup(cmGroup).trustBatch(new address[](0), 0);
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(new address[](0), 0);
         vm.stopPrank();
 
         // New service can call service functions
         vm.startPrank(alice);
         address[] memory members = new address[](1);
         members[0] = bob;
-        ICoreMembersGroup(cmGroup).trustBatch(members, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, type(uint96).max);
         vm.stopPrank();
 
         assertTrue(mockCircles.mockHub().isTrusted(cmGroup, bob));
@@ -209,7 +209,7 @@ contract CoreMembersGroupTest is Test {
         members[2] = charlie;
 
         vm.startPrank(service);
-        ICoreMembersGroup(cmGroup).trustBatch(members, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, type(uint96).max);
         vm.stopPrank();
 
         assertTrue(mockCircles.mockHub().isTrusted(cmGroup, alice));
@@ -233,7 +233,7 @@ contract CoreMembersGroupTest is Test {
 
         vm.startPrank(service);
         // Set expiry to past timestamp to untrust
-        ICoreMembersGroup(cmGroup).trustBatch(members, uint96(block.timestamp - 1));
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, uint96(block.timestamp - 1));
         vm.stopPrank();
 
         assertFalse(mockCircles.mockHub().isTrusted(cmGroup, alice));
