@@ -52,11 +52,11 @@ contract CMGRedemptionHandlerTest is Test {
         mockCircles = new MockCirclesDeployment();
 
         // Register users as people and mint initial CRC
-        mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(bob, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(charlie, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(david, 1000 * CRC);
-        mockCircles.mockHub().registerHuman(els, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(alice, 2000 * CRC);
+        mockCircles.mockHub().registerHuman(bob, 2000 * CRC);
+        mockCircles.mockHub().registerHuman(charlie, 2000 * CRC);
+        mockCircles.mockHub().registerHuman(david, 2000 * CRC);
+        mockCircles.mockHub().registerHuman(els, 2000 * CRC);
 
         // Have users authorize the redemption operator
         vm.startPrank(alice);
@@ -577,5 +577,112 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(balances[0], 1100 * CRC); // Alice: 2000 - 500 - 400 = 1100
         assertEq(balances[1], 1500 * CRC); // Bob: 2000 - 500 = 1500
         assertEq(balances[2], 1500 * CRC); // Charlie: 2000 - 500 = 1500
+    }
+
+    function testFindCollateralWithCursorWrappingOnRedemptionOperator() public {
+        testTrustAliceAndBob();
+
+        // Trust remaining users
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(charlie, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(david, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(els, type(uint96).max);
+        vm.stopPrank();
+
+        // Each user mints 1000 CRC into group
+        address[] memory collateralAvatars = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2000 * CRC;
+
+        vm.startPrank(alice);
+        collateralAvatars[0] = alice;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        collateralAvatars[0] = bob;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        collateralAvatars[0] = charlie;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        vm.stopPrank();
+
+        vm.startPrank(david);
+        collateralAvatars[0] = david;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        vm.stopPrank();
+
+        vm.startPrank(els);
+        collateralAvatars[0] = els;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        vm.stopPrank();
+
+        // Get redemption handler address
+        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
+
+        // Check cursor position and active collateral before redemption
+        uint256 initialCursor = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        // Check active collateral array to see the order
+        (uint256[] memory initialIds,, uint256 initialLength) =
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        // Verify all 5 users' collateral is tracked
+        assertEq(initialLength, 5);
+
+        // Transfer CRC to enable redemptions
+        // Bob transfers 1500 gCRC to David
+        vm.startPrank(bob);
+        mockCircles.mockHub().safeTransferFrom(bob, david, uint256(uint160(cmGroup)), 1500 * CRC, "");
+        vm.stopPrank();
+
+        // Charlie transfers 2000 gCRC to Els
+        vm.startPrank(charlie);
+        mockCircles.mockHub().safeTransferFrom(charlie, els, uint256(uint160(cmGroup)), 2000 * CRC, "");
+        vm.stopPrank();
+
+        // David redeems 1500 gCRC (should move cursor forward 3 positions due to MAX_REDEEM_PER_ID of 500)
+        vm.startPrank(david);
+        mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 1500 * CRC, false);
+        vm.stopPrank();
+
+        // Check cursor position after David's redemption
+        uint256 cursorAfterDavid = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        // Expected cursor after David's redemption: (initialCursor + 3) % 5
+        uint256 expectedCursorAfterDavid = (initialCursor + 3) % 5;
+        assertEq(cursorAfterDavid, expectedCursorAfterDavid);
+
+        // Els redeems 2000 gCRC (should move cursor forward 4 positions, wrapping around to the first position)
+        vm.startPrank(els);
+        mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 2000 * CRC, false);
+        vm.stopPrank();
+
+        // Check cursor position after Els's redemption
+        uint256 cursorAfterEls = ICMGRedemptionHandler(redemptionHandler).cursor();
+
+        // Expected cursor after Els's redemption: (cursorAfterDavid + 4) % 5, which should equal initialCursor
+        uint256 expectedCursorAfterEls = (cursorAfterDavid + 4) % 5;
+
+        // The cursor has wrapped around
+        assertEq(cursorAfterEls, expectedCursorAfterEls);
+
+        // Verify the collateral is partially depleted from redemptions
+        (, uint256[] memory finalBalances, uint256 finalLength) =
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        // Should still have all 5 collateral sources
+        assertEq(finalLength, 5);
+
+        // Find total remaining collateral
+        uint256 totalRemainingCollateral = 0;
+        for (uint256 i = 0; i < finalLength; i++) {
+            totalRemainingCollateral += finalBalances[i];
+        }
+
+        // Expected total: 5*2000 CRC initial - 3500 CRC redeemed = 6500 CRC
+        assertEq(totalRemainingCollateral, 6500 * CRC);
     }
 }

@@ -170,13 +170,23 @@ contract CMGMintHandlerTest is Test {
     function testMintHandlerReceivesBatchTransfer() public {
         testTrustMirroringBetweenGroupAndHandler();
 
+        // Trust Bob as well
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(bob, type(uint96).max);
+        vm.stopPrank();
+
+        // Have Bob send some of his CRC to Alice first
+        vm.startPrank(bob);
+        mockCircles.mockHub().safeTransferFrom(bob, alice, bobId, 300 * CRC, "");
+        vm.stopPrank();
+
         address mintHandler = ICoreMembersGroup(cmGroup).mintHandler();
 
         // Create batch transfer parameters
         uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
         ids[0] = aliceId;
-        ids[1] = aliceId;
+        ids[1] = bobId;
         amounts[0] = 100 * CRC;
         amounts[1] = 200 * CRC;
 
@@ -185,8 +195,9 @@ contract CMGMintHandlerTest is Test {
         mockCircles.mockHub().safeBatchTransferFrom(alice, mintHandler, ids, amounts, "");
         vm.stopPrank();
 
-        // Verify Alice's balances were updated
-        assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 700 * CRC);
+        // Verify Alice and Bob's balances were updated
+        assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 900 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 500 * CRC); // 1000 - 300 - 200
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 300 * CRC);
     }
 }

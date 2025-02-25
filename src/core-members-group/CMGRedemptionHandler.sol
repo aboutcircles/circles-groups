@@ -19,12 +19,15 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @notice Indefinite future, or approximated with uint96.max
     uint96 internal constant INDEFINITE_FUTURE = type(uint96).max;
 
-    /// @notice Some reasonable cut off on the number of redemption ids to search for
+    /// @notice Limits the maximum number of collateral IDs that can be processed in a single redemption request to 100
+    /// @dev This cap balances between providing sufficient diversification in redemptions while preventing
+    ///      excessive gas consumption
     uint256 public constant MAX_NUMBER_REDEMPTION_IDS = 100;
 
-    /// @notice Maximum amount that auto-redemption will collect
-    /// per collateral ID at a time. Prevents getting a redemption that is too
-    /// strongly leveraged on a single id.
+    /// @notice Caps individual redemption amounts to 500 Circles (500 * 10^18) per collateral ID
+    /// @dev This limit serves multiple purposes:
+    ///      1. Prevents redemptions from being overly concentrated in a single collateral id
+    ///      2. Promotes spread-out distribution of redemptions across multiple collateral sources
     uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
 
     // Storage
