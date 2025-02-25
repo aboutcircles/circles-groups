@@ -23,6 +23,7 @@ contract CoreMembersGroupStorage is CirclesCoreAddresses {
         IHub hub;
         IStandardTreasury standardTreasury;
         INameRegistryExtended nameRegistry;
+        IERC20Lift erc20Lift;
         address[] membershipConditions;
     }
 

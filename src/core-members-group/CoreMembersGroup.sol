@@ -213,7 +213,11 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
     /// @param _expiry Trust expiry timestamp. If >= current timestamp, trust core member.
     ///        If < current timestamp, untrust only currently trusted core members (to avoid
     ///        accidentally trusting new core members for a single block).
-    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry) public virtual onlyOwnerOrService {
+    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry)
+        public
+        virtual
+        onlyOwnerOrService
+    {
         uint256 length = _coreMembers.length;
         address coreMember;
         // current block timestamp is an edge-case,
@@ -380,7 +384,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
 
     /// @notice Returns the core Circles protocol addresses
     function getCirclesCore() external view returns (CirclesCore memory) {
-        return CirclesCore(_state().hub, _state().standardTreasury, _state().nameRegistry);
+        return CirclesCore(_state().hub, _state().standardTreasury, _state().nameRegistry, _state().erc20Lift);
     }
 
     // Internal functions

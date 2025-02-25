@@ -68,6 +68,9 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
             circlesCore
         );
 
+        // ensure static ERC20 wrapper is deployed for group
+        circlesCore.erc20Lift.ensureERC20(address(proxy), CirclesType.Inflation);
+
         emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));
         return address(proxy);
     }

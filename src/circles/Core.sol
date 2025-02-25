@@ -4,6 +4,7 @@ pragma solidity >=0.8.28;
 import "src/circles/IHub.sol";
 import "src/circles/INameRegistry.sol";
 import "src/circles/IStandardTreasury.sol";
+import "circles-contracts-v2/lift/IERC20Lift.sol";
 
 contract CirclesCoreAddresses {
     // Structs
@@ -14,6 +15,7 @@ contract CirclesCoreAddresses {
         IHub hub;
         IStandardTreasury standardTreasury;
         INameRegistryExtended nameRegistry;
+        IERC20Lift erc20Lift;
     }
 }
 
@@ -32,16 +34,16 @@ contract CirclesV2BetaAddresses {
     /// @dev Name Registry
     INameRegistryExtended internal nameRegistry =
         INameRegistryExtended(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
+    /// @dev ERC20 Lift contract
+    IERC20Lift internal erc20Lift = IERC20Lift(address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5));
     // /// @dev Migration contract to migrate Circles from Hub v1 to Hub v2
     // address internal migration = address(0xD44B8dcFBaDfC78EA64c55B705BFc68199B56376);
-    // /// @dev Lift ERC20 helps lift ERC1155 Circles out into an ERC20 wrapper contract
-    // address internal liftERC20 = address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5);
     // /// @dev the original Circles Hub v1 contract
     // address internal hubV1 = address(0x29b9a7fBb8995b2423a71cC17cf9810798F6C543);
 
     // Public functions
 
     function getCirclesCore() public view returns (CirclesCoreAddresses.CirclesCore memory) {
-        return CirclesCoreAddresses.CirclesCore(hub, standardTreasury, nameRegistry);
+        return CirclesCoreAddresses.CirclesCore(hub, standardTreasury, nameRegistry, erc20Lift);
     }
 }

@@ -7,9 +7,6 @@ import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
 import "src/redemption-operator/CMGRedemptionOperator.sol";
 import "src/circles/Core.sol";
-import "src/circles/IHub.sol";
-import "src/circles/INameRegistry.sol";
-import "src/circles/IStandardTreasury.sol";
 import "test/mock-circles/MockHub.sol";
 import "test/mock-circles/MockStandardTreasury.sol";
 import "test/mock-circles/MockVault.sol";
@@ -55,7 +52,10 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
 
     function getCirclesCore() public view returns (CirclesCore memory) {
         return CirclesCore(
-            IHub(address(mockHub)), IStandardTreasury(address(mockStandardTreasury)), INameRegistryExtended(address(0))
+            IHub(address(mockHub)),
+            IStandardTreasury(address(mockStandardTreasury)),
+            INameRegistryExtended(address(0)),
+            IERC20Lift(address(0))
         );
     }
 
@@ -87,6 +87,8 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
             _metadataDigest,
             circlesMockCore
         );
+
+        // in mock don't deploy erc20 static wrapper -- not mocked
 
         emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));
         return address(proxy);
