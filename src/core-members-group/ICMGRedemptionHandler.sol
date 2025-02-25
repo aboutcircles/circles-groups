@@ -4,7 +4,8 @@ pragma solidity >=0.8.28;
 interface ICMGRedemptionHandler {
     /// @notice Registers collateral amounts that are being deposited
     /// @param collateralIds Identifiers of collaterals being deposited
-    function registerDeposit(uint256[] memory collateralIds) external;
+    /// @param amounts Amounts being deposited for each collateral ID
+    function registerDeposit(uint256[] memory collateralIds, uint256[] memory amounts) external;
 
     /// @notice Registers collateral amounts that are being redeemed
     /// @param collateralIds Identifiers of collaterals being redeemed
@@ -59,4 +60,8 @@ interface ICMGRedemptionHandler {
     /// @notice Gets the current cursor position for redemption searches
     /// @return Current cursor value
     function cursor() external view returns (uint256);
+
+    /// @notice Set the minimal tracking amount for collateral
+    /// @param _amount New minimal tracking amount to set
+    function setMinimalTrackingAmount(uint256 _amount) external;
 }

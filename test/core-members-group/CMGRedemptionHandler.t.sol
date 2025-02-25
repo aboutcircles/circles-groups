@@ -165,6 +165,121 @@ contract CMGRedemptionHandlerTest is Test {
         assertEq(balances[0], 230 * CRC);
     }
 
+    function testSettingMinimalTrackingAmountAndCheckTrackingDependingOnAmount() public {
+        testCreateCoreMembersGroupWithoutInitialConditions();
+
+        // Trust Alice and Bob to set up test
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(bob, type(uint96).max);
+
+        // Set minimal tracking amount to 5 CRC on redemption handler
+        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
+        ICMGRedemptionHandler(redemptionHandler).setMinimalTrackingAmount(5 * CRC);
+        vm.stopPrank();
+
+        // Have Alice mint 10 CRC - above tracking amount
+        vm.startPrank(alice);
+        address[] memory aliceCollateralAvatars = new address[](1);
+        uint256[] memory aliceAmounts = new uint256[](1);
+        aliceCollateralAvatars[0] = alice;
+        aliceAmounts[0] = 10 * CRC;
+        mockCircles.mockHub().groupMint(cmGroup, aliceCollateralAvatars, aliceAmounts, "");
+        vm.stopPrank();
+
+        // Verify Alice's collateral is tracked
+        (uint256[] memory collateralIdsAfterAlice, uint256[] memory balancesAfterAlice, uint256 totalLengthAfterAlice) =
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        assertEq(collateralIdsAfterAlice.length, 1);
+        assertEq(balancesAfterAlice.length, 1);
+        assertEq(totalLengthAfterAlice, 1);
+        assertEq(collateralIdsAfterAlice[0], aliceId);
+        assertEq(balancesAfterAlice[0], 10 * CRC);
+
+        // Have Bob mint 3 CRC - below tracking amount
+        vm.startPrank(bob);
+        address[] memory bobCollateralAvatars = new address[](1);
+        uint256[] memory bobAmounts = new uint256[](1);
+        bobCollateralAvatars[0] = bob;
+        bobAmounts[0] = 3 * CRC;
+        mockCircles.mockHub().groupMint(cmGroup, bobCollateralAvatars, bobAmounts, "");
+        vm.stopPrank();
+
+        // Get redemption handler and check active collateral - should be unchanged from after Alice
+        (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        // Verify still only Alice's larger deposit is tracked
+        assertEq(collateralIds.length, 1);
+        assertEq(balances.length, 1);
+        assertEq(totalLength, 1);
+        assertEq(collateralIds[0], aliceId);
+        assertEq(balances[0], 10 * CRC);
+
+        // Verify both Alice and Bob have their gCRC despite tracking
+        assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 10 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(bob, uint256(uint160(cmGroup))), 3 * CRC);
+    }
+
+    function testTrackingAmountThresholdInRedemption() public {
+        testCreateCoreMembersGroupWithoutInitialConditions();
+
+        // Trust Alice and Bob
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(bob, type(uint96).max);
+
+        // Set minimal tracking amount to 5 CRC on redemption handler
+        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
+        ICMGRedemptionHandler(redemptionHandler).setMinimalTrackingAmount(5 * CRC);
+        vm.stopPrank();
+
+        // Have Alice mint 10 CRC - above tracking amount
+        vm.startPrank(alice);
+        address[] memory aliceCollateralAvatars = new address[](1);
+        uint256[] memory aliceAmounts = new uint256[](1);
+        aliceCollateralAvatars[0] = alice;
+        aliceAmounts[0] = 10 * CRC;
+        mockCircles.mockHub().groupMint(cmGroup, aliceCollateralAvatars, aliceAmounts, "");
+        vm.stopPrank();
+
+        // Have Bob mint 10 CRC - above tracking amount
+        vm.startPrank(bob);
+        address[] memory bobCollateralAvatars = new address[](1);
+        uint256[] memory bobAmounts = new uint256[](1);
+        bobCollateralAvatars[0] = bob;
+        bobAmounts[0] = 10 * CRC;
+        mockCircles.mockHub().groupMint(cmGroup, bobCollateralAvatars, bobAmounts, "");
+        vm.stopPrank();
+
+        // Both collateral amounts should be tracked
+        (uint256[] memory collateralIdsAfterMints, uint256[] memory balancesAfterMints, uint256 totalLengthAfterMints) =
+            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        assertEq(collateralIdsAfterMints.length, 2);
+        assertEq(balancesAfterMints.length, 2);
+        assertEq(totalLengthAfterMints, 2);
+
+        // Have Bob redeem 7 CRC, taking Alice's CRC below tracking threshold
+        vm.startPrank(bob);
+        mockCircles.redemptionOperator().redeemWithFoundCollateral(cmGroup, 7 * CRC, false);
+        vm.stopPrank();
+
+        // Check collateral tracking - should only show Bob's collateral now
+        (
+            uint256[] memory collateralIdsAfterRedeem,
+            uint256[] memory balancesAfterRedeem,
+            uint256 totalLengthAfterRedeem
+        ) = ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+
+        assertEq(collateralIdsAfterRedeem.length, 1);
+        assertEq(balancesAfterRedeem.length, 1);
+        assertEq(totalLengthAfterRedeem, 1);
+        assertEq(collateralIdsAfterRedeem[0], bobId);
+        assertEq(balancesAfterRedeem[0], 10 * CRC);
+    }
+
     function testGroupMintCollateralWithMultipleSafeTransfers() public {
         testTrustAliceAndBob();
 

@@ -30,7 +30,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     ///      2. Promotes spread-out distribution of redemptions across multiple collateral sources
     uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
 
-    /// @notice Maximum allowed minimal tracking amount
+    /// @notice Maximum allowed minimal tracking amount, 10 CRC
     uint256 public constant MAX_MINIMAL_TRACKING_AMOUNT = 10 ** 19;
 
     // Storage
@@ -73,11 +73,17 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     /// @notice Registers collateral amounts that are being deposited
     /// @param collateralIds Identifiers of collaterals being deposited
-    function registerDeposit(uint256[] memory collateralIds) external onlyCMGroup {
+    /// @param amounts Amounts being deposited for each collateral ID
+    function registerDeposit(uint256[] memory collateralIds, uint256[] memory amounts) external onlyCMGroup {
+        if (collateralIds.length != amounts.length) {
+            revert CMGHandlerInvalidCallingParameters();
+        }
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 id = collateralIds[i];
-            // no-op if already tracked
-            _addActiveId(id);
+            if (amounts[i] > minimalTrackingAmount) {
+                // no-op if already tracked
+                _addActiveId(id);
+            }
         }
     }
 

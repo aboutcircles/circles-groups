@@ -272,7 +272,7 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
             }
         }
         // register deposit with redemption handler
-        _registerDeposit(_collateral);
+        _registerDeposit(_collateral, _amounts);
         return true;
     }
 
@@ -473,10 +473,10 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         return (true, address(0));
     }
 
-    function _registerDeposit(uint256[] memory _collateralIds) internal {
+    function _registerDeposit(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds);
+            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds, _amounts);
         }
     }
 
