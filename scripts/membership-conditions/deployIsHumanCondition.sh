@@ -27,19 +27,26 @@ if [ -z "$RPC_URL_GNOSIS" ]; then
     exit 1
 fi
 
+# set constructor params
+HUB_ADDRESS="0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8"
+TREASURY_ADDRESS="0x08F90aB73A515308f03A718257ff9887ED330C6e"
+NAME_REGISTRY_ADDRESS="0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474"
+
+# Create CirclesCore struct encoding
+CIRCLES_CORE_ENCODING="($HUB_ADDRESS,$TREASURY_ADDRESS,$NAME_REGISTRY_ADDRESS)"
+
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
 echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
 
-# todo: constructor now also takes Circles Core, update this script if ever needed
-
 # Deploy the condition contract
 CONDITION_ADDRESS=$(forge create \
+    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
+    --constructor-args ${CIRCLES_CORE_ENCODING} \
     | grep "Deployed to" \
     | awk '{print $3}')
 
