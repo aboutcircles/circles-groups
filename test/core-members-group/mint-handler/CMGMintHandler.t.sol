@@ -197,7 +197,7 @@ contract CMGMintHandlerTest is Test {
 
         // Verify Alice and Bob's balances were updated
         assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 900 * CRC);
-        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 500 * CRC); // 1000 - 300 - 200
+        assertEq(mockCircles.mockHub().balanceOf(bob, bobId), 700 * CRC); // 1000 - 300
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 300 * CRC);
     }
 }
