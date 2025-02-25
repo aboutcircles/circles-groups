@@ -52,11 +52,11 @@ contract CMGRedemptionHandlerTest is Test {
         mockCircles = new MockCirclesDeployment();
 
         // Register users as people and mint initial CRC
-        mockCircles.mockHub().registerHuman(alice, 2000 * CRC);
-        mockCircles.mockHub().registerHuman(bob, 2000 * CRC);
-        mockCircles.mockHub().registerHuman(charlie, 2000 * CRC);
-        mockCircles.mockHub().registerHuman(david, 2000 * CRC);
-        mockCircles.mockHub().registerHuman(els, 2000 * CRC);
+        mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(bob, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(charlie, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(david, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(els, 1000 * CRC);
 
         // Have users authorize the redemption operator
         vm.startPrank(alice);
@@ -589,6 +589,15 @@ contract CMGRedemptionHandlerTest is Test {
         ICoreMembersGroup(cmGroup).trust(els, type(uint96).max);
         vm.stopPrank();
 
+        // Mint additional 1000 CRC for each user
+        address[] memory users = new address[](5);
+        users[0] = alice;
+        users[1] = bob;
+        users[2] = charlie;
+        users[3] = david;
+        users[4] = els;
+        mockCircles.mockHub().personalMint(users, 1000 * CRC);
+
         // Each user mints 1000 CRC into group
         address[] memory collateralAvatars = new address[](1);
         uint256[] memory amounts = new uint256[](1);
@@ -626,8 +635,7 @@ contract CMGRedemptionHandlerTest is Test {
         uint256 initialCursor = ICMGRedemptionHandler(redemptionHandler).cursor();
 
         // Check active collateral array to see the order
-        (uint256[] memory initialIds,, uint256 initialLength) =
-            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
+        (,, uint256 initialLength) = ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
 
         // Verify all 5 users' collateral is tracked
         assertEq(initialLength, 5);
