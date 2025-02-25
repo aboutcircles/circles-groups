@@ -48,6 +48,11 @@ Get service address:
 python ./scripts/interact_cmg.py get-service
 ```
 
+Get membership conditions:
+```bash
+python ./scripts/interact_cmg.py get-membership-conditions
+```
+
 Get mint and redemption handler addresses:
 ```bash
 python ./scripts/interact_cmg.py get-handlers

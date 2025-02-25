@@ -90,6 +90,12 @@ def get_service():
     click.echo(f"Service: {service}")
 
 @cli.command()
+def get_membership_conditions():
+    """Get list of membership condition addresses"""
+    conditions = group.functions.getMembershipConditions().call()
+    click.echo(f"Membership conditions: {conditions}")
+
+@cli.command()
 def get_handlers():
     """Get mint and redemption handler addresses"""
     mint = group.functions.mintHandler().call()
