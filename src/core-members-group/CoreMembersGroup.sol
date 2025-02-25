@@ -146,6 +146,13 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         _setService(_service);
     }
 
+    /// @notice Change the owner address. Only the current owner can change ownership.
+    /// @param _owner New owner address
+    function setOwner(address _owner) external onlyOwner {
+        _setOwner(_owner);
+        emit OwnerSet(_owner);
+    }
+
     /// @notice Enable or disable a membership condition contract
     /// @param _condition Address of membership condition contract
     /// @param _enabled Whether to enable (true) or disable (false) the condition
