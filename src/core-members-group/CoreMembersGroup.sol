@@ -373,6 +373,16 @@ contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy,
         return _state().feeCollection;
     }
 
+    /// @notice Returns the array of membership condition addresses
+    function getMembershipConditions() external view returns (address[] memory) {
+        return _state().membershipConditions;
+    }
+
+    /// @notice Returns the core Circles protocol addresses
+    function getCirclesCore() external view returns (CirclesCore memory) {
+        return CirclesCore(_state().hub, _state().standardTreasury, _state().nameRegistry);
+    }
+
     // Internal functions
 
     function _setOwner(address _owner) internal {

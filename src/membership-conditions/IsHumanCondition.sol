@@ -6,7 +6,7 @@ import "src/membership-conditions/IMembershipCondition.sol";
 
 /// @title isHuman membership condition
 /// @notice A membership condition that checks if the given avatar is registered as human in Circles hub
-contract IsHumanCondition is CirclesCoreAddresses, CirclesV2BetaAddresses, IMembershipCondition {
+contract IsHumanCondition is CirclesCoreAddresses, IMembershipCondition {
     // State
 
     /// @notice core Circles protocol addresses
@@ -14,8 +14,8 @@ contract IsHumanCondition is CirclesCoreAddresses, CirclesV2BetaAddresses, IMemb
 
     // Constructor
 
-    constructor() {
-        circlesCore = getCirclesCore();
+    constructor(CirclesCore memory _circlesCore) {
+        circlesCore = _circlesCore;
     }
 
     // External functions

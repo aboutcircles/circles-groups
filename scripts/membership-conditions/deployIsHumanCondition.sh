@@ -32,6 +32,8 @@ mkdir -p deployments
 
 echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
 
+# todo: constructor now also takes Circles Core, update this script if ever needed
+
 # Deploy the condition contract
 CONDITION_ADDRESS=$(forge create \
     --rpc-url ${RPC_URL_GNOSIS} \
