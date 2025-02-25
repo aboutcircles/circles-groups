@@ -102,9 +102,9 @@ Trust a single address:
 python ./scripts/interact_cmg.py trust <address> [--expiry TIMESTAMP]
 ```
 
-Trust multiple addresses:
+Trust multiple addresses with conditions:
 ```bash
-python ./scripts/interact_cmg.py trust-batch <address1> <address2> ... [--expiry TIMESTAMP]
+python ./scripts/interact_cmg.py trust-batch-with-conditions <address1> <address2> ... [--expiry TIMESTAMP]
 ```
 
 Sync trust relationships to mint handler:

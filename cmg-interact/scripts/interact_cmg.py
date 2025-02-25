@@ -262,7 +262,7 @@ def trust(trust_receiver, expiry):
 @cli.command()
 @click.argument('addresses', nargs=-1, required=True)
 @click.option('--expiry', '-e', type=int, required=False, help='Optional expiry timestamp')
-def trust_batch(addresses, expiry):
+def trust_batch_with_conditions(addresses, expiry):
     """Trust batch of addresses with expiry
 
     ADDRESSES: One or more Ethereum addresses to trust, separated by spaces
@@ -277,7 +277,7 @@ def trust_batch(addresses, expiry):
 
     addresses = [Web3.to_checksum_address(addr) for addr in addresses]
 
-    txn = group.functions.trustBatch(list(addresses), expiry).build_transaction({
+    txn = group.functions.trustBatchWithConditions(list(addresses), expiry).build_transaction({
         'from': account.address,
         'nonce': w3.eth.get_transaction_count(account.address),
         'gas': 5000000,
