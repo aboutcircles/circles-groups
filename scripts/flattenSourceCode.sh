@@ -37,9 +37,21 @@ forge flatten src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol > fla
 forge fmt --check src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol
 forge flatten src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol > flattened/ActiveTenUsdLBPBackerCondition.flat.sol
 
+# Flatten the IsHumanCondition contract
+forge fmt --check src/membership-conditions/IsHumanCondition.sol
+forge flatten src/membership-conditions/IsHumanCondition.sol > flattened/IsHumanCondition.flat.sol
+
 # Flatten the PrimaryGroupRegistry contract
 forge fmt --check src/primary-group/PrimaryGroupRegistry.sol
 forge flatten src/primary-group/PrimaryGroupRegistry.sol > flattened/PrimaryGroupRegistry.flat.sol
+
+# Flatten the GroupLiquidityProvider contract
+forge fmt --check src/liquidity-provider/GroupLiquidityProvider.sol
+forge flatten src/liquidity-provider/GroupLiquidityProvider.sol > flattened/GroupLiquidityProvider.flat.sol
+
+# Flatten the GroupLiquidityProviderDeployer contract
+forge fmt --check src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol
+forge flatten src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol > flattened/GroupLiquidityProviderDeployer.flat.sol
 
 echo -e "${GREEN}Contract source code flattened for verification!${NC}"
 echo -e "${GREEN}Flattened files saved in ./flattened/ directory${NC}"
