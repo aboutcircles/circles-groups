@@ -6,11 +6,12 @@ import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "src/circles/Core.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
 import "src/redemption-operator/CMGRedemptionOperator.sol";
+import "src/errors/Errors.sol";
 
 /// @notice GroupLiquidityProvider registers as organization with Hub, trusts
 ///         only its group, and holds pCRC working capital to provide liquidity.
 /// @dev Owner role transferred to group owner upon deployment.
-contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable {
+contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable, IGroupLiquidityProviderErrors {
     // State
 
     /// @notice the group this liquidity provider shields
@@ -43,8 +44,12 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable 
         CirclesCore memory _circlesCore,
         CMGRedemptionOperator _redemptionOperator
     ) Ownable(_owner) {
-        require(_group != address(0), "GroupLiquidityProvider: group cannot be zero address");
-        require(_owner != address(0), "GroupLiquidityProvider: owner cannot be zero address");
+        if (_group == address(0)) {
+            revert GroupLiquidityProviderGroupCannotBeZeroAddress();
+        }
+        if (_owner == address(0)) {
+            revert GroupLiquidityProviderOwnerCannotBeZeroAddress();
+        }
 
         group = _group;
         circlesCore = _circlesCore;
@@ -103,7 +108,9 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable 
         external
         onlyOwner
     {
-        require(from == address(this), "GroupLiquidityProvider: can only transfer own tokens");
+        if (from != address(this)) {
+            revert GroupLiquidityProviderCanOnlyTransferOwnTokens();
+        }
         circlesCore.hub.safeTransferFrom(from, to, id, amount, data);
     }
 
@@ -115,7 +122,41 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable 
         uint256[] calldata amounts,
         bytes calldata data
     ) external onlyOwner {
-        require(from == address(this), "GroupLiquidityProvider: can only transfer own tokens");
+        if (from != address(this)) {
+            revert GroupLiquidityProviderCanOnlyTransferOwnTokens();
+        }
         circlesCore.hub.safeBatchTransferFrom(from, to, ids, amounts, data);
+    }
+
+    /// @notice Override acceptance call to only allow transfers from owner via hub
+    function onERC1155Received(address operator, address from, uint256, uint256, bytes memory)
+        public
+        virtual
+        override
+        returns (bytes4)
+    {
+        if (operator != address(circlesCore.hub)) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
+        }
+        if (from != owner()) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwner();
+        }
+        return this.onERC1155Received.selector;
+    }
+
+    /// @notice Override batch acceptance call to only allow transfers from owner via hub
+    function onERC1155BatchReceived(address operator, address from, uint256[] memory, uint256[] memory, bytes memory)
+        public
+        virtual
+        override
+        returns (bytes4)
+    {
+        if (operator != address(circlesCore.hub)) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
+        }
+        if (from != owner()) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwner();
+        }
+        return this.onERC1155BatchReceived.selector;
     }
 }
