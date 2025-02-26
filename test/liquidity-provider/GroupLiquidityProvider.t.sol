@@ -19,11 +19,17 @@ contract GroupLiquidityProviderTest is Test {
     address public service;
     address public alice;
     address public bob;
+    address public charlie;
+    address public david;
+    address public els;
     address public liquidityProvider;
 
     // Token IDs
     uint256 public aliceId;
     uint256 public bobId;
+    uint256 public charlieId;
+    uint256 public davidId;
+    uint256 public elsId;
     uint256 public cmGroupId;
 
     function setUp() public {
@@ -32,16 +38,25 @@ contract GroupLiquidityProviderTest is Test {
         service = makeAddr("service");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
+        charlie = makeAddr("charlie");
+        david = makeAddr("david");
+        els = makeAddr("els");
 
         mockCircles = new MockCirclesDeployment();
 
         // Register users as people
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
         mockCircles.mockHub().registerHuman(bob, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(charlie, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(david, 1000 * CRC);
+        mockCircles.mockHub().registerHuman(els, 1000 * CRC);
 
         // Store token IDs
         aliceId = uint256(uint160(alice));
         bobId = uint256(uint160(bob));
+        charlieId = uint256(uint160(charlie));
+        davidId = uint256(uint160(david));
+        elsId = uint256(uint160(els));
     }
 
     function testCreateCoreMembersGroupWithLiquidityProvider() public {
@@ -79,41 +94,111 @@ contract GroupLiquidityProviderTest is Test {
         assertEq(GroupLiquidityProvider(liquidityProvider).owner(), owner);
     }
 
-    // function testOnlyOwnerCanTransfer() public {
-    //     testSetupWithValidAddresses();
+    function testOnlyOwnerCanSendCirclesToLP() public {
+        testSetupWithValidAddresses();
 
-    //     // Ensure LP has some tokens to transfer
-    //     uint256 amount = 100 * CRC;
-    //     address[] memory collateralAvatars = new address[](1);
-    //     uint256[] memory amounts = new uint256[](1);
-    //     collateralAvatars[0] = alice;
-    //     amounts[0] = amount;
+        MockHub hub = mockCircles.mockHub();
 
-    //     // Trust and mint first
-    //     vm.startPrank(owner);
-    //     ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
-    //     vm.stopPrank();
+        uint256 amount = 100 * CRC;
 
-    //     vm.startPrank(alice);
-    //     mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
-    //     mockCircles.mockHub().safeTransferFrom(alice, liquidityProvider, cmGroupId, amount, "");
-    //     vm.stopPrank();
+        // Alice tries to send CRC to LP directly (should fail)
+        vm.startPrank(alice);
+        vm.expectRevert();
+        hub.safeTransferFrom(alice, liquidityProvider, aliceId, amount, "");
+        vm.stopPrank();
 
-    //     // Non-owner tries to transfer (should fail)
-    //     vm.startPrank(alice);
-    //     vm.expectRevert();
-    //     GroupLiquidityProvider(liquidityProvider).safeTransferFrom(liquidityProvider, bob, cmGroupId, amount, "");
-    //     vm.stopPrank();
+        // First transfer CRC to owner
+        vm.startPrank(alice);
+        hub.safeTransferFrom(alice, owner, aliceId, amount, "");
+        vm.stopPrank();
 
-    //     // Owner can transfer
-    //     vm.startPrank(owner);
-    //     GroupLiquidityProvider(liquidityProvider).safeTransferFrom(liquidityProvider, bob, cmGroupId, amount, "");
-    //     vm.stopPrank();
+        // Owner can send to LP
+        vm.startPrank(owner);
+        hub.safeTransferFrom(owner, liquidityProvider, aliceId, amount, "");
+        vm.stopPrank();
 
-    //     // Verify transfer
-    //     assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 0);
-    //     assertEq(mockCircles.mockHub().balanceOf(bob, cmGroupId), amount);
-    // }
+        // Verify balances
+        assertEq(hub.balanceOf(alice, aliceId), 900 * CRC);
+        assertEq(hub.balanceOf(owner, aliceId), 0);
+        assertEq(hub.balanceOf(liquidityProvider, aliceId), amount);
+    }
+
+    function testOnlyOwnerCanBatchSendCirclesToLP() public {
+        testSetupWithValidAddresses();
+
+        MockHub hub = mockCircles.mockHub();
+
+        uint256[] memory ids = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        ids[0] = aliceId;
+        ids[1] = bobId;
+        amounts[0] = 100 * CRC;
+        amounts[1] = 200 * CRC;
+
+        // Alice tries to send batch to LP directly (should fail)
+        vm.startPrank(alice);
+        vm.expectRevert();
+        hub.safeBatchTransferFrom(alice, liquidityProvider, ids, amounts, "");
+        vm.stopPrank();
+
+        // First transfer CRC from Alice and Bob to owner
+        vm.startPrank(alice);
+        hub.safeTransferFrom(alice, owner, aliceId, 100 * CRC, "");
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        hub.safeTransferFrom(bob, owner, bobId, 200 * CRC, "");
+        vm.stopPrank();
+
+        // Owner can batch send to LP
+        vm.startPrank(owner);
+        hub.safeBatchTransferFrom(owner, liquidityProvider, ids, amounts, "");
+        vm.stopPrank();
+
+        // Verify balances
+        assertEq(hub.balanceOf(alice, aliceId), 900 * CRC);
+        assertEq(hub.balanceOf(bob, bobId), 800 * CRC);
+        assertEq(hub.balanceOf(owner, aliceId), 0);
+        assertEq(hub.balanceOf(owner, bobId), 0);
+        assertEq(hub.balanceOf(liquidityProvider, aliceId), 100 * CRC);
+        assertEq(hub.balanceOf(liquidityProvider, bobId), 200 * CRC);
+    }
+
+    function testOnlyOwnerCanTransfer() public {
+        testSetupWithValidAddresses();
+
+        // First transfer some CRC to owner
+        uint256 amount = 100 * CRC;
+        vm.startPrank(alice);
+        mockCircles.mockHub().safeTransferFrom(alice, owner, aliceId, amount, "");
+        vm.stopPrank();
+
+        // Owner sends to LP
+        vm.startPrank(owner);
+        mockCircles.mockHub().safeTransferFrom(owner, liquidityProvider, aliceId, amount, "");
+        vm.stopPrank();
+
+        // Non-owner tries to transfer LP's tokens (should fail)
+        vm.startPrank(alice);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeTransferFrom(liquidityProvider, bob, aliceId, amount, "");
+        vm.stopPrank();
+
+        // LP can only transfer its own tokens
+        vm.startPrank(owner);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeTransferFrom(alice, bob, aliceId, amount, "");
+        vm.stopPrank();
+
+        // Owner can transfer LP's tokens
+        vm.startPrank(owner);
+        GroupLiquidityProvider(liquidityProvider).safeTransferFrom(liquidityProvider, bob, aliceId, amount, "");
+        vm.stopPrank();
+
+        // Verify transfer
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, aliceId), 0);
+        assertEq(mockCircles.mockHub().balanceOf(bob, aliceId), amount);
+    }
 
     // function testOnlyOwnerCanBatchTransfer() public {
     //     testSetupWithValidAddresses();

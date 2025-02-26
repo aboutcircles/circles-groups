@@ -129,13 +129,13 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable,
     }
 
     /// @notice Override acceptance call to only allow transfers from owner via hub
-    function onERC1155Received(address operator, address from, uint256, uint256, bytes memory)
+    function onERC1155Received(address, address from, uint256, uint256, bytes memory)
         public
         virtual
         override
         returns (bytes4)
     {
-        if (operator != address(circlesCore.hub)) {
+        if (msg.sender != address(circlesCore.hub)) {
             revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
         }
         if (from != owner()) {
@@ -145,13 +145,13 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable,
     }
 
     /// @notice Override batch acceptance call to only allow transfers from owner via hub
-    function onERC1155BatchReceived(address operator, address from, uint256[] memory, uint256[] memory, bytes memory)
+    function onERC1155BatchReceived(address, address from, uint256[] memory, uint256[] memory, bytes memory)
         public
         virtual
         override
         returns (bytes4)
     {
-        if (operator != address(circlesCore.hub)) {
+        if (msg.sender != address(circlesCore.hub)) {
             revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
         }
         if (from != owner()) {
