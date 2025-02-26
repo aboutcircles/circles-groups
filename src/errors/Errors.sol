@@ -90,5 +90,5 @@ interface IGroupLiquidityProviderErrors {
     /// @notice Only accept transfers from Hub
     error GroupLiquidityProviderOnlyAcceptTransfersFromHub();
     /// @notice Only accept transfers from owner
-    error GroupLiquidityProviderOnlyAcceptTransfersFromOwner();
+    error GroupLiquidityProviderOnlyAcceptTransfersFromOwnerOrVault();
 }

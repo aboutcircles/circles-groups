@@ -89,6 +89,8 @@ contract GroupLiquidityProviderTest is Test {
         liquidityProvider = mockCircles.lpDeployer().createLiquidityProvider(cmGroup, "LP", bytes32(0));
         vm.stopPrank();
 
+        cmGroupId = uint256(uint160(cmGroup));
+
         // Verify group and owner set correctly
         assertEq(GroupLiquidityProvider(liquidityProvider).group(), cmGroup);
         assertEq(GroupLiquidityProvider(liquidityProvider).owner(), owner);
@@ -200,132 +202,236 @@ contract GroupLiquidityProviderTest is Test {
         assertEq(mockCircles.mockHub().balanceOf(bob, aliceId), amount);
     }
 
-    // function testOnlyOwnerCanBatchTransfer() public {
-    //     testSetupWithValidAddresses();
+    function testOnlyOwnerCanBatchTransfer() public {
+        testSetupWithValidAddresses();
 
-    //     // Trust both users
-    //     vm.startPrank(owner);
-    //     ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
-    //     ICoreMembersGroup(cmGroup).trust(bob, type(uint96).max);
-    //     vm.stopPrank();
+        // First transfer some CRC to owner and alice
+        vm.startPrank(alice);
+        mockCircles.mockHub().safeTransferFrom(alice, owner, aliceId, 100 * CRC, "");
+        vm.stopPrank();
 
-    //     // Mint and send tokens to LP
-    //     address[] memory collateralAvatars = new address[](2);
-    //     uint256[] memory amounts = new uint256[](2);
-    //     collateralAvatars[0] = alice;
-    //     collateralAvatars[1] = bob;
-    //     amounts[0] = 100 * CRC;
-    //     amounts[1] = 200 * CRC;
+        vm.startPrank(bob);
+        mockCircles.mockHub().safeTransferFrom(bob, owner, bobId, 200 * CRC, "");
+        mockCircles.mockHub().safeTransferFrom(bob, alice, bobId, 200 * CRC, "");
+        vm.stopPrank();
 
-    //     // Mint from Alice
-    //     vm.startPrank(alice);
-    //     mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
-    //     mockCircles.mockHub().safeTransferFrom(alice, liquidityProvider, cmGroupId, 100 * CRC, "");
-    //     vm.stopPrank();
+        uint256[] memory ids = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        ids[0] = aliceId;
+        ids[1] = bobId;
+        amounts[0] = 100 * CRC;
+        amounts[1] = 200 * CRC;
 
-    //     // Mint from Bob
-    //     vm.startPrank(bob);
-    //     mockCircles.mockHub().safeTransferFrom(bob, liquidityProvider, cmGroupId, 100 * CRC, "");
-    //     vm.stopPrank();
+        // Owner batch sends to LP
+        vm.startPrank(owner);
+        mockCircles.mockHub().safeBatchTransferFrom(owner, liquidityProvider, ids, amounts, "");
+        vm.stopPrank();
 
-    //     // Non-owner tries batch transfer (should fail)
-    //     uint256[] memory ids = new uint256[](2);
-    //     ids[0] = cmGroupId;
-    //     ids[1] = cmGroupId;
-    //     uint256[] memory transferAmounts = new uint256[](2);
-    //     transferAmounts[0] = 50 * CRC;
-    //     transferAmounts[1] = 50 * CRC;
+        // Non-owner tries to batch transfer LP's tokens (should fail)
+        vm.startPrank(alice);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(liquidityProvider, charlie, ids, amounts, "");
+        vm.stopPrank();
 
-    //     vm.startPrank(alice);
-    //     vm.expectRevert();
-    //     GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(
-    //         liquidityProvider, bob, ids, transferAmounts, ""
-    //     );
-    //     vm.stopPrank();
+        // LP can only transfer its own tokens
+        vm.startPrank(owner);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(alice, charlie, ids, amounts, "");
+        vm.stopPrank();
 
-    //     // Owner can batch transfer
-    //     vm.startPrank(owner);
-    //     GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(
-    //         liquidityProvider, bob, ids, transferAmounts, ""
-    //     );
-    //     vm.stopPrank();
+        // Owner can batch transfer LP's tokens
+        vm.startPrank(owner);
+        GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(liquidityProvider, charlie, ids, amounts, "");
+        vm.stopPrank();
 
-    //     // Verify transfer
-    //     assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 100 * CRC);
-    //     assertEq(mockCircles.mockHub().balanceOf(bob, cmGroupId), 100 * CRC + 100 * CRC);
-    // }
+        // Verify transfer
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, aliceId), 0);
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, bobId), 0);
+        assertEq(mockCircles.mockHub().balanceOf(charlie, aliceId), 100 * CRC);
+        assertEq(mockCircles.mockHub().balanceOf(charlie, bobId), 200 * CRC);
+    }
 
-    // function testCannotTransferOtherAccountsTokens() public {
-    //     testSetupWithValidAddresses();
+    function testCannotTransferOtherAccountsTokens() public {
+        testSetupWithValidAddresses();
 
-    //     vm.startPrank(owner);
-    //     vm.expectRevert("GroupLiquidityProvider: can only transfer own tokens");
-    //     GroupLiquidityProvider(liquidityProvider).safeTransferFrom(alice, bob, cmGroupId, 100 * CRC, "");
-    //     vm.stopPrank();
+        // Have Alice approve LP as operator
+        vm.startPrank(alice);
+        mockCircles.mockHub().setApprovalForAll(liquidityProvider, true);
+        vm.stopPrank();
 
-    //     // Same for batch transfers
-    //     uint256[] memory ids = new uint256[](1);
-    //     uint256[] memory amounts = new uint256[](1);
-    //     ids[0] = cmGroupId;
-    //     amounts[0] = 100 * CRC;
+        // Even though approved, LP should still not be able to transfer Alice's tokens
+        vm.startPrank(owner);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeTransferFrom(alice, bob, aliceId, 100 * CRC, "");
+        vm.stopPrank();
 
-    //     vm.startPrank(owner);
-    //     vm.expectRevert("GroupLiquidityProvider: can only transfer own tokens");
-    //     GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(alice, bob, ids, amounts, "");
-    //     vm.stopPrank();
-    // }
+        // Same for batch transfers
+        uint256[] memory ids = new uint256[](1);
+        uint256[] memory amounts = new uint256[](1);
+        ids[0] = aliceId;
+        amounts[0] = 100 * CRC;
 
-    // function testProviderCanReceiveGcrc() public {
-    //     testSetupWithValidAddresses();
+        vm.startPrank(owner);
+        vm.expectRevert();
+        GroupLiquidityProvider(liquidityProvider).safeBatchTransferFrom(alice, bob, ids, amounts, "");
+        vm.stopPrank();
 
-    //     // Trust and mint first
-    //     vm.startPrank(owner);
-    //     ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
-    //     vm.stopPrank();
+        // Verify Alice's approval didn't allow any transfers
+        assertEq(mockCircles.mockHub().balanceOf(bob, aliceId), 0);
+    }
 
-    //     address[] memory collateralAvatars = new address[](1);
-    //     uint256[] memory amounts = new uint256[](1);
-    //     collateralAvatars[0] = alice;
-    //     amounts[0] = 100 * CRC;
+    function testProviderCanReceiveGcrc() public {
+        testSetupWithValidAddresses();
 
-    //     vm.startPrank(alice);
-    //     mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
-    //     mockCircles.mockHub().safeTransferFrom(alice, liquidityProvider, cmGroupId, 100 * CRC, "");
-    //     vm.stopPrank();
+        // Trust and mint first
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
+        vm.stopPrank();
 
-    //     assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 100 * CRC);
-    // }
+        address[] memory collateralAvatars = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        collateralAvatars[0] = alice;
+        amounts[0] = 100 * CRC;
 
-    // function testFirstRebalancingWithSingleCollateral() public {
-    //     testProviderCanReceiveGcrc();
+        vm.startPrank(alice);
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        mockCircles.mockHub().safeTransferFrom(alice, owner, cmGroupId, 100 * CRC, "");
+        vm.stopPrank();
 
-    //     // Check pre-rebalance gCRC balance
-    //     uint256 preBalance = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
-    //     assertEq(preBalance, 100 * CRC);
+        vm.startPrank(owner);
+        mockCircles.mockHub().safeTransferFrom(owner, liquidityProvider, cmGroupId, 100 * CRC, "");
+        vm.stopPrank();
 
-    //     // Anyone can call rebalance
-    //     vm.startPrank(alice);
-    //     GroupLiquidityProvider(liquidityProvider).rebalance();
-    //     vm.stopPrank();
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 100 * CRC);
+    }
 
-    //     // Verify balance decreased
-    //     uint256 postBalance = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
-    //     assertTrue(postBalance < preBalance);
+    function testFirstRebalancingWithSingleCollateral() public {
+        testProviderCanReceiveGcrc();
 
-    //     // Verify LP has collateral balance now
-    //     uint256 collateralBalance = mockCircles.mockHub().balanceOf(liquidityProvider, aliceId);
-    //     assertTrue(collateralBalance > 0);
-    // }
+        // Check pre-rebalance gCRC balance
+        uint256 preBalance = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
+        assertEq(preBalance, 100 * CRC);
 
-    // function testRebalancingDoesNothingWithoutBalance() public {
-    //     testSetupWithValidAddresses();
+        // Anyone can call rebalance
+        vm.startPrank(alice);
+        GroupLiquidityProvider(liquidityProvider).rebalance();
+        vm.stopPrank();
 
-    //     // Try rebalancing with 0 balance
-    //     vm.startPrank(alice);
-    //     GroupLiquidityProvider(liquidityProvider).rebalance();
-    //     vm.stopPrank();
+        // Verify balance decreased
+        uint256 postBalance = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
+        assertTrue(postBalance < preBalance);
 
-    //     // Verify no changes
-    //     assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 0);
-    // }
+        // Verify LP has collateral balance now
+        uint256 collateralBalance = mockCircles.mockHub().balanceOf(liquidityProvider, aliceId);
+        assertTrue(collateralBalance > 0);
+
+        // Assert all gCRC was rebalanced
+        assertEq(postBalance, 0);
+    }
+
+    function testRebalancingWithNoRemainingGcrc() public {
+        testFirstRebalancingWithSingleCollateral();
+
+        // Verify state after first rebalance
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 0);
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, aliceId), 100 * CRC);
+
+        // Try rebalancing again
+        vm.startPrank(alice);
+        GroupLiquidityProvider(liquidityProvider).rebalance();
+        vm.stopPrank();
+
+        // Verify no changes after second rebalance
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 0);
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, aliceId), 100 * CRC);
+    }
+
+    function testRebalancingWithLargeAmounts() public {
+        testSetupWithValidAddresses();
+
+        // Trust all users who will mint
+        vm.startPrank(owner);
+        ICoreMembersGroup(cmGroup).trust(alice, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(bob, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(charlie, type(uint96).max);
+        ICoreMembersGroup(cmGroup).trust(david, type(uint96).max);
+        vm.stopPrank();
+
+        // Mint extra pCRC to users
+        address[] memory users = new address[](4);
+        users[0] = alice;
+        users[1] = bob;
+        users[2] = charlie;
+        users[3] = david;
+        mockCircles.mockHub().personalMint(users, 10000 * CRC);
+
+        // Each user mints to gCRC and sends to owner
+        address[] memory collateralAvatars = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 11000 * CRC; // Use full amount (1000 initial + 10000 minted)
+
+        vm.startPrank(alice);
+        collateralAvatars[0] = alice;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        mockCircles.mockHub().safeTransferFrom(alice, owner, cmGroupId, 11000 * CRC, "");
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        collateralAvatars[0] = bob;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        mockCircles.mockHub().safeTransferFrom(bob, owner, cmGroupId, 11000 * CRC, "");
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        collateralAvatars[0] = charlie;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        mockCircles.mockHub().safeTransferFrom(charlie, owner, cmGroupId, 11000 * CRC, "");
+        vm.stopPrank();
+
+        vm.startPrank(david);
+        collateralAvatars[0] = david;
+        mockCircles.mockHub().groupMint(cmGroup, collateralAvatars, amounts, "");
+        mockCircles.mockHub().safeTransferFrom(david, owner, cmGroupId, 11000 * CRC, "");
+        vm.stopPrank();
+
+        // Owner sends all gCRC to LP
+        vm.startPrank(owner);
+        mockCircles.mockHub().safeTransferFrom(owner, liquidityProvider, cmGroupId, 44000 * CRC, "");
+        vm.stopPrank();
+
+        // Verify initial gCRC in LP
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 44000 * CRC);
+
+        // Rebalance until all gCRC is converted
+        uint256 remainingGcrc = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
+        uint256 rebalanceCount = 0;
+        while (remainingGcrc > 0) {
+            vm.startPrank(owner);
+            GroupLiquidityProvider(liquidityProvider).rebalance();
+            vm.stopPrank();
+
+            uint256 newBalance = mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId);
+            assertTrue(newBalance < remainingGcrc);
+            remainingGcrc = newBalance;
+            rebalanceCount++;
+        }
+
+        // Verify final state
+        assertEq(mockCircles.mockHub().balanceOf(liquidityProvider, cmGroupId), 0);
+
+        // Check collateral balances
+        uint256 totalCollateral = mockCircles.mockHub().balanceOf(liquidityProvider, aliceId)
+            + mockCircles.mockHub().balanceOf(liquidityProvider, bobId)
+            + mockCircles.mockHub().balanceOf(liquidityProvider, charlieId)
+            + mockCircles.mockHub().balanceOf(liquidityProvider, davidId);
+
+        assertEq(totalCollateral, 44000 * CRC);
+
+        // Given 500 CRC redemption limit per collateral ID
+        // And 4 collateral IDs available
+        // Each rebalance can redeem 2000 CRC (4 * 500)
+        uint256 totalGcrc = 44000 * CRC;
+        uint256 expectedRebalances = (totalGcrc + 1999 * CRC) / (2000 * CRC); // Round up
+        assertEq(rebalanceCount, expectedRebalances);
+    }
 }

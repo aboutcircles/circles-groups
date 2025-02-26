@@ -128,34 +128,52 @@ contract GroupLiquidityProvider is CirclesCoreAddresses, ERC1155Holder, Ownable,
         circlesCore.hub.safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 
-    /// @notice Override acceptance call to only allow transfers from owner via hub
+    /// @notice Override acceptance call to only allow transfers from owner or group vault via hub
+    /// @dev Must accept transfers from:
+    ///      1. Owner - for depositing working capital
+    ///      2. Group vault - when receiving collateral during rebalancing
     function onERC1155Received(address, address from, uint256, uint256, bytes memory)
         public
         virtual
         override
         returns (bytes4)
     {
+        // Only accept transfers via the hub contract
         if (msg.sender != address(circlesCore.hub)) {
             revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
         }
-        if (from != owner()) {
-            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwner();
+
+        // Get group's vault address from treasury
+        address vault = circlesCore.standardTreasury.vaults(group);
+
+        // Accept transfers from either owner or group vault
+        if (from != owner() && from != vault) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwnerOrVault();
         }
         return this.onERC1155Received.selector;
     }
 
-    /// @notice Override batch acceptance call to only allow transfers from owner via hub
+    /// @notice Override batch acceptance call to only allow transfers from owner or group vault via hub
+    /// @dev Must accept transfers from:
+    ///      1. Owner - for depositing working capital
+    ///      2. Group vault - when receiving collateral during rebalancing
     function onERC1155BatchReceived(address, address from, uint256[] memory, uint256[] memory, bytes memory)
         public
         virtual
         override
         returns (bytes4)
     {
+        // Only accept transfers via the hub contract
         if (msg.sender != address(circlesCore.hub)) {
             revert GroupLiquidityProviderOnlyAcceptTransfersFromHub();
         }
-        if (from != owner()) {
-            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwner();
+
+        // Get group's vault address from treasury
+        address vault = circlesCore.standardTreasury.vaults(group);
+
+        // Accept transfers from either owner or group vault
+        if (from != owner() && from != vault) {
+            revert GroupLiquidityProviderOnlyAcceptTransfersFromOwnerOrVault();
         }
         return this.onERC1155BatchReceived.selector;
     }
