@@ -54,30 +54,33 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     }
 
     // External functions
-
     /// @notice Create Core Members group for caller
+    /// @return proxy Address of the deployed proxy contract
+    /// @return mintHandler Address of the deployed mint handler
+    /// @return redemptionHandler Address of the deployed redemption handler
+    /// @return liquidityProvider Address of the deployed liquidity provider
     function createCMGroup(
         address _service,
         address[] memory _initialConditions,
         string memory _name,
         string memory _symbol,
         bytes32 _metadataDigest
-    ) external returns (address) {
+    ) external returns (address proxy, address mintHandler, address redemptionHandler, address liquidityProvider) {
         // load Circles v2 core protocol addresses
         CirclesCore memory circlesCore = getCirclesCore();
         // group and handlers owned by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
-        UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
+        proxy = address(new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), ""));
         // deploy the handlers
-        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesCore);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, circlesCore);
+        mintHandler = address(new CMGMintHandler(proxy, owner, _name, circlesCore));
+        redemptionHandler = address(new CMGRedemptionHandler(proxy, owner, circlesCore));
         // lastly, call setup on the proxy to initialise the group
-        CoreMembersGroup(address(proxy)).setup(
+        CoreMembersGroup(proxy).setup(
             owner,
             _service,
-            address(mintHandler),
-            address(redemptionHandler),
+            mintHandler,
+            redemptionHandler,
             _initialConditions,
             _name,
             _symbol,
@@ -87,12 +90,11 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
 
         // deploy liquidity provider for owner
         string memory lpName = string.concat(_name, "-lp");
-        address liquidityProvider = lpDeployer.createLiquidityProvider(address(proxy), lpName, bytes32(0));
+        liquidityProvider = lpDeployer.createLiquidityProvider(proxy, lpName, bytes32(0));
 
         // ensure static ERC20 wrapper is deployed for group
-        circlesCore.erc20Lift.ensureERC20(address(proxy), CirclesType.Inflation);
+        circlesCore.erc20Lift.ensureERC20(proxy, CirclesType.Inflation);
 
-        emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler), liquidityProvider);
-        return address(proxy);
+        emit CMGroupCreated(proxy, owner, mintHandler, redemptionHandler, liquidityProvider);
     }
 }
