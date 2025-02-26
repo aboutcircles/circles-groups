@@ -6,12 +6,20 @@ import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
+import "src/redemption-operator/CMGRedemptionOperator.sol";
+import "src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol";
 
 contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     // State variables
 
     /// @notice address of the deployed mastercopy for the CMGroup
     CoreMembersGroup public masterCopyCMGroup;
+
+    /// @notice deployer for liquidity providers
+    GroupLiquidityProviderDeployer public immutable lpDeployer;
+
+    /// @notice redemption operator used by liquidity providers
+    CMGRedemptionOperator public immutable redemptionOperator;
 
     // Events
 
@@ -20,8 +28,13 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     /// @param owner Owner of the new group
     /// @param mintHandler Address of the mintHandler contract
     /// @param redemptionHandler Address of the redemptionHandler contract
+    /// @param liquidityProvider Address of the (first) liquidity provider
     event CMGroupCreated(
-        address indexed proxy, address indexed owner, address indexed mintHandler, address redemptionHandler
+        address indexed proxy,
+        address indexed owner,
+        address indexed mintHandler,
+        address redemptionHandler,
+        address liquidityProvider
     );
 
     /// @notice Emitted when mastercopy is deployed in constructor
@@ -34,6 +47,10 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
         // deploy a master copy for Core Members group
         masterCopyCMGroup = new CoreMembersGroup();
         emit MasterCopyDeployed(address(masterCopyCMGroup));
+
+        // create deployer for liquidity providers
+        redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
+        lpDeployer = new GroupLiquidityProviderDeployer(redemptionOperator, getCirclesCore());
     }
 
     // External functions
@@ -68,10 +85,14 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
             circlesCore
         );
 
+        // deploy liquidity provider for owner
+        string memory lpName = string.concat(_name, "-lp");
+        address liquidityProvider = lpDeployer.createLiquidityProvider(address(proxy), lpName, bytes32(0));
+
         // ensure static ERC20 wrapper is deployed for group
         circlesCore.erc20Lift.ensureERC20(address(proxy), CirclesType.Inflation);
 
-        emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));
+        emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler), liquidityProvider);
         return address(proxy);
     }
 }
