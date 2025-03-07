@@ -93,11 +93,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @param _amounts Amounts of each collateral being redeemed
     function registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) external onlyCMGroup {
         // CM group always registers with standard treasury
-        address vault = circlesCore.standardTreasury.vaults(cmGroup);
-        if (vault == address(0)) {
-            // if vault has not been deployed, then it should be impossible to get this callback
-            revert CMGHandlerLogicAssertion();
-        }
+        address vault = _getGroupVault();
 
         // to do a batched balance call of vault for each,
         // we need to expand the address - it's a trade-off
