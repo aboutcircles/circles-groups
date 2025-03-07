@@ -1,0 +1,185 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createCMGroup",
+    "inputs": [
+      {
+        "name": "_service",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_initialConditions",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_symbol",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proxy",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "mintHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "redemptionHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "liquidityProvider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getCirclesCore",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lpDeployer",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract GroupLiquidityProviderDeployer"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "masterCopyCMGroup",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CoreMembersGroup"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "redemptionOperator",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CMGRedemptionOperator"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "CMGroupCreated",
+    "inputs": [
+      {
+        "name": "proxy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "mintHandler",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "redemptionHandler",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "liquidityProvider",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MasterCopyDeployed",
+    "inputs": [
+      {
+        "name": "mastercopy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  }
+]
