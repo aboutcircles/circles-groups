@@ -14,11 +14,15 @@ class CMGLandscapeAnalyzer:
         # Load environment variables
         load_dotenv()
 
+        # Get repo root path
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        print(f"DEBUG: repo_root path is {repo_root}")
+
         # Connect to Gnosis Chain
         self.w3 = Web3(Web3.HTTPProvider(os.getenv("RPC_URL_GNOSIS")))
 
         # Load proxy ABI
-        self.load_abis()
+        self.load_abis(repo_root)
 
         # Known deployer addresses
         self.known_deployers = [
@@ -30,10 +34,11 @@ class CMGLandscapeAnalyzer:
             "0xFEca40Eb02FB1f4F5F795fC7a03c1A27819B1Ded"  # CMG Deployer v0.1.0-preview, 26 Feb 2025
         ]
 
-    def load_abis(self):
+    def load_abis(self, repo_root: str):
         """Load required contract ABIs"""
-        with open("abis/UpgradeableRenounceableProxy.json") as f:
-            self.proxy_abi = json.load(f)["abi"]
+        abi_path = os.path.join(repo_root, "export-abis/UpgradeableRenounceableProxy-virtual.json")
+        with open(abi_path) as f:
+            self.proxy_abi = json.load(f)
 
     def analyze_group(self, group_address: str) -> Dict:
         """Analyze a single CMG and return its details"""
@@ -61,7 +66,10 @@ class CMGLandscapeAnalyzer:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"cmg_landscape_{timestamp}.csv"
 
-        with open(filename, "w", newline="") as f:
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        output_path = os.path.join(repo_root, filename)
+
+        with open(output_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=results[0].keys())
             writer.writeheader()
             writer.writerows(results)
