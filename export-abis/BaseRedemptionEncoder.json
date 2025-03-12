@@ -1,0 +1,26 @@
+[
+  {
+    "type": "function",
+    "name": "structureRedemptionData",
+    "inputs": [
+      {
+        "name": "_redemptionIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "_redemptionValues",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  }
+]

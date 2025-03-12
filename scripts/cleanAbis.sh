@@ -21,3 +21,4 @@ forge inspect src/membership-conditions/IsHumanCondition.sol:IsHumanCondition ab
 forge inspect src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol:ActiveOneUsdLBPBackerCondition abi > export-abis/ActiveOneUsdLBPBackerCondition.json
 forge inspect src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol:ActiveTenUsdLBPBackerCondition abi > export-abis/ActiveTenUsdLBPBackerCondition.json
 forge inspect lib/circles-contracts-v2/src/hub/Hub.sol:Hub abi > export-abis/Hub.json
+forge inspect src/redemption-operator/BaseRedemptionEncoder.sol:BaseRedemptionEncoder abi > export-abis/BaseRedemptionEncoder.json

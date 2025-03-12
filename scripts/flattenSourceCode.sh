@@ -26,6 +26,10 @@ forge flatten src/core-members-group/CMGRedemptionHandler.sol > flattened/CMGRed
 forge fmt --check src/redemption-operator/CMGRedemptionOperator.sol
 forge flatten src/redemption-operator/CMGRedemptionOperator.sol > flattened/CMGRedemptionOperator.flat.sol
 
+# Flatten the BaseRedemptionEncoder contract
+forge fmt --check src/redemption-operator/BaseRedemptionEncoder.sol
+forge flatten src/redemption-operator/BaseRedemptionEncoder.sol > flattened/BaseRedemptionEncoder.flat.sol
+
 # Flatten the UpgradeableRenounceableProxy contract
 forge fmt --check src/core-members-group/helpers/UpgradeableRenounceableProxy.sol
 forge flatten src/core-members-group/helpers/UpgradeableRenounceableProxy.sol > flattened/UpgradeableRenounceableProxy.flat.sol
