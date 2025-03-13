@@ -127,8 +127,14 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
             amounts[0] = _value;
             // initiate groupMint (which will call back, but expectation lock is set)
             circlesCore.hub.groupMint(cmGroup, collateralAvatars, amounts, _data);
-            // tidy up before transfering
-            _clearConversion();
+
+            // conversion in cleared upon receiving gCRC from minting; double check it is indeed cleared
+            (uint256 verifyCleared,) = _expectingConversionReturn();
+            if (verifyCleared != uint256(0)) {
+                // unexpected gCRC mint did not occur to clear the ongoing conversion
+                revert CMGHandlerLogicAssertion();
+            }
+
             // return the freshly minted gCRC to sender
             circlesCore.hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
 

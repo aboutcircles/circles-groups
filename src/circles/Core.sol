@@ -24,7 +24,7 @@ contract CirclesCoreAddresses {
 contract CirclesV2BetaAddresses {
     // State
 
-    // these constants can be verified on
+    // these variables can be verified on
     // https://gnosis.blockscout.com/address/0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8?tab=contract
     // note: keeping unused contract addresses for easy reference
     /// @dev Hub contract address

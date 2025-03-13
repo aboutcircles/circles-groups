@@ -28,6 +28,7 @@ class CMGLandscapeAnalyzer:
         self.known_deployers = [
             # "0x2F1808520Fb68F7815dcF5ceFDb87fBAC0fc62E5", # CES Supergroup deployer, 27 January 2025, not covered
             "0x55785b41703728f1F1F05E77e22B13c3FCc9ce65", # First created 3 Feb 2025
+
             # "0xC108D57691f9235468D564D0Ad38e24988d93084", unknown
             # "0xCFb45206d6C9442ba93D723B14Db99fb382d7DEc", unknown
             # "0xB9F6f0dB7f59907964A29f3AD935b2ac2F6abEdb", unknwon
