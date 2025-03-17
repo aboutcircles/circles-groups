@@ -54,7 +54,7 @@ contract CMGMintHandlerTest is Test {
         address[] memory noInitialConditions = new address[](0);
 
         vm.startPrank(owner);
-        cmGroup = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
+        (cmGroup,,,) = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
 
         // Verify owner is set correctly
         assertEq(ICoreMembersGroup(cmGroup).owner(), owner);

@@ -58,7 +58,7 @@ contract CoreMembersGroupTest is Test {
         initialConditions[0] = address(isHumanCondition);
 
         vm.startPrank(owner);
-        cmGroup = mockCircles.createCMGroup(service, initialConditions, "TestCMG", "CMG", bytes32(0));
+        (cmGroup,,,) = mockCircles.createCMGroup(service, initialConditions, "TestCMG", "CMG", bytes32(0));
         vm.stopPrank();
 
         // Verify owner is set correctly

@@ -79,3 +79,16 @@ interface ICMGRedemptionOperatorErrors {
     /// @notice invalid calling parameters
     error CMGRedemptionOperatorInvalidCallingParameters();
 }
+
+interface IGroupLiquidityProviderErrors {
+    /// @notice Group address cannot be zero
+    error GroupLiquidityProviderGroupCannotBeZeroAddress();
+    /// @notice Owner address cannot be zero
+    error GroupLiquidityProviderOwnerCannotBeZeroAddress();
+    /// @notice Only allow transfers of own tokens
+    error GroupLiquidityProviderCanOnlyTransferOwnTokens();
+    /// @notice Only accept transfers from Hub
+    error GroupLiquidityProviderOnlyAcceptTransfersFromHub();
+    /// @notice Only accept transfers from owner
+    error GroupLiquidityProviderOnlyAcceptTransfersFromOwnerOrVault();
+}
