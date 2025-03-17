@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
-import "src/core-members-group/CoreMembersGroup.sol";
+import "src/core-members-group/helpers/CoreMembersGroupUpgradeable.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
 import "src/redemption-operator/CMGRedemptionOperator.sol";
@@ -18,7 +18,7 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
     MockHub public mockHub;
     MockStandardTreasury public mockStandardTreasury;
     /// @notice address of the deployed mastercopy for the CMGroup
-    CoreMembersGroup public masterCopyCMGroup;
+    CoreMembersGroupUpgradeable public masterCopyCMGroup;
     /// @notice address of the deployed redemption operator
     CMGRedemptionOperator public redemptionOperator;
     /// @notice deployer for liquidity providers
@@ -51,7 +51,7 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
         mockStandardTreasury = mockHub.standardTreasury();
 
         // deploy a master copy for Core Members group
-        masterCopyCMGroup = new CoreMembersGroup();
+        masterCopyCMGroup = new CoreMembersGroupUpgradeable();
         emit MasterCopyDeployed(address(masterCopyCMGroup));
 
         // deploy redemption operator
@@ -87,7 +87,7 @@ contract MockCirclesDeployment is CirclesCoreAddresses {
         mintHandler = address(new CMGMintHandler(proxy, owner, _name, circlesMockCore));
         redemptionHandler = address(new CMGRedemptionHandler(proxy, owner, circlesMockCore));
         // lastly, call setup on the proxy to initialise the group
-        CoreMembersGroup(proxy).setup(
+        CoreMembersGroupUpgradeable(proxy).setup(
             owner,
             _service,
             mintHandler,

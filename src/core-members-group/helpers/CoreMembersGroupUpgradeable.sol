@@ -8,10 +8,10 @@ import "src/circles/Core.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
-import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
+import {CoreMembersGroupStorage} from "src/core-members-group/helpers/CoreMembersGroupStorage.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
 
-contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy, ICoreMembersGroup, ICMGroupErrors {
+contract CoreMembersGroupUpgradeable is Initializable, CoreMembersGroupStorage, MintPolicy, ICoreMembersGroup, ICMGroupErrors {
     // Constants
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
