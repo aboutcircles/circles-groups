@@ -308,7 +308,7 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
             revert CMGHandlerConversionOngoing(ongoingConversion);
         }
 
-        // Store the new conversion amount, beneficiary and data hash in transient storage
+        // Store the new conversion amount, and beneficiary in transient storage
         assembly {
             tstore(conversionSlot, _amount)
             tstore(beneficiarySlot, _beneficiary)
