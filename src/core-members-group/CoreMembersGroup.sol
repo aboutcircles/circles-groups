@@ -8,16 +8,28 @@ import "src/circles/Core.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
-import {CoreMembersGroupStorage} from "src/core-members-group/helpers/CoreMembersGroupStorage.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
 
-contract CoreMembersGroupUpgradeable is
-    Initializable,
-    CoreMembersGroupStorage,
-    MintPolicy,
-    ICoreMembersGroup,
-    ICMGroupErrors
-{
+contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup, ICMGroupErrors {
+    // Structs
+
+    /// Stateful struct inherited from upgradeable contracts to minimise code changes
+    /// from the archived development version found in /helpers
+    struct State {
+        address owner;
+        address mintHandler;
+        address redemptionHandler;
+        address service;
+        uint256 minimalDeposit;
+        address feeCollection;
+        // CirclesCore circlesCore;
+        IHub hub;
+        IStandardTreasury standardTreasury;
+        INameRegistryExtended nameRegistry;
+        IERC20Lift erc20Lift;
+        address[] membershipConditions;
+    }
+
     // Constants
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
@@ -25,6 +37,12 @@ contract CoreMembersGroupUpgradeable is
 
     /// @notice The maximum number of membership conditions allowed.
     uint256 public constant MAX_CONDITIONS = 10;
+
+    // State
+
+    /// @notice store the state variables, a pattern adopted to stay close to the
+    /// upgradeable CMG version
+    State public state;
 
     // Events
 
@@ -61,7 +79,7 @@ contract CoreMembersGroupUpgradeable is
 
     /// @notice Only the Circles Hub can call this function
     modifier onlyHub() {
-        if (msg.sender != address(_state().hub)) {
+        if (msg.sender != address(state.hub)) {
             revert CMGroupOnlyHub();
         }
         _;
@@ -69,7 +87,7 @@ contract CoreMembersGroupUpgradeable is
 
     /// @notice Only the Circles Hub or group Treasury can call this function
     modifier onlyHubOrTreasury() {
-        if (msg.sender != address(_state().hub) && msg.sender != address(_state().standardTreasury)) {
+        if (msg.sender != address(state.hub) && msg.sender != address(state.standardTreasury)) {
             revert CMGroupOnlyHubOrTreasury();
         }
         _;
@@ -77,7 +95,7 @@ contract CoreMembersGroupUpgradeable is
 
     /// @notice Only owner can call
     modifier onlyOwner() {
-        if (msg.sender != _state().owner) {
+        if (msg.sender != state.owner) {
             revert CMGroupOnlyOwner();
         }
         _;
@@ -85,7 +103,7 @@ contract CoreMembersGroupUpgradeable is
 
     /// @notice Only owner or service can call
     modifier onlyOwnerOrService() {
-        if (msg.sender != _state().owner && msg.sender != _state().service) {
+        if (msg.sender != state.owner && msg.sender != state.service) {
             revert CMGroupOnlyOwnerOrService();
         }
         _;
@@ -93,14 +111,7 @@ contract CoreMembersGroupUpgradeable is
 
     // Constructor
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    // Setup
-
-    function setup(
+    constructor(
         address _owner,
         address _service,
         address _mintHandler,
@@ -110,7 +121,7 @@ contract CoreMembersGroupUpgradeable is
         string memory _symbol,
         bytes32 _metadataDigest,
         CirclesCore memory _circlesCore
-    ) external virtual initializer {
+    ) {
         if (_owner == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
@@ -127,15 +138,15 @@ contract CoreMembersGroupUpgradeable is
         }
 
         // set fee collection to be by default the owner
-        _state().feeCollection = _owner;
+        state.feeCollection = _owner;
 
         // store the core Circles protocol addresses
-        _state().hub = _circlesCore.hub;
-        _state().standardTreasury = _circlesCore.standardTreasury;
-        _state().nameRegistry = _circlesCore.nameRegistry;
+        state.hub = _circlesCore.hub;
+        state.standardTreasury = _circlesCore.standardTreasury;
+        state.nameRegistry = _circlesCore.nameRegistry;
 
         // register group in hub and set the mint policy to this address
-        _state().hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+        state.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
         emit OwnerSet(_owner);
     }
@@ -172,22 +183,6 @@ contract CoreMembersGroupUpgradeable is
         emit MembershipConditionEnabled(_condition, _enabled);
     }
 
-    /// @notice Change the mintHandler contract address. MintHandler contract helps
-    ///         automate path minting/redemptions.
-    /// @param _mintHandler Updated mintHandler contract address.
-    /// @dev The mintHandler contract can be zero address. Only owner can change the mintHandler contract.
-    function setMintHandler(address _mintHandler) external onlyOwner {
-        _setMintHandler(_mintHandler);
-    }
-
-    /// @notice Change the redemptionHandler contract address. RedemptionHandler contract helps
-    ///         track deposits and redemptions for the group.
-    /// @param _redemptionHandler Updated redemptionHandler contract address.
-    /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
-    function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
-        _setRedemptionHandler(_redemptionHandler);
-    }
-
     /// @notice Change minimal deposit amount for the group
     /// @param _minimalDeposit New minimal deposit amount
     /// @dev Must not exceed MAX_DEPOSIT_AMOUNT_MINIMUM. Only owner can change.
@@ -205,7 +200,7 @@ contract CoreMembersGroupUpgradeable is
         if (_feeCollection == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
-        _state().feeCollection = _feeCollection;
+        state.feeCollection = _feeCollection;
         emit FeeCollectionUpdated(_feeCollection);
     }
 
@@ -250,7 +245,7 @@ contract CoreMembersGroupUpgradeable is
             // first check whether the core member is currently trusted;
             for (uint256 i = 0; i < length; i++) {
                 coreMember = _coreMembers[i];
-                if (_state().hub.isTrusted(address(this), coreMember)) {
+                if (state.hub.isTrusted(address(this), coreMember)) {
                     _trust(coreMember, _expiry);
                 }
             }
@@ -269,12 +264,12 @@ contract CoreMembersGroupUpgradeable is
     ) external override onlyHub returns (bool) {
         // ensure the amounts are not zero as sanity check
         for (uint256 i = 0; i < _amounts.length; i++) {
-            if (_amounts[i] < _state().minimalDeposit) {
+            if (_amounts[i] < state.minimalDeposit) {
                 // hub already checks no amount is zero in _groupMint,
                 // but assert here that each deposit is at least minimally significant
                 // to avoid that the group's vault collects dust, which makes the
                 // redemption (and redemption bookkeeping) less efficient.
-                revert CMGroupInteractionAmountIsBelowMinimum(_collateral[i], _amounts[i], _state().minimalDeposit);
+                revert CMGroupInteractionAmountIsBelowMinimum(_collateral[i], _amounts[i], state.minimalDeposit);
             }
         }
         // register deposit with redemption handler
@@ -325,24 +320,24 @@ contract CoreMembersGroupUpgradeable is
     /// @notice Sets advanced usage flags for this group in the Hub
     /// @param _flag Advanced usage flag value to set
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
-        _state().hub.setAdvancedUsageFlag(_flag);
+        state.hub.setAdvancedUsageFlag(_flag);
     }
 
     /// @notice Updates the metadata digest for this group in the name registry
     /// @param _metadataDigest New metadata digest value
     function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
-        _state().nameRegistry.updateMetadataDigest(_metadataDigest);
+        state.nameRegistry.updateMetadataDigest(_metadataDigest);
     }
 
     /// @notice Registers a short name for this group in the name registry
     function registerShortName() external onlyOwner {
-        _state().nameRegistry.registerShortName();
+        state.nameRegistry.registerShortName();
     }
 
     /// @notice Registers a short name for this group with a specified nonce
     /// @param _nonce Nonce value to use for short name registration
     function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
-        _state().nameRegistry.registerShortNameWithNonce(_nonce);
+        state.nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
     // View functions
@@ -352,71 +347,71 @@ contract CoreMembersGroupUpgradeable is
     ///         For simplicity and readability we duplicate owner with ERC1967 admin,
     ///         even if for the intended deployment they are the same address.
     function owner() external view returns (address) {
-        return _state().owner;
+        return state.owner;
     }
 
     /// @notice returns the mintHandler for the CM Group to assist with
     ///         automatic path-mints for the group.
     function mintHandler() external view returns (address) {
-        return _state().mintHandler;
+        return state.mintHandler;
     }
 
     /// @notice returns the redemptionHandler for the CM Group to facilitate
     ///         redemptions either direct or over paths.
     function redemptionHandler() external view returns (address) {
-        return _state().redemptionHandler;
+        return state.redemptionHandler;
     }
 
     /// @notice Service address. The service is limited to trusting (or untrusting) avatars.
     function service() external view returns (address) {
-        return _state().service;
+        return state.service;
     }
 
     /// @notice returns the minimal deposit amount for mints. The same minimal
     ///         amount must remain in the vault collateral in order to track
     ///         the id as active collateral for searches for redemption
     function minimalDeposit() external view returns (uint256) {
-        return _state().minimalDeposit;
+        return state.minimalDeposit;
     }
 
     /// @notice Returns the address that receives fees collected by this group
     function feeCollection() external view returns (address) {
-        return _state().feeCollection;
+        return state.feeCollection;
     }
 
     /// @notice Returns the array of membership condition addresses
     function getMembershipConditions() external view returns (address[] memory) {
-        return _state().membershipConditions;
+        return state.membershipConditions;
     }
 
     /// @notice Returns the core Circles protocol addresses
     function getCirclesCore() external view returns (CirclesCore memory) {
-        return CirclesCore(_state().hub, _state().standardTreasury, _state().nameRegistry, _state().erc20Lift);
+        return CirclesCore(state.hub, state.standardTreasury, state.nameRegistry, state.erc20Lift);
     }
 
     // Internal functions
 
     function _setOwner(address _owner) internal {
-        _state().owner = _owner;
+        state.owner = _owner;
     }
 
     function _setService(address _service) internal {
-        _state().service = _service;
+        state.service = _service;
         emit ServiceUpdated(_service);
     }
 
     function _setMintHandler(address _mintHandler) internal {
-        _state().mintHandler = _mintHandler;
+        state.mintHandler = _mintHandler;
         emit MintHandlerUpdated(_mintHandler);
     }
 
     function _setRedemptionHandler(address _redemptionHandler) internal {
-        _state().redemptionHandler = _redemptionHandler;
+        state.redemptionHandler = _redemptionHandler;
         emit RedemptionHandlerUpdated(_redemptionHandler);
     }
 
     function _setMinimalDeposit(uint256 _minimalDeposit) internal {
-        _state().minimalDeposit = _minimalDeposit;
+        state.minimalDeposit = _minimalDeposit;
         emit MinimalDepositUpdated(_minimalDeposit);
     }
 
@@ -424,31 +419,31 @@ contract CoreMembersGroupUpgradeable is
         if (_condition == address(0)) {
             return;
         }
-        if (_state().membershipConditions.length >= MAX_CONDITIONS) {
-            revert CMGroupMaxConditionsActive(_state().membershipConditions.length);
+        if (state.membershipConditions.length >= MAX_CONDITIONS) {
+            revert CMGroupMaxConditionsActive(state.membershipConditions.length);
         }
-        for (uint256 i = 0; i < _state().membershipConditions.length; i++) {
-            if (_state().membershipConditions[i] == _condition) {
+        for (uint256 i = 0; i < state.membershipConditions.length; i++) {
+            if (state.membershipConditions[i] == _condition) {
                 // avoid double entry of conditions, silently return
                 return;
             }
         }
-        _state().membershipConditions.push(_condition);
+        state.membershipConditions.push(_condition);
     }
 
     function _removeMembershipCondition(address _condition) internal {
         if (_condition == address(0)) {
             return;
         }
-        uint256 length = _state().membershipConditions.length;
+        uint256 length = state.membershipConditions.length;
         for (uint256 i = 0; i < length; i++) {
-            if (_state().membershipConditions[i] == _condition) {
+            if (state.membershipConditions[i] == _condition) {
                 if (i != length - 1) {
                     // Swap the condition with the last element, if not already last
-                    _state().membershipConditions[i] = _state().membershipConditions[length - 1];
+                    state.membershipConditions[i] = state.membershipConditions[length - 1];
                 }
                 // Remove the last element
-                _state().membershipConditions.pop();
+                state.membershipConditions.pop();
                 return;
             }
         }
@@ -461,17 +456,17 @@ contract CoreMembersGroupUpgradeable is
     /// @param _expiry Timestamp when trust expires. If >= current time,
     ///         establishes trust. If < current time, serves to untrust.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
-        _state().hub.trust(_trustReceiver, _expiry);
-        address mintHandler_ = _state().mintHandler;
+        state.hub.trust(_trustReceiver, _expiry);
+        address mintHandler_ = state.mintHandler;
         if (mintHandler_ != address(0)) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
         }
     }
 
     function _checkMembershipConditions(address _avatar) internal returns (bool, address) {
-        for (uint256 i = 0; i < _state().membershipConditions.length; i++) {
-            if (!IMembershipCondition(_state().membershipConditions[i]).passesMembershipCondition(_avatar)) {
-                return (false, _state().membershipConditions[i]);
+        for (uint256 i = 0; i < state.membershipConditions.length; i++) {
+            if (!IMembershipCondition(state.membershipConditions[i]).passesMembershipCondition(_avatar)) {
+                return (false, state.membershipConditions[i]);
             }
         }
         // passed all membership conditions,
@@ -480,14 +475,14 @@ contract CoreMembersGroupUpgradeable is
     }
 
     function _registerDeposit(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
-        address redemptionHandler_ = _state().redemptionHandler;
+        address redemptionHandler_ = state.redemptionHandler;
         if (redemptionHandler_ != address(0)) {
             ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds, _amounts);
         }
     }
 
     function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
-        address redemptionHandler_ = _state().redemptionHandler;
+        address redemptionHandler_ = state.redemptionHandler;
         if (redemptionHandler_ != address(0)) {
             ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }

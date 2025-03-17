@@ -5,8 +5,6 @@ import "src/circles/Core.sol";
 
 interface ICoreMembersGroup {
     function setService(address _service) external;
-    function setMintHandler(address _mintHandler) external;
-    function setRedemptionHandler(address _redemptionHandler) external;
     function setMinimalDeposit(uint256 _minimalDeposit) external;
     function trust(address _trustReceiver, uint96 _expiry) external;
     function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry) external;
