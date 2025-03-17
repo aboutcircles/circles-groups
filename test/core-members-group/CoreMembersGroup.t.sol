@@ -198,8 +198,8 @@ contract CoreMembersGroupTest is Test {
         address[] memory allConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
         assertEq(allConditions.length, 10);
         assertEq(allConditions[0], address(isHumanCondition));
-        for(uint256 i = 0; i < 9; i++) {
-            assertEq(allConditions[i+1], newConditions[i]);
+        for (uint256 i = 0; i < 9; i++) {
+            assertEq(allConditions[i + 1], newConditions[i]);
         }
 
         // Try to add 11th condition - should fail since already at max of 10
@@ -211,8 +211,8 @@ contract CoreMembersGroupTest is Test {
         address[] memory finalConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
         assertEq(finalConditions.length, 10);
         assertEq(finalConditions[0], address(isHumanCondition));
-        for(uint256 i = 0; i < 9; i++) {
-            assertEq(finalConditions[i+1], newConditions[i]);
+        for (uint256 i = 0; i < 9; i++) {
+            assertEq(finalConditions[i + 1], newConditions[i]);
         }
     }
 
@@ -263,8 +263,11 @@ contract CoreMembersGroupTest is Test {
 
         vm.startPrank(service);
         // Set expiry to past timestamp to untrust
-        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, uint96(block.timestamp - 1));
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, uint96(block.timestamp));
         vm.stopPrank();
+
+        // move the timestamp ahead to let untrust take effect
+        vm.warp(block.timestamp + 1);
 
         assertFalse(mockCircles.mockHub().isTrusted(cmGroup, alice));
         assertFalse(mockCircles.mockHub().isTrusted(cmGroup, bob));
