@@ -30,6 +30,12 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         address[] membershipConditions;
     }
 
+    struct FactoryVerification {
+        address factory;
+        uint256 saltIndex;
+        bytes32 encodedConstructorArgs;
+    }
+
     // Constants
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
@@ -43,6 +49,10 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     /// @notice store the state variables, a pattern adopted to stay close to the
     /// upgradeable CMG version
     State public state;
+
+    /// @notice store the parameters to verify this group was deployed by the claimed
+    /// factory version
+    FactoryVerification public factoryVerification;
 
     // Events
 
@@ -112,6 +122,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     // Constructor
 
     constructor(
+        uint256 _saltIndex,
         address _owner,
         address _service,
         address _mintHandler,
@@ -147,6 +158,19 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
 
         // register group in hub and set the mint policy to this address
         state.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+
+        _storeFactoryVerificationData(
+            _saltIndex,
+            _owner,
+            _service,
+            _mintHandler,
+            _redemptionHandler,
+            _initialConditions,
+            _name,
+            _symbol,
+            _metadataDigest,
+            _circlesCore
+        );
 
         emit OwnerSet(_owner);
     }
@@ -486,5 +510,36 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         if (redemptionHandler_ != address(0)) {
             ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }
+    }
+
+    function _storeFactoryVerificationData(
+        uint256 _saltIndex,
+        address _owner,
+        address _service,
+        address _mintHandler,
+        address _redemptionHandler,
+        address[] memory _initialConditions,
+        string memory _name,
+        string memory _symbol,
+        bytes32 _metadataDigest,
+        CirclesCore memory _circlesCore
+    ) internal {
+        // store verification parameters
+        factoryVerification.factory = msg.sender;
+        factoryVerification.saltIndex = _saltIndex;
+        // calculate constructor args
+        factoryVerification.encodedConstructorArgs = keccak256(
+            abi.encode(
+                _owner,
+                _service,
+                _mintHandler,
+                _redemptionHandler,
+                _initialConditions,
+                _name,
+                _symbol,
+                _metadataDigest,
+                _circlesCore
+            )
+        );
     }
 }

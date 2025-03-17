@@ -28,13 +28,8 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     /// @param owner Owner of the new group
     /// @param mintHandler Address of the mintHandler contract
     /// @param redemptionHandler Address of the redemptionHandler contract
-    /// @param liquidityProvider Address of the (first) liquidity provider
     event CMGroupCreated(
-        address indexed proxy,
-        address indexed owner,
-        address indexed mintHandler,
-        address redemptionHandler,
-        address liquidityProvider
+        address indexed proxy, address indexed owner, address indexed mintHandler, address redemptionHandler
     );
 
     /// @notice Emitted when mastercopy is deployed in constructor
@@ -58,14 +53,13 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     /// @return proxy Address of the deployed proxy contract
     /// @return mintHandler Address of the deployed mint handler
     /// @return redemptionHandler Address of the deployed redemption handler
-    /// @return liquidityProvider Address of the deployed liquidity provider
     function createCMGroup(
         address _service,
         address[] memory _initialConditions,
         string memory _name,
         string memory _symbol,
         bytes32 _metadataDigest
-    ) external returns (address proxy, address mintHandler, address redemptionHandler, address liquidityProvider) {
+    ) external returns (address proxy, address mintHandler, address redemptionHandler) {
         // load Circles v2 core protocol addresses
         CirclesCore memory circlesCore = getCirclesCore();
         // group and handlers owned by caller
@@ -91,6 +85,6 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
         // ensure static ERC20 wrapper is deployed for group
         circlesCore.erc20Lift.ensureERC20(proxy, CirclesType.Inflation);
 
-        emit CMGroupCreated(proxy, owner, mintHandler, redemptionHandler, liquidityProvider);
+        emit CMGroupCreated(proxy, owner, mintHandler, redemptionHandler);
     }
 }
