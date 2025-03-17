@@ -88,10 +88,6 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
             circlesCore
         );
 
-        // deploy liquidity provider for owner
-        string memory lpName = string.concat(_name, "-lp");
-        liquidityProvider = lpDeployer.createLiquidityProvider(proxy, lpName, bytes32(0));
-
         // ensure static ERC20 wrapper is deployed for group
         circlesCore.erc20Lift.ensureERC20(proxy, CirclesType.Inflation);
 
