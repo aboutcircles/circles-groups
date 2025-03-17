@@ -60,9 +60,9 @@ interface ICMGHandlerErrors {
     error CMGHandlerLogicAssertion();
 }
 
-interface ICMGPrimaryGroupRegistryErrors {
-    /// @notice to register primary group caller must be registered human and group must be group
-    error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);
+interface ICMGAffiliateGroupRegistryErrors {
+    /// @notice to register affiliate group caller must be registered human and group must be group
+    error CMGAffiliateGroupMustBeHumanAndGroupToRegisterAffiliateGroup(address human, address group);
 }
 
 interface ICMGRedemptionOperatorErrors {
