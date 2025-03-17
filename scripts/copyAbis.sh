@@ -6,7 +6,7 @@
 forge build --extra-output abi
 
 # Go to script directory
-cd ces-interact
+cd cmg-interact
 
 # Create abis directory if it doesn't exist
 mkdir -p abis

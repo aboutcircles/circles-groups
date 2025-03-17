@@ -13,22 +13,35 @@ import "src/primary-group/IGroupNotifications.sol";
 /// are notified by calling onHumanRemoved and onHumanAdded respectively, with a 100k gas limit.
 /// If the group contract does not implement these functions, the calls fail silently.
 contract PrimaryGroupRegistry is CirclesCoreAddresses, ICMGPrimaryGroupRegistryErrors {
+    // State
+
+    /// @notice Core Circles protocol addresses
+    CirclesCore public circlesCore;
+
     /// @notice Mapping from a human to their primary group.
     mapping(address => address) public primaryGroup;
 
-    // Emitted when a human changes their primary group.
+    // Events
+
+    /// @notice Emitted when a human changes their primary group.
     event PrimaryGroupChanged(address indexed human, address oldGroup, address newGroup);
 
-    // Emitted when a notification to a group fails
+    /// @notice Emitted when a notification to a group fails
     event NotificationFailed(address indexed group, address indexed human);
 
-    // Emitted when a notification to a group succeeds
+    /// @notice Emitted when a notification to a group succeeds
     event NotificationSuccessful(address indexed group, address indexed human);
 
-    /**
-     * @notice Sets or changes the primary group for the caller.
-     * @param newGroup The address of the new primary group. A zero address clears the primary group.
-     */
+    // Constructor
+
+    constructor(CirclesCore memory _circlesCore) {
+        circlesCore = _circlesCore;
+    }
+
+    // External functions
+
+    /// @notice Sets or changes the primary group for the caller.
+    /// @param newGroup The address of the new primary group. A zero address clears the primary group.
     function setPrimaryGroup(address newGroup) external {
         address oldGroup = primaryGroup[msg.sender];
 
@@ -37,7 +50,7 @@ contract PrimaryGroupRegistry is CirclesCoreAddresses, ICMGPrimaryGroupRegistryE
             return;
         }
 
-        if (!hub.isHuman(msg.sender) || !hub.isGroup(newGroup)) {
+        if (!circlesCore.hub.isHuman(msg.sender) || !circlesCore.hub.isGroup(newGroup)) {
             revert CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(msg.sender, newGroup);
         }
 

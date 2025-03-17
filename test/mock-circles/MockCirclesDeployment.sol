@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/circles/Core.sol";
 import "src/core-members-group/helpers/UpgradeableRenounceableProxy.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
 import "src/core-members-group/CMGMintHandler.sol";
 import "src/core-members-group/CMGRedemptionHandler.sol";
+import "src/redemption-operator/CMGRedemptionOperator.sol";
+import "src/circles/Core.sol";
+import "test/mock-circles/MockHub.sol";
+import "test/mock-circles/MockStandardTreasury.sol";
+import "test/mock-circles/MockVault.sol";
 
-contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
-    // State variables
+contract MockCirclesDeployment is CirclesCoreAddresses {
+    // State
 
+    MockHub public mockHub;
+    MockStandardTreasury public mockStandardTreasury;
     /// @notice address of the deployed mastercopy for the CMGroup
     CoreMembersGroup public masterCopyCMGroup;
+    /// @notice address of the deployed redemption operator
+    CMGRedemptionOperator public redemptionOperator;
 
     // Events
 
@@ -31,14 +39,26 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
     // Constructor
 
     constructor() {
+        mockHub = new MockHub();
+        mockStandardTreasury = mockHub.standardTreasury();
+
         // deploy a master copy for Core Members group
         masterCopyCMGroup = new CoreMembersGroup();
         emit MasterCopyDeployed(address(masterCopyCMGroup));
+
+        // deploy redemption operator
+        redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
     }
 
-    // External functions
+    function getCirclesCore() public view returns (CirclesCore memory) {
+        return CirclesCore(
+            IHub(address(mockHub)),
+            IStandardTreasury(address(mockStandardTreasury)),
+            INameRegistryExtended(address(0)),
+            IERC20Lift(address(0))
+        );
+    }
 
-    /// @notice Create Core Members group for caller
     function createCMGroup(
         address _service,
         address[] memory _initialConditions,
@@ -46,15 +66,15 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
         string memory _symbol,
         bytes32 _metadataDigest
     ) external returns (address) {
-        // load Circles v2 core protocol addresses
-        CirclesCore memory circlesCore = getCirclesCore();
+        // load Circles mock core addresses
+        CirclesCore memory circlesMockCore = getCirclesCore();
         // group and handlers owned by caller
         address owner = msg.sender;
         // first deploy proxy to obtain address, but don't yet initialise by calling setup
         UpgradeableRenounceableProxy proxy = new UpgradeableRenounceableProxy(owner, address(masterCopyCMGroup), "");
         // deploy the handlers
-        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesCore);
-        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, circlesCore);
+        CMGMintHandler mintHandler = new CMGMintHandler(address(proxy), owner, _name, circlesMockCore);
+        CMGRedemptionHandler redemptionHandler = new CMGRedemptionHandler(address(proxy), owner, circlesMockCore);
         // lastly, call setup on the proxy to initialise the group
         CoreMembersGroup(address(proxy)).setup(
             owner,
@@ -65,11 +85,10 @@ contract CMGroupDeployer is CirclesCoreAddresses, CirclesV2BetaAddresses {
             _name,
             _symbol,
             _metadataDigest,
-            circlesCore
+            circlesMockCore
         );
 
-        // ensure static ERC20 wrapper is deployed for group
-        circlesCore.erc20Lift.ensureERC20(address(proxy), CirclesType.Inflation);
+        // in mock don't deploy erc20 static wrapper -- not mocked
 
         emit CMGroupCreated(address(proxy), owner, address(mintHandler), address(redemptionHandler));
         return address(proxy);

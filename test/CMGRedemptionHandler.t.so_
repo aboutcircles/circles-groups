@@ -100,7 +100,7 @@ contract CirclesBackingFactoryTest is Test {
         vm.prank(groupMember);
         IERC1155(HUB_V2).setApprovalForAll(redemptionHandler, true);
         vm.prank(groupMember);
-        CMGRedemptionHandler(redemptionHandler).redeem(cmGroup, ids, amounts);
+        // CMGRedemptionHandler(redemptionHandler).redeem(cmGroup, ids, amounts);
 
         assertEq(
             initialMemberGroupTokenBalance - REDEEM_AMOUNT,

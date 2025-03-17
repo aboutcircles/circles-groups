@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-contract CoreMembersGroupStorage {
+import "src/circles/Core.sol";
+
+contract CoreMembersGroupStorage is CirclesCoreAddresses {
     // Constants
 
     // keccak256(abi.encode(uint256(keccak256("circles.storage.CoreMembersGroup")) - 1)) & ~bytes32(uint256(0xff))
@@ -17,6 +19,11 @@ contract CoreMembersGroupStorage {
         address service;
         uint256 minimalDeposit;
         address feeCollection;
+        // CirclesCore circlesCore;
+        IHub hub;
+        IStandardTreasury standardTreasury;
+        INameRegistryExtended nameRegistry;
+        IERC20Lift erc20Lift;
         address[] membershipConditions;
     }
 

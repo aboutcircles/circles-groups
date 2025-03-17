@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "src/circles/Core.sol";
 import "src/circles/Types.sol";
 import "src/errors/Errors.sol";
@@ -9,79 +8,92 @@ import "src/core-members-group/CMGHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 
-/// @notice
+/// @title CMGRedemptionHandler
+/// @notice Redemption handler contract for Core Members Groups (CMG) in the Circles protocol
+/// @dev Manages redemption of group Circles (gCRC) for collateral tokens held in the group's vault
+///      Tracks active collateral IDs and their balances to efficiently find redemption opportunities
+///      Works in conjunction with CMGroup and StandardTreasury contracts
 contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes {
     // Constants
 
     /// @notice Indefinite future, or approximated with uint96.max
     uint96 internal constant INDEFINITE_FUTURE = type(uint96).max;
 
-    /// @notice Some reasonable cut off on the number of redemption ids to search for
+    /// @notice Limits the maximum number of collateral IDs that can be processed in a single redemption request to 100
+    /// @dev This cap balances between providing sufficient diversification in redemptions while preventing
+    ///      excessive gas consumption
     uint256 public constant MAX_NUMBER_REDEMPTION_IDS = 100;
 
-    /// @notice Maximum amount that auto-redemption will collect
-    /// per collateral ID at a time. Prevents getting a redemption that is too
-    /// strongly leveraged on a single id.
+    /// @notice Caps individual redemption amounts to 500 Circles (500 * 10^18) per collateral ID
+    /// @dev This limit serves multiple purposes:
+    ///      1. Prevents redemptions from being overly concentrated in a single collateral id
+    ///      2. Promotes spread-out distribution of redemptions across multiple collateral sources
     uint256 public constant MAX_REDEEM_PER_ID = 500 * 10 ** 18;
+
+    /// @notice Maximum allowed minimal tracking amount, 10 CRC
+    uint256 public constant MAX_MINIMAL_TRACKING_AMOUNT = 10 ** 19;
 
     // Storage
 
     /// @notice Array of all currently tracked collateral token IDs that have sufficient balance
     uint256[] public activeCollateralIds;
 
-    /// @notice Maps collateral token ID to its index position in activeCollateralIds array for O(1) lookups
+    /// @notice Maps collateral token ID to its index position in activeCollateralIds array for O(1) lookups. Index starts from one to reserve zero for 'not active'
     mapping(uint256 => uint256) public indexInActiveIds;
 
     /// @notice Cursor tracking current position in activeCollateralIds when searching for available collateral
     uint256 public cursor;
 
+    /// @notice Minimal balance required to track collateral
+    uint256 public minimalTrackingAmount;
+
     // Events
 
-    /// @notice Clarification event to report handler returned redeemed collateral Circles to beneficiary
-    ///         for total amount redeemed.
-    event ReturnedRedeemedCollateral(address indexed group, address indexed beneficiary, uint256 totalAmount);
+    event MinimalTrackingAmountUpdated(uint256 amount);
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name) CMGHandler(_cmGroup, _owner) {
-        // append "-redeemer" to group's name to register organization
-        string memory orgName = string.concat(_name, "-redeemer");
-        // register handler as organization in hub
-        hub.registerOrganization(orgName, bytes32(0));
-        // the redemption handler only trusts the CM Group so that over paths
-        // it only accepts group Circles
-        hub.trust(_cmGroup, INDEFINITE_FUTURE);
+    constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore)
+        CMGHandler(_cmGroup, _owner, _circlesCore)
+    {
+        // Set default minimal tracking amount
+        minimalTrackingAmount = 10 ** 15;
     }
 
     // External functions
 
+    /// @notice Set the minimal tracking amount (owner only)
+    function setMinimalTrackingAmount(uint256 _amount) external onlyOwner {
+        if (_amount > MAX_MINIMAL_TRACKING_AMOUNT) {
+            revert CMGHandlerInvalidCallingParameters();
+        }
+        minimalTrackingAmount = _amount;
+        emit MinimalTrackingAmountUpdated(_amount);
+    }
+
     /// @notice Registers collateral amounts that are being deposited
     /// @param collateralIds Identifiers of collaterals being deposited
-    function registerDeposit(uint256[] memory collateralIds) external onlyCMGroup {
+    /// @param amounts Amounts being deposited for each collateral ID
+    function registerDeposit(uint256[] memory collateralIds, uint256[] memory amounts) external onlyCMGroup {
+        if (collateralIds.length != amounts.length) {
+            revert CMGHandlerInvalidCallingParameters();
+        }
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 id = collateralIds[i];
-            // if the id was registered as zero-collateral, add it now
-            if (indexInActiveIds[id] == 0) {
+            if (amounts[i] > minimalTrackingAmount) {
+                // no-op if already tracked
                 _addActiveId(id);
             }
         }
     }
 
-    /// @notice Registers collateral amounts that are being redeemed
-    /// @param _minimalTrackingAmount Stop tracking amounts below this amount
+    /// @notice Registers collateral amounts that are being redeemed, and whether
+    ///         to keep tracking the id as active collateral
     /// @param _collateralIds Identifiers of collaterals being redeemed
     /// @param _amounts Amounts of each collateral being redeemed
-    function registerRedemption(
-        uint256 _minimalTrackingAmount,
-        uint256[] memory _collateralIds,
-        uint256[] memory _amounts
-    ) external onlyCMGroup {
+    function registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) external onlyCMGroup {
         // CM group always registers with standard treasury
-        address vault = standardTreasury.vaults(cmGroup);
-        if (vault == address(0)) {
-            // if vault has not been deployed, then it should be impossible to get this callback
-            revert CMGHandlerLogicAssertion();
-        }
+        address vault = _getGroupVault();
 
         // to do a batched balance call of vault for each,
         // we need to expand the address - it's a trade-off
@@ -90,10 +102,11 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             accounts[i] = vault;
         }
 
-        uint256[] memory balances = hub.balanceOfBatch(accounts, _collateralIds);
+        uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
 
         for (uint256 i = 0; i < _collateralIds.length; i++) {
             uint256 id = _collateralIds[i];
+
             if (balances[i] < _amounts[i]) {
                 revert CMGHandlerEarlyRevertCollateralNotPresent();
             }
@@ -107,9 +120,20 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
             // When a collateral's balance falls below minimal tracking amount
             // we remove it from our active tracking lists
-            if (remainingBalance <= _minimalTrackingAmount && indexInActiveIds[id] != 0) {
+            if (remainingBalance <= minimalTrackingAmount) {
+                // no-op if id not tracked -- should not occur
                 _removeActiveId(id);
             }
+        }
+
+        // move cursor forward upon registering redemption
+        // note: that cursor can also have been pulled back when removing active ids,
+        // but the aim here is to simply cycle the cursor so that next call to find collateral
+        // starts at a scrambled index.
+        if (activeCollateralIds.length > 0) {
+            cursor = (cursor + _collateralIds.length) % activeCollateralIds.length;
+        } else {
+            cursor = 0;
         }
     }
 
@@ -117,7 +141,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     /// @param _collateralIds Array of collateral IDs to check and sync
     function syncValidCollateral(uint256[] memory _collateralIds) external {
         address vault = _getGroupVault();
-        uint256 minimalAmount = ICoreMembersGroup(cmGroup).minimalDeposit();
 
         // expand addresses array for batch balance check
         address[] memory accounts = new address[](_collateralIds.length);
@@ -126,7 +149,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         // get balances for all IDs in single call
-        uint256[] memory balances = hub.balanceOfBatch(accounts, _collateralIds);
+        uint256[] memory balances = circlesCore.hub.balanceOfBatch(accounts, _collateralIds);
 
         // update tracking for each ID based on balance
         for (uint256 i = 0; i < _collateralIds.length; i++) {
@@ -134,11 +157,13 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 balance = balances[i];
 
             // add to active tracking if has balance above minimal amount but not tracked
-            if (balance > minimalAmount && indexInActiveIds[id] == 0) {
+            if (balance > minimalTrackingAmount) {
+                // no-op if already tracked
                 _addActiveId(id);
             }
             // remove from active tracking if has balance below minimal amount but is tracked
-            else if (balance <= minimalAmount && indexInActiveIds[id] != 0) {
+            else if (balance <= minimalTrackingAmount) {
+                // no-op if id not tracked - should not occur
                 _removeActiveId(id);
             }
         }
@@ -146,43 +171,60 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Public functions
 
-    /// @notice Redeem is a helper function to construct the data for redeeming
-    ///         the collateral from the CM Group. The caller must have authorized
-    ///         this contract as an ERC1155 operator.
-    function redeem(address _group, uint256[] memory _redemptionIds, uint256[] memory _redemptionValues)
-        public
-        nonReentrant
-    {
-        // sanity check as the operator for groups might get mixed up
-        // once many groups and their operators are authorized.
-        if (_group != address(cmGroup)) {
-            revert CGMHandlerOperatorUnservicedGroup(_group);
-        }
-        uint256 length = _redemptionIds.length;
-        if (length != _redemptionValues.length || length == 0) {
-            revert CMGHandlerInvalidCallingParameters();
-        }
-        // sum the total of collateral to claim back, as this amount
-        // of group Circles must be sent to treasury to redeem
-        uint256 value = 0;
-        for (uint256 i = 0; i < length; i++) {
-            value += _redemptionValues[i];
+    /// @notice View function to return active collateral with balances starting from offset
+    /// @return ids Array of active collateral IDs
+    /// @return balances Array of vault balances for each ID
+    /// @return numActive Total length of active collateral array
+    function getActiveCollateral() public view returns (uint256[] memory, uint256[] memory, uint256) {
+        // todo: if ever necessary consider making this a range request
+        address vault = _getGroupVault();
+
+        uint256 numActive = activeCollateralIds.length;
+
+        if (numActive == 0) {
+            return (new uint256[](0), new uint256[](0), numActive);
         }
 
-        bytes memory userData = abi.encode(BaseRedemptionPolicy(_redemptionIds, _redemptionValues));
-        bytes memory data = abi.encode(Metadata(METADATATYPE_GROUPREDEEM, "", userData));
+        // Build arrays of IDs and addresses for batch balance check
+        uint256[] memory ids = new uint256[](numActive);
+        uint256[] memory balances = new uint256[](numActive);
+        address[] memory accounts = new address[](numActive);
+        for (uint256 i = 0; i < numActive; i++) {
+            ids[i] = activeCollateralIds[i];
+            accounts[i] = vault;
+        }
 
-        // note: for redemption there is no need to set expectation handler yet, because standardVault can directly
-        // return the collateral to msg.sender.
+        // Get all balances in single call
+        balances = circlesCore.hub.balanceOfBatch(accounts, ids);
 
-        // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
-        hub.safeTransferFrom(msg.sender, address(standardTreasury), cmGroupId, value, data);
-
-        // the vault will directly transfer to msg.sender, so no need for acceptance handler
+        return (ids, balances, numActive);
     }
 
-    /// @notice Find available collateral IDs and amounts for redeeming a certain amount
+    /// @notice Find available collateral IDs and amounts for redeeming a target amount of gCRC tokens
+    /// @dev Uses stored cursor to determine starting position when scanning for collateral
+    /// @param _group Address of the group to find collateral for (must match registered cmGroup)
+    /// @param _amount Target amount of gCRC tokens to find collateral for
+    /// @param _partialFillable If true, returns partial amounts when full amount cannot be filled
+    /// @return ids Array of collateral token IDs available for redemption
+    /// @return amounts Array of corresponding amounts available to redeem for each ID
     function findCollateral(address _group, uint256 _amount, bool _partialFillable)
+        public
+        view
+        returns (uint256[] memory, uint256[] memory)
+    {
+        // use stored cursor by default
+        return findCollateralWithCursor(_group, _amount, _partialFillable, cursor);
+    }
+
+    /// @notice Find available collateral IDs and amounts for redeeming a target amount of gCRC tokens
+    /// @dev Uses provided cursor to determine starting position when scanning for collateral
+    /// @param _group Address of the group to find collateral for (must match registered cmGroup)
+    /// @param _amount Target amount of gCRC tokens to find collateral for
+    /// @param _partialFillable If true, returns partial amounts when full amount cannot be filled
+    /// @param _cursor Starting position index to begin search for available collateral
+    /// @return ids Array of collateral token IDs available for redemption
+    /// @return amounts Array of corresponding amounts available to redeem for each ID
+    function findCollateralWithCursor(address _group, uint256 _amount, bool _partialFillable, uint256 _cursor)
         public
         view
         returns (uint256[] memory, uint256[] memory)
@@ -198,13 +240,13 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         uint256 numActive = activeCollateralIds.length;
         if (numActive == 0) return (new uint256[](0), new uint256[](0));
 
-        // temporally "allocate" lengthy arrays (check this is sensible)
+        // temporally "allocate" lengthy arrays
         uint256[] memory ids = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
         uint256[] memory amounts = new uint256[](MAX_NUMBER_REDEMPTION_IDS);
 
         uint256 remaining = _amount;
         uint256 outputIdx = 0;
-        uint256 localCursor = cursor % numActive;
+        uint256 localCursor = _cursor % numActive;
 
         // Keep looking for collateral while we still need more and haven't hit array bounds
         while (remaining > 0 && outputIdx < MAX_NUMBER_REDEMPTION_IDS && outputIdx < numActive) {
@@ -212,7 +254,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 id = activeCollateralIds[localCursor];
 
             // Check how much collateral is available in the vault for this ID
-            uint256 balance = hub.balanceOf(vault, id);
+            uint256 balance = circlesCore.hub.balanceOf(vault, id);
 
             // Only process IDs that have a non-zero balance
             if (balance > 0) {
@@ -236,7 +278,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             // Note: We purposely don't remove zero balance IDs here to maintain view function status
 
             // Advance cursor with wraparound, using modulo to cycle back to start
-            localCursor = (localCursor + 1) % numActive;
+            localCursor = numActive == 0 ? 0 : (localCursor + 1) % numActive;
         }
 
         // If not partial fillable and we couldn't find enough collateral, revert
@@ -245,7 +287,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
         }
 
         // Trim arrays if needed
-        if (outputIdx < numActive) {
+        if (outputIdx < MAX_NUMBER_REDEMPTION_IDS) {
             assembly {
                 mstore(ids, outputIdx)
                 mstore(amounts, outputIdx)
@@ -254,113 +296,6 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
         return (ids, amounts);
     }
-
-    // ERC1155 acceptance call handlers
-
-    /// @notice Handler for receiving single ERC1155 token transfers. Upon receiving
-    ///         CMgroup Circles, it will attempt to redeem and return the collateral
-    ///         to the caller.
-    /// @dev Only callable by the Circles Hub.
-    /// @param _from Address that initiated the transfer
-    /// @param _id Token ID being transferred
-    /// @param _value Amount of tokens being transferred
-    /// @param _data Additional data passed with transfer
-    /// @return bytes4 Function selector to confirm transfer acceptance
-    function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
-        public
-        override
-        onlyHub
-        returns (bytes4)
-    {
-        // check transient storage to see if we are expecting a return
-        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
-        // starting branch: receive groupId to initiate redemption
-        if (ongoingConversion == 0 && _id == cmGroupId) {
-            (uint256[] memory ids, uint256[] memory amounts) = findCollateral(address(cmGroup), _value, false);
-            // move the cursor forward to cycle through other collateral next time
-            cursor = (cursor + ids.length) % activeCollateralIds.length;
-
-            if (ids.length > 0) {
-                // todo: tstore _data so we can recover it on completion
-                _initiateConversion(_from, _value);
-                // note: we can't use the same redeem function because now we already hold the gCRC!
-                _redeemUponReceivedGroupCircles(_value, ids, amounts);
-            }
-        } else if (ongoingConversion == _value && _id != cmGroupId) {
-            // continuation branch: receive a single collateral id
-
-            // expect this to be sent by the vault
-            if (_getGroupVault() != _from) {
-                revert CGMHandlerRedemptionExpectedFromVault(_from);
-            }
-
-            _clearConversion();
-            // return the collateral with the redemption data (sent back via vault to us)
-            // todo: consider mirroring back the original data when stored in tstorage - now we send the "redemption structured data" which is redundant for receiver
-            hub.safeTransferFrom(address(this), beneficiary, _id, _value, _data);
-
-            // emit clarification event of returned collateral
-            emit ReturnedRedeemedCollateral(cmGroup, beneficiary, _value);
-        } else {
-            // if the amount does not match
-            // or id is groupid, unexpected
-            revert CMGHandlerConversionOngoing(ongoingConversion);
-        }
-        return this.onERC1155Received.selector;
-    }
-
-    /// @notice Handler for receiving batch ERC1155 token transfers
-    /// @param _from Address that initiated the transfer
-    /// @param _ids Array of token IDs being transferred
-    /// @param _values Array of amounts being transferred for each token ID
-    /// @param _data Additional data passed with transfer
-    /// @return bytes4 Function selector to confirm transfer acceptance
-    function onERC1155BatchReceived(
-        address, /*_operator*/
-        address _from,
-        uint256[] memory _ids,
-        uint256[] memory _values,
-        bytes memory _data
-    ) public override onlyHub returns (bytes4) {
-        // check for expected conversion
-        (uint256 ongoingConversion, address beneficiary) = _expectingConversionReturn();
-
-        // verify we are expecting a conversion
-        if (ongoingConversion == 0) {
-            revert CMGHandlerNoConversionExpected();
-        }
-
-        // sum the _values
-        uint256 length = _values.length;
-        uint256 totalValue = 0;
-        for (uint256 i = 0; i < length; i++) {
-            totalValue += _values[i];
-        }
-        if (totalValue == uint256(0)) {
-            revert CMGHandlerReceivedZeroAmount();
-        }
-        if (ongoingConversion != totalValue) {
-            revert CMGHandlerConversionOngoing(ongoingConversion);
-        }
-
-        // verify sender is the group vault
-        if (_from != _getGroupVault()) {
-            revert CGMHandlerRedemptionExpectedFromVault(_from);
-        }
-
-        // clear conversion state
-        _clearConversion();
-
-        // forward tokens to beneficiary
-        hub.safeBatchTransferFrom(address(this), beneficiary, _ids, _values, _data);
-
-        // emit clarification event of returned collateral
-        emit ReturnedRedeemedCollateral(cmGroup, beneficiary, totalValue);
-
-        return this.onERC1155BatchReceived.selector;
-    }
-
-    // Public view functions
 
     function structureRedemptionData(uint256[] memory _redemptionIds, uint256[] memory _redemptionValues)
         public
@@ -374,27 +309,16 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Internal helpers
 
-    function _redeemUponReceivedGroupCircles(
-        uint256 _value,
-        uint256[] memory _redemptionIds,
-        uint256[] memory _redemptionValues
-    ) internal {
-        // formulate the data to send to standard treasury to redeem gCRC for collateral
-        bytes memory redemptionData = structureRedemptionData(_redemptionIds, _redemptionValues);
-        // send gCRC to standard treasury,
-        // - hub will call beforeRedemption on group policy (is CMGroup)
-        // - if this redemption handler is connected to the group then the group will register
-        //   the redemption amounts in (this/the active) handler, to update active ids for next search
-        // - vault will send the requested collateral back to original sender, ie this redemption handler,
-        //   so expect to receive the redemption collateral back in this address
-        hub.safeTransferFrom(address(this), address(standardTreasury), cmGroupId, _value, redemptionData);
-    }
-
     /// @dev Add an ID to the 'activeIds' array and set indexInActiveIds for quick removal.
     function _addActiveId(uint256 id) internal {
+        if (indexInActiveIds[id] != uint256(0)) {
+            // already tracked, don't add duplicates
+            return;
+        }
+
         // Store index mapping for quick lookup/removal later
-        // Index is current length before adding new element
-        indexInActiveIds[id] = activeCollateralIds.length;
+        // Index is current length before adding new element plus one to avoid zero
+        indexInActiveIds[id] = activeCollateralIds.length + 1;
 
         // Add the new ID to end of active IDs array
         activeCollateralIds.push(id);
@@ -404,6 +328,15 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function _removeActiveId(uint256 id) internal {
         // Get index of id to remove and last index in array
         uint256 idx = indexInActiveIds[id];
+
+        if (idx == uint256(0)) {
+            // nothing to remove if index in active ids is zero.
+            return;
+        }
+
+        // correct offset for index in array
+        idx -= uint256(1);
+        // get last index from array length
         uint256 lastIdx = activeCollateralIds.length - 1;
 
         // If id to remove isn't the last element, we need to swap with last element
@@ -413,8 +346,8 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
             uint256 lastId = activeCollateralIds[lastIdx];
             // Move last element into the slot we're removing
             activeCollateralIds[idx] = lastId;
-            // Update the index mapping for the moved element
-            indexInActiveIds[lastId] = idx;
+            // Update the index mapping for the moved element (again offset from 1)
+            indexInActiveIds[lastId] = idx + 1;
         }
 
         // Remove last element from array (either the element we wanted to remove
@@ -434,7 +367,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
     function _getGroupVault() internal view returns (address) {
         // get target group's vault from treasury's mapping
         // as CMG it is always created with standard treasury
-        address vault = standardTreasury.vaults(cmGroup);
+        address vault = circlesCore.standardTreasury.vaults(cmGroup);
         if (vault == address(0)) {
             // if no gCRC has been minted, vault is not yet deployed
             revert CMGHandlerVaultNotFound(address(cmGroup));

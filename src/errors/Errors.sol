@@ -1,67 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-interface ISupergroupErrors {
-    /// @notice Supergroup proxy is already initialised
-    error SupergroupProxyAlreadyInitialised();
-    /// @notice Only Hub can call
-    error SupergroupOnlyHub();
-    /// @notice Only owner can call
-    error SupergroupOnlyOwner();
-    /// @notice Only owner or service can call
-    error SupergroupOnlyOwnerOrService();
-    /// @notice Only authorized operator can call
-    error SupergroupOnlyAuthorizedOperator();
-    /// @notice Supergroup must have been registered
-    error SupergroupMustBeRegistered();
-    /// @notice For security reasons we enforce explicitly that a supergroup registers with the standard treasury only.
-    error SupergroupMustUseStandardTreasury();
-    /// @notice Sanity check error on calling parameters
-    error SupergroupInvalidCallingParameters();
-    /// @notice Group only accepts ERC1155 acceptance call if it was for
-    ///         minting group circles and returning the resulting gCRC.
-    error SupergroupBlockNormalERC1155Transfers();
-    /// @notice Group should always block acceptance call for its own id
-    ///         or that of untrusted avatars
-    error SupergroupAlwaysBlockUntrustedIds();
-    /// @notice Reserved addresses cannot be set as operator
-    error SupergroupInvalidOperator(address operator);
-    /// @notice when operators are required, at least one operator must be activated
-    error SupergroupMustHaveOperatorsActivated();
-    /// @notice logic assertion
-    error SupergroupLogicAssertion();
-}
-
-interface ISupergroupRequestErrors {
-    /// @notice Operator request is already in progress
-    error SupergroupOperatorRequestInProgress();
-}
-
-interface ISupergroupPolicyFingerprintsErrors {
-    /// @notice Throws when during acceptance call more is
-    error SupergroupFingerprintUnderflow();
-}
-
-interface ISupergroupOperatorErrors {
-    error SupergroupOperatorUnservicedGroup(address group);
-    /// @notice the action requires that an authorized operator performs it,
-    ///         and this operator is currently not authorized for this supergroup.
-    error SupergroupOperatorNotAuthorizedAndAuthorizationRequired(address group);
-    /// @notice error to indicate this operator does not implement this (yet).
-    error SupergroupOperatorDoesNotImplement();
-}
-
-interface ISupergroupOperatorCompletionErrors {
-    /// @notice An expectation for a completion call is already set
-    error ExpectationAlreadySet(bytes32 expectation);
-    /// @notice No expectation was set when checking completion call
-    error NoExpectationSet();
-    /// @notice The actual completion call parameters did not match the expected ones
-    error ExpectationMismatch(bytes32 expected, bytes32 actual);
-    /// @notice only expect supergroup id on single receive
-    error ExpectationSingleReceiveOnlySupergroupId(uint256 id);
-}
-
 interface ICMGroupErrors {
     /// @notice CoreMembers group proxy is already initialised
     error CMGroupProxyAlreadyInitialised();
@@ -124,4 +63,19 @@ interface ICMGHandlerErrors {
 interface ICMGPrimaryGroupRegistryErrors {
     /// @notice to register primary group caller must be registered human and group must be group
     error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);
+}
+
+interface ICMGRedemptionOperatorErrors {
+    /// @notice group must be registered
+    error CMGRedemptionOperatorGroupMustBeRegistered(address group);
+    /// @notice redemption handler of group is zero address
+    error CMGRedemptionOperatorHandlerOfGroupZeroAddress();
+    /// @notice only support non-custom groups with standard treasury
+    error CMGRedemptionOperatorOnlySupportStandardTreasuryGroups(address treasury);
+    /// @notice Prevent redeeming more than requested
+    error CMGRedemptionOperatorFoundCollateralExceedsAmountRequested(uint256 requestedAmount, uint256 foundAmount);
+    /// @notice if not partially fillable, found amount must be exactly requested amount
+    error CMGRedemptionOperatorFailedToFindSufficientCollateral(uint256 requestedAmount, uint256 foundAmount);
+    /// @notice invalid calling parameters
+    error CMGRedemptionOperatorInvalidCallingParameters();
 }

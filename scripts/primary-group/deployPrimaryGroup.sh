@@ -38,11 +38,11 @@ CIRCLES_CORE_ENCODING="($HUB_ADDRESS,$TREASURY_ADDRESS,$NAME_REGISTRY_ADDRESS)"
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
+echo -e "${BLUE}Deploying PrimaryGroupRegistry...${NC}"
 
-# Deploy the condition contract
-CONDITION_ADDRESS=$(forge create \
-    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
+# Deploy the primary group registry contract
+REGISTRY_ADDRESS=$(forge create \
+    src/primary-group/PrimaryGroupRegistry.sol:PrimaryGroupRegistry \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
@@ -50,12 +50,12 @@ CONDITION_ADDRESS=$(forge create \
     | grep "Deployed to" \
     | awk '{print $3}')
 
-if [ -z "$CONDITION_ADDRESS" ]; then
-    echo -e "${RED}Error: Condition deployment failed${NC}"
+if [ -z "$REGISTRY_ADDRESS" ]; then
+    echo -e "${RED}Error: Primary Group Registry deployment failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}IsHuman Condition deployed at:${NC} $CONDITION_ADDRESS"
+echo -e "${GREEN}PrimaryGroupRegistry deployed at:${NC} $REGISTRY_ADDRESS"
 
-# Save the condition address to a file
-echo "$CONDITION_ADDRESS" > "./deployments/IsHumanCondition-gnosis.txt"
+# Save the registry address to a file
+echo "$REGISTRY_ADDRESS" > "./deployments/PrimaryGroupRegistry-gnosis.txt"

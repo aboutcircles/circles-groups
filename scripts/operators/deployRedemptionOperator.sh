@@ -38,11 +38,11 @@ CIRCLES_CORE_ENCODING="($HUB_ADDRESS,$TREASURY_ADDRESS,$NAME_REGISTRY_ADDRESS)"
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
+echo -e "${BLUE}Deploying CMGRedemptionOperator...${NC}"
 
-# Deploy the condition contract
-CONDITION_ADDRESS=$(forge create \
-    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
+# Deploy the operator contract
+OPERATOR_ADDRESS=$(forge create \
+    src/redemption-operator/CMGRedemptionOperator.sol:CMGRedemptionOperator \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
@@ -50,12 +50,12 @@ CONDITION_ADDRESS=$(forge create \
     | grep "Deployed to" \
     | awk '{print $3}')
 
-if [ -z "$CONDITION_ADDRESS" ]; then
-    echo -e "${RED}Error: Condition deployment failed${NC}"
+if [ -z "$OPERATOR_ADDRESS" ]; then
+    echo -e "${RED}Error: Operator deployment failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}IsHuman Condition deployed at:${NC} $CONDITION_ADDRESS"
+echo -e "${GREEN}CMGRedemptionOperator deployed at:${NC} $OPERATOR_ADDRESS"
 
-# Save the condition address to a file
-echo "$CONDITION_ADDRESS" > "./deployments/IsHumanCondition-gnosis.txt"
+# Save the operator address to a file
+echo "$OPERATOR_ADDRESS" > "./deployments/CMGRedemptionOperator-gnosis.txt"

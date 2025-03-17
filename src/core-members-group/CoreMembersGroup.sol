@@ -11,14 +11,7 @@ import "src/core-members-group/ICMGRedemptionHandler.sol";
 import {CoreMembersGroupStorage} from "src/core-members-group/CoreMembersGroupStorage.sol";
 import "src/membership-conditions/IMembershipCondition.sol";
 
-contract CoreMembersGroup is
-    Initializable,
-    CoreMembersGroupStorage,
-    MintPolicy,
-    CirclesCoreAddresses,
-    ICoreMembersGroup,
-    ICMGroupErrors
-{
+contract CoreMembersGroup is Initializable, CoreMembersGroupStorage, MintPolicy, ICoreMembersGroup, ICMGroupErrors {
     // Constants
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
@@ -62,7 +55,7 @@ contract CoreMembersGroup is
 
     /// @notice Only the Circles Hub can call this function
     modifier onlyHub() {
-        if (msg.sender != address(hub)) {
+        if (msg.sender != address(_state().hub)) {
             revert CMGroupOnlyHub();
         }
         _;
@@ -70,7 +63,7 @@ contract CoreMembersGroup is
 
     /// @notice Only the Circles Hub or group Treasury can call this function
     modifier onlyHubOrTreasury() {
-        if (msg.sender != address(hub) && msg.sender != address(standardTreasury)) {
+        if (msg.sender != address(_state().hub) && msg.sender != address(_state().standardTreasury)) {
             revert CMGroupOnlyHubOrTreasury();
         }
         _;
@@ -109,7 +102,8 @@ contract CoreMembersGroup is
         address[] memory _initialConditions,
         string memory _name,
         string memory _symbol,
-        bytes32 _metadataDigest
+        bytes32 _metadataDigest,
+        CirclesCore memory _circlesCore
     ) external virtual initializer {
         if (_owner == address(0)) {
             revert CMGroupInvalidCallingParameters();
@@ -118,9 +112,10 @@ contract CoreMembersGroup is
         _setService(_service);
         _setMintHandler(_mintHandler);
         _setRedemptionHandler(_redemptionHandler);
-        _setMinimalDeposit(MAX_DEPOSIT_AMOUNT_MINIMUM);
+        // set initial minimal deposit to zero - no minimal deposit
+        _setMinimalDeposit(0);
 
-        // set initial conditions
+        // // set initial conditions
         for (uint256 i = 0; i < _initialConditions.length; i++) {
             _addMembershipCondition(_initialConditions[i]);
         }
@@ -128,8 +123,13 @@ contract CoreMembersGroup is
         // set fee collection to be by default the owner
         _state().feeCollection = _owner;
 
+        // store the core Circles protocol addresses
+        _state().hub = _circlesCore.hub;
+        _state().standardTreasury = _circlesCore.standardTreasury;
+        _state().nameRegistry = _circlesCore.nameRegistry;
+
         // register group in hub and set the mint policy to this address
-        hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
+        _state().hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
 
         emit OwnerSet(_owner);
     }
@@ -145,6 +145,13 @@ contract CoreMembersGroup is
             revert CMGroupInvalidCallingParameters();
         }
         _setService(_service);
+    }
+
+    /// @notice Change the owner address. Only the current owner can change ownership.
+    /// @param _owner New owner address
+    function setOwner(address _owner) external onlyOwner {
+        _setOwner(_owner);
+        emit OwnerSet(_owner);
     }
 
     /// @notice Enable or disable a membership condition contract
@@ -202,12 +209,16 @@ contract CoreMembersGroup is
         _trust(_trustReceiver, _expiry);
     }
 
-    /// @notice Trust or untrust a batch of core members.
+    /// @notice Trust or untrust a batch of core members with membership condition checks.
     /// @param _coreMembers Array of core member addresses to trust/untrust
     /// @param _expiry Trust expiry timestamp. If >= current timestamp, trust core member.
     ///        If < current timestamp, untrust only currently trusted core members (to avoid
     ///        accidentally trusting new core members for a single block).
-    function trustBatch(address[] memory _coreMembers, uint96 _expiry) public virtual onlyOwnerOrService {
+    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry)
+        public
+        virtual
+        onlyOwnerOrService
+    {
         uint256 length = _coreMembers.length;
         address coreMember;
         // current block timestamp is an edge-case,
@@ -233,7 +244,7 @@ contract CoreMembersGroup is
             // first check whether the core member is currently trusted;
             for (uint256 i = 0; i < length; i++) {
                 coreMember = _coreMembers[i];
-                if (hub.isTrusted(address(this), coreMember)) {
+                if (_state().hub.isTrusted(address(this), coreMember)) {
                     _trust(coreMember, _expiry);
                 }
             }
@@ -261,7 +272,7 @@ contract CoreMembersGroup is
             }
         }
         // register deposit with redemption handler
-        _registerDeposit(_collateral);
+        _registerDeposit(_collateral, _amounts);
         return true;
     }
 
@@ -308,24 +319,24 @@ contract CoreMembersGroup is
     /// @notice Sets advanced usage flags for this group in the Hub
     /// @param _flag Advanced usage flag value to set
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
-        hub.setAdvancedUsageFlag(_flag);
+        _state().hub.setAdvancedUsageFlag(_flag);
     }
 
     /// @notice Updates the metadata digest for this group in the name registry
     /// @param _metadataDigest New metadata digest value
     function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
-        nameRegistry.updateMetadataDigest(_metadataDigest);
+        _state().nameRegistry.updateMetadataDigest(_metadataDigest);
     }
 
     /// @notice Registers a short name for this group in the name registry
     function registerShortName() external onlyOwner {
-        nameRegistry.registerShortName();
+        _state().nameRegistry.registerShortName();
     }
 
     /// @notice Registers a short name for this group with a specified nonce
     /// @param _nonce Nonce value to use for short name registration
     function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
-        nameRegistry.registerShortNameWithNonce(_nonce);
+        _state().nameRegistry.registerShortNameWithNonce(_nonce);
     }
 
     // View functions
@@ -365,6 +376,16 @@ contract CoreMembersGroup is
     /// @notice Returns the address that receives fees collected by this group
     function feeCollection() external view returns (address) {
         return _state().feeCollection;
+    }
+
+    /// @notice Returns the array of membership condition addresses
+    function getMembershipConditions() external view returns (address[] memory) {
+        return _state().membershipConditions;
+    }
+
+    /// @notice Returns the core Circles protocol addresses
+    function getCirclesCore() external view returns (CirclesCore memory) {
+        return CirclesCore(_state().hub, _state().standardTreasury, _state().nameRegistry, _state().erc20Lift);
     }
 
     // Internal functions
@@ -434,7 +455,7 @@ contract CoreMembersGroup is
     /// @param _expiry Timestamp when trust expires. If >= current time,
     ///         establishes trust. If < current time, serves to untrust.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
-        hub.trust(_trustReceiver, _expiry);
+        _state().hub.trust(_trustReceiver, _expiry);
         address mintHandler_ = _state().mintHandler;
         if (mintHandler_ != address(0)) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
@@ -452,19 +473,17 @@ contract CoreMembersGroup is
         return (true, address(0));
     }
 
-    function _registerDeposit(uint256[] memory _collateralIds) internal {
+    function _registerDeposit(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds);
+            ICMGRedemptionHandler(redemptionHandler_).registerDeposit(_collateralIds, _amounts);
         }
     }
 
     function _registerRedemption(uint256[] memory _collateralIds, uint256[] memory _amounts) internal {
         address redemptionHandler_ = _state().redemptionHandler;
         if (redemptionHandler_ != address(0)) {
-            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(
-                _state().minimalDeposit, _collateralIds, _amounts
-            );
+            ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }
     }
 }

@@ -10,7 +10,6 @@ mkdir -p flattened
 forge fmt --check src/core-members-group/CoreMembersGroup.sol
 forge flatten src/core-members-group/CoreMembersGroup.sol > flattened/CoreMembersGroup.flat.sol
 
-
 # Flatten the CMGroupDeployer contract
 forge fmt --check src/core-members-group/helpers/CMGroupDeployer.sol
 forge flatten src/core-members-group/helpers/CMGroupDeployer.sol > flattened/CMGroupDeployer.flat.sol
@@ -23,6 +22,9 @@ forge flatten src/core-members-group/CMGMintHandler.sol > flattened/CMGMintHandl
 forge fmt --check src/core-members-group/CMGRedemptionHandler.sol
 forge flatten src/core-members-group/CMGRedemptionHandler.sol > flattened/CMGRedemptionHandler.flat.sol
 
+# Flatten the CMGRedemptionOperator contract
+forge fmt --check src/redemption-operator/CMGRedemptionOperator.sol
+forge flatten src/redemption-operator/CMGRedemptionOperator.sol > flattened/CMGRedemptionOperator.flat.sol
 
 # Flatten the UpgradeableRenounceableProxy contract
 forge fmt --check src/core-members-group/helpers/UpgradeableRenounceableProxy.sol
@@ -34,6 +36,10 @@ forge flatten src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol > fla
 
 forge fmt --check src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol
 forge flatten src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol > flattened/ActiveTenUsdLBPBackerCondition.flat.sol
+
+# Flatten the PrimaryGroupRegistry contract
+forge fmt --check src/primary-group/PrimaryGroupRegistry.sol
+forge flatten src/primary-group/PrimaryGroupRegistry.sol > flattened/PrimaryGroupRegistry.flat.sol
 
 echo -e "${GREEN}Contract source code flattened for verification!${NC}"
 echo -e "${GREEN}Flattened files saved in ./flattened/ directory${NC}"

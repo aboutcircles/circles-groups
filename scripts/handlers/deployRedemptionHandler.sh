@@ -28,9 +28,21 @@ if [ -z "$RPC_URL_GNOSIS" ]; then
 fi
 
 # set constructor params
+CMG_ADDRESS="0xf96131552f5e3ed60f359511ccf6c57662f7f937"
+OWNER_ADDRESS="0x52007f2BFb658C9aC7dd60DBA637A29349b7c483"
 HUB_ADDRESS="0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8"
 TREASURY_ADDRESS="0x08F90aB73A515308f03A718257ff9887ED330C6e"
 NAME_REGISTRY_ADDRESS="0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474"
+
+if [ -z "$CMG_ADDRESS" ]; then
+    echo -e "${RED}Error: CMG_ADDRESS not found in declarations${NC}"
+    exit 1
+fi
+
+if [ -z "$OWNER_ADDRESS" ]; then
+    echo -e "${RED}Error: OWNER_ADDRESS not found in declarations${NC}"
+    exit 1
+fi
 
 # Create CirclesCore struct encoding
 CIRCLES_CORE_ENCODING="($HUB_ADDRESS,$TREASURY_ADDRESS,$NAME_REGISTRY_ADDRESS)"
@@ -38,24 +50,24 @@ CIRCLES_CORE_ENCODING="($HUB_ADDRESS,$TREASURY_ADDRESS,$NAME_REGISTRY_ADDRESS)"
 # Create deployments directory if it doesn't exist
 mkdir -p deployments
 
-echo -e "${BLUE}Deploying IsHuman Condition...${NC}"
+echo -e "${BLUE}Deploying CMGRedemptionHandler...${NC}"
 
-# Deploy the condition contract
-CONDITION_ADDRESS=$(forge create \
-    src/membership-conditions/IsHumanCondition.sol:IsHumanCondition \
+# Deploy the handler contract
+HANDLER_ADDRESS=$(forge create \
+    src/core-members-group/CMGRedemptionHandler.sol:CMGRedemptionHandler \
     --rpc-url ${RPC_URL_GNOSIS} \
     --private-key ${PRIVATE_KEY_GNOSIS} \
     --broadcast \
-    --constructor-args ${CIRCLES_CORE_ENCODING} \
+    --constructor-args ${CMG_ADDRESS} ${OWNER_ADDRESS} ${CIRCLES_CORE_ENCODING} \
     | grep "Deployed to" \
     | awk '{print $3}')
 
-if [ -z "$CONDITION_ADDRESS" ]; then
-    echo -e "${RED}Error: Condition deployment failed${NC}"
+if [ -z "$HANDLER_ADDRESS" ]; then
+    echo -e "${RED}Error: Handler deployment failed${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}IsHuman Condition deployed at:${NC} $CONDITION_ADDRESS"
+echo -e "${GREEN}CMGRedemptionHandler deployed at:${NC} $HANDLER_ADDRESS"
 
-# Save the condition address to a file
-echo "$CONDITION_ADDRESS" > "./deployments/IsHumanCondition-gnosis.txt"
+# Save the handler address to a file
+echo "$HANDLER_ADDRESS" > "./deployments/CMGRedemptionHandler-gnosis.txt"
