@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import {Test, Vm} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 import "src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol";
 import "src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol";
 
@@ -11,7 +11,7 @@ contract GroupLiquidityProviderTest is Test {
     uint256 public constant CRC = 1e18;
 
     // State
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
 
     // Test addresses
     address public cmGroup;
@@ -42,7 +42,7 @@ contract GroupLiquidityProviderTest is Test {
         david = makeAddr("david");
         els = makeAddr("els");
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
 
         // Register users as people
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
@@ -64,9 +64,10 @@ contract GroupLiquidityProviderTest is Test {
         address[] memory noInitialConditions = new address[](0);
 
         vm.startPrank(owner);
-        (cmGroup,,, liquidityProvider) =
-            mockCircles.createCMGroup(service, noInitialConditions, "TestCMG", "CMG", bytes32(0));
+        (cmGroup,,) = mockCircles.createCMGroup(owner, service, noInitialConditions, "TestCMG", "CMG", bytes32(0));
         vm.stopPrank();
+
+        liquidityProvider = mockCircles.lpDeployer().createLiquidityProvider(cmGroup, "TestCMG-lp", bytes32(0));
 
         cmGroupId = uint256(uint160(cmGroup));
 
@@ -85,7 +86,7 @@ contract GroupLiquidityProviderTest is Test {
 
     function testSetupWithValidAddresses() public {
         vm.startPrank(owner);
-        (cmGroup,,,) = mockCircles.createCMGroup(service, new address[](0), "TestCMG", "CMG", bytes32(0));
+        (cmGroup,,) = mockCircles.createCMGroup(owner, service, new address[](0), "TestCMG", "CMG", bytes32(0));
         liquidityProvider = mockCircles.lpDeployer().createLiquidityProvider(cmGroup, "LP", bytes32(0));
         vm.stopPrank();
 

@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 
 contract CMGRedemptionHandlerTest is Test {
     // Constants
@@ -13,7 +13,7 @@ contract CMGRedemptionHandlerTest is Test {
     // State
 
     /// @notice Mock Circles Deployment
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
 
     // Test addresses
     address public cmGroup;
@@ -49,7 +49,7 @@ contract CMGRedemptionHandlerTest is Test {
         davidId = uint256(uint160(david));
         elsId = uint256(uint160(els));
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
 
         // Register users as people and mint initial CRC
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
@@ -85,7 +85,8 @@ contract CMGRedemptionHandlerTest is Test {
         address[] memory noInitialConditions = new address[](0);
 
         vm.startPrank(owner);
-        (cmGroup,,,) = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
+        (cmGroup,,) =
+            mockCircles.createCMGroup(owner, service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
 
         // Verify owner is set correctly
         assertEq(ICoreMembersGroup(cmGroup).owner(), owner);

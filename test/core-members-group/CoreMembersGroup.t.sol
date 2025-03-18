@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 import "src/membership-conditions/IsHumanCondition.sol";
 
 contract CoreMembersGroupTest is Test {
@@ -10,7 +10,7 @@ contract CoreMembersGroupTest is Test {
     uint256 public constant CRC = 1e18;
 
     // State
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
     IsHumanCondition public isHumanCondition;
 
     // Test addresses
@@ -43,7 +43,7 @@ contract CoreMembersGroupTest is Test {
         charlieId = uint256(uint160(charlie));
         davidId = uint256(uint160(david));
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
         isHumanCondition = new IsHumanCondition(mockCircles.getCirclesCore());
 
         // Register users as people
@@ -58,7 +58,7 @@ contract CoreMembersGroupTest is Test {
         initialConditions[0] = address(isHumanCondition);
 
         vm.startPrank(owner);
-        (cmGroup,,,) = mockCircles.createCMGroup(service, initialConditions, "TestCMG", "CMG", bytes32(0));
+        (cmGroup,,) = mockCircles.createCMGroup(owner, service, initialConditions, "TestCMG", "CMG", bytes32(0));
         vm.stopPrank();
 
         // Verify owner is set correctly

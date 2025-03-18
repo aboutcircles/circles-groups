@@ -2,14 +2,14 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 
 contract RedemptionOperatorTest is Test {
     // Constants
     uint256 public constant CRC = 1e18;
 
     // State
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
 
     // Test addresses
     address public cmGroup;
@@ -41,7 +41,7 @@ contract RedemptionOperatorTest is Test {
         charlieId = uint256(uint160(charlie));
         davidId = uint256(uint160(david));
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
 
         // Register users as people
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
@@ -71,7 +71,8 @@ contract RedemptionOperatorTest is Test {
         address[] memory noInitialConditions = new address[](0);
 
         vm.startPrank(owner);
-        (cmGroup,,,) = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
+        (cmGroup,,) =
+            mockCircles.createCMGroup(owner, service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
         vm.stopPrank();
 
         // Verify group was created

@@ -1,24 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/circles/Core.sol";
 import "src/core-members-group/CoreMembersGroup.sol";
-// import "src/core-members-group/CMGMintHandler.sol";
-// import "src/core-members-group/CMGRedemptionHandler.sol";
+import "src/core-members-group/CMGMintHandler.sol";
+import "src/core-members-group/CMGRedemptionHandler.sol";
 import "src/redemption-operator/CMGRedemptionOperator.sol";
 import "src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol";
+import "src/circles/Core.sol";
+import "test/mock-circles/MockHub.sol";
+import "test/mock-circles/MockStandardTreasury.sol";
+import "test/mock-circles/MockVault.sol";
 
-contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
+contract MockCirclesFactoryDeployment is CirclesCoreAddresses {
     // State
 
     /// @notice simple registration of deployment by this factory
     mapping(address => bool) public deployedByFactory;
 
+    /// @notice address of the deployed redemption operator
+    CMGRedemptionOperator public redemptionOperator;
     /// @notice deployer for liquidity providers
-    GroupLiquidityProviderDeployer public immutable lpDeployer;
+    GroupLiquidityProviderDeployer public lpDeployer;
 
-    /// @notice redemption operator used by liquidity providers
-    CMGRedemptionOperator public immutable redemptionOperator;
+    MockHub public mockHub;
+    MockStandardTreasury public mockStandardTreasury;
 
     // Events
 
@@ -31,11 +36,31 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         address indexed cmgroup, address indexed owner, address indexed mintHandler, address redemptionHandler
     );
 
+    // Errors
+
+    /// @notice Logical assertion predicted address matches deployed address
+    error CMGroupFactoryWrongPredictedAddress(address predicted, address deployed);
+
+    // Constructor
+
     constructor() {
-        // create redemption operator
+        mockHub = new MockHub();
+        mockStandardTreasury = mockHub.standardTreasury();
+
+        // deploy redemption operator
         redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
+
         // create deployer for liquidity providers
         lpDeployer = new GroupLiquidityProviderDeployer(redemptionOperator, getCirclesCore());
+    }
+
+    function getCirclesCore() public view returns (CirclesCore memory) {
+        return CirclesCore(
+            IHub(address(mockHub)),
+            IStandardTreasury(address(mockStandardTreasury)),
+            INameRegistryExtended(address(0)),
+            IERC20Lift(address(0))
+        );
     }
 
     /// @notice Creates a new Core Members Group with associated handlers
@@ -71,8 +96,7 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         // store deployment explicitly for easiest check by wallet
         deployedByFactory[address(coreMembersGroup)] = true;
 
-        // ensure static ERC20 wrapper is deployed for group
-        circlesCore.erc20Lift.ensureERC20(address(coreMembersGroup), CirclesType.Inflation);
+        // in mock deployment don't attempt to create static ERC20 wrapper for group -- not mocked
 
         emit CMGroupCreated(address(coreMembersGroup), _owner, mintHandler, redemptionHandler);
 

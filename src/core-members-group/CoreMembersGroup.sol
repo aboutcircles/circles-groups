@@ -5,6 +5,8 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import "circles-contracts-v2/groups/BaseMintPolicy.sol";
 import "src/errors/Errors.sol";
 import "src/circles/Core.sol";
+import "src/core-members-group/CMGMintHandler.sol";
+import "src/core-members-group/CMGRedemptionHandler.sol";
 import "src/core-members-group/ICoreMembersGroup.sol";
 import "src/core-members-group/ICMGMintHandler.sol";
 import "src/core-members-group/ICMGRedemptionHandler.sol";
@@ -13,7 +15,7 @@ import "src/membership-conditions/IMembershipCondition.sol";
 contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup, ICMGroupErrors {
     // Structs
 
-    /// Stateful struct inherited from upgradeable contracts to minimise code changes
+    /// @notice Stateful struct inherited from upgradeable contracts to minimise code changes
     /// from the archived development version found in /helpers
     struct State {
         address owner;
@@ -30,10 +32,10 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         address[] membershipConditions;
     }
 
-    struct FactoryVerification {
+    /// @dev Simple factory verification only stores the factory from which
+    /// this group claims to have been created
+    struct SimpleFactoryVerification {
         address factory;
-        uint256 saltIndex;
-        bytes32 encodedConstructorArgs;
     }
 
     // Constants
@@ -51,8 +53,11 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     State public state;
 
     /// @notice store the parameters to verify this group was deployed by the claimed
-    /// factory version
-    FactoryVerification public factoryVerification;
+    /// factory version. Simple factory verification only stores the factory address
+    /// where user must verify group's address. (In contrast with later factory patterns
+    /// where the verification data should have salt and encoded constructor arguments
+    /// for create2 deployment)
+    SimpleFactoryVerification public simpleFactoryVerification;
 
     // Events
 
@@ -122,11 +127,8 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     // Constructor
 
     constructor(
-        uint256 _saltIndex,
         address _owner,
         address _service,
-        address _mintHandler,
-        address _redemptionHandler,
         address[] memory _initialConditions,
         string memory _name,
         string memory _symbol,
@@ -136,10 +138,16 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         if (_owner == address(0)) {
             revert CMGroupInvalidCallingParameters();
         }
+
+        // deploy mint and redemption handlers
+        address mintH = address(new CMGMintHandler(_owner, _name, _circlesCore));
+        address redemptionH = address(new CMGRedemptionHandler(_owner, _circlesCore));
+
+        _setMintHandler(mintH);
+        _setRedemptionHandler(redemptionH);
+
         _setOwner(_owner);
         _setService(_service);
-        _setMintHandler(_mintHandler);
-        _setRedemptionHandler(_redemptionHandler);
         // set initial minimal deposit to zero - no minimal deposit
         _setMinimalDeposit(0);
 
@@ -158,19 +166,6 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
 
         // register group in hub and set the mint policy to this address
         state.hub.registerGroup(address(this), _name, _symbol, _metadataDigest);
-
-        _storeFactoryVerificationData(
-            _saltIndex,
-            _owner,
-            _service,
-            _mintHandler,
-            _redemptionHandler,
-            _initialConditions,
-            _name,
-            _symbol,
-            _metadataDigest,
-            _circlesCore
-        );
 
         emit OwnerSet(_owner);
     }
@@ -194,6 +189,22 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         _setOwner(_owner);
         emit OwnerSet(_owner);
     }
+
+    // /// @notice Change the mintHandler contract address. MintHandler contract helps
+    // ///         automate path minting/redemptions.
+    // /// @param _mintHandler Updated mintHandler contract address.
+    // /// @dev The mintHandler contract can be zero address. Only owner can change the mintHandler contract.
+    // function setMintHandler(address _mintHandler) external onlyOwner {
+    //     _setMintHandler(_mintHandler);
+    // }
+
+    // /// @notice Change the redemptionHandler contract address. RedemptionHandler contract helps
+    // ///         track deposits and redemptions for the group.
+    // /// @param _redemptionHandler Updated redemptionHandler contract address.
+    // /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
+    // function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
+    //     _setRedemptionHandler(_redemptionHandler);
+    // }
 
     /// @notice Enable or disable a membership condition contract
     /// @param _condition Address of membership condition contract
@@ -510,36 +521,5 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         if (redemptionHandler_ != address(0)) {
             ICMGRedemptionHandler(redemptionHandler_).registerRedemption(_collateralIds, _amounts);
         }
-    }
-
-    function _storeFactoryVerificationData(
-        uint256 _saltIndex,
-        address _owner,
-        address _service,
-        address _mintHandler,
-        address _redemptionHandler,
-        address[] memory _initialConditions,
-        string memory _name,
-        string memory _symbol,
-        bytes32 _metadataDigest,
-        CirclesCore memory _circlesCore
-    ) internal {
-        // store verification parameters
-        factoryVerification.factory = msg.sender;
-        factoryVerification.saltIndex = _saltIndex;
-        // calculate constructor args
-        factoryVerification.encodedConstructorArgs = keccak256(
-            abi.encode(
-                _owner,
-                _service,
-                _mintHandler,
-                _redemptionHandler,
-                _initialConditions,
-                _name,
-                _symbol,
-                _metadataDigest,
-                _circlesCore
-            )
-        );
     }
 }

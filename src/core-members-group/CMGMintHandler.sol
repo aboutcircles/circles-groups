@@ -32,8 +32,8 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name, CirclesCore memory _circlesCore)
-        CMGHandler(_cmGroup, _owner, _circlesCore)
+    constructor(address _owner, string memory _name, CirclesCore memory _circlesCore)
+        CMGHandler(msg.sender, _owner, _circlesCore)
     {
         // append "-minter" to group's name to register organization
         string memory orgName = string.concat(_name, "-minter");
