@@ -11,9 +11,11 @@ import "src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol";
 contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
     // State
 
-    /// @notice salt counter is to use as a salt a sequence number to
-    /// verify deployed contracts originated from this factory
+    /// @notice simple salt counter
     uint256 public saltCounter;
+
+    /// @notice simple registration of deployment by this factory
+    mapping(address => bool) public deployedByFactory;
 
     /// @notice deployer for liquidity providers
     GroupLiquidityProviderDeployer public immutable lpDeployer;
@@ -32,6 +34,11 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         address indexed cmgroup, address indexed owner, address indexed mintHandler, address redemptionHandler
     );
 
+    // Errors
+
+    /// @notice Logical assertion predicted address matches deployed address
+    error CMGroupFactoryWrongPredictedAddress(address predicted, address deployed);
+
     constructor() {
         // create redemption operator
         redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
@@ -39,6 +46,21 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         lpDeployer = new GroupLiquidityProviderDeployer(redemptionOperator, getCirclesCore());
     }
 
+    /// @notice Creates a new Core Members Group with associated handlers
+    /// @dev Deploys three contracts: CMGMintHandler, CMGRedemptionHandler, and CoreMembersGroup
+    ///      Uses create2 for deterministic addressing and verifies the predicted address matches
+    /// @param _owner The owner address for the new group
+    /// @param _service The service address for the new group
+    /// @param _mintHandler The mint handler address for the new group
+    /// @param _redemptionHandler The redemption handler address for the new group
+    /// @param _initialConditions Array of initial condition addresses
+    /// @param _name Name of the token
+    /// @param _symbol Symbol of the token
+    /// @param _metadataDigest Hash of additional metadata
+    /// @param _circlesCore Struct containing core protocol addresses
+    /// @return coreMembersGroup Address of the deployed Core Members Group contract
+    /// @return mintHandler Address of the deployed mint handler contract
+    /// @return redemptionHandler Address of the deployed redemption handler contract
     function createCMGroup(
         address _owner,
         address _service,
@@ -56,7 +78,8 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         // load Circles v2 core protocol addresses
         CirclesCore memory circlesCore = getCirclesCore();
 
-        (address predictedCMGAddress,) = computeCMGroupAddress(
+        // note: we need to use a predicted address to pass it to the handlers for separate deployment
+        address predictedCMGAddress = computeCMGroupAddress(
             saltCounter,
             _owner,
             _service,
@@ -89,6 +112,13 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
             )
         );
 
+        if (coreMembersGroup != predictedCMGAddress) {
+            revert CMGroupFactoryWrongPredictedAddress(predictedCMGAddress, coreMembersGroup);
+        }
+
+        // store deployment explicitly for easiest check by wallet
+        deployedByFactory[coreMembersGroup] = true;
+
         // ensure static ERC20 wrapper is deployed for group
         _circlesCore.erc20Lift.ensureERC20(coreMembersGroup, CirclesType.Inflation);
 
@@ -97,6 +127,7 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         return (coreMembersGroup, _mintHandler, _redemptionHandler);
     }
 
+    /// @notice Computes the deterministic deployment address for a Core Members Group
     function computeCMGroupAddress(
         uint256 saltIndex,
         address _owner,
@@ -108,7 +139,7 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         string memory _symbol,
         bytes32 _metadataDigest,
         CirclesCore memory _circlesCore
-    ) public view returns (address, bytes32) {
+    ) public view returns (address) {
         bytes32 salt = bytes32(saltIndex);
 
         bytes32 encodedConstructorArgs = encodeConstructorArguments(
@@ -127,9 +158,10 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
             uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, encodedConstructorArgs))))
         );
 
-        return (predictedAddress, encodedConstructorArgs);
+        return predictedAddress;
     }
 
+    /// @notice encoding function to compute the deterministic deployment address of a CMG
     function encodeConstructorArguments(
         address _owner,
         address _service,
@@ -156,7 +188,10 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         return keccak256(abi.encodePacked(type(CoreMembersGroup).creationCode, constructorArgs));
     }
 
-    function verifyCMGroupDeployment(address deployedAddress, uint256 saltIndex, bytes32 encodedConstructorArgs)
+    /// @notice additional helper verification function to recalculate deployment address
+    /// @dev largely superceded by explicitly storing the deployedByFactory boolean,
+    /// but because we still use create2, for deploying the three contracts, keep this helper function here
+    function verifyFactoryGroupDeployment(address deployedAddress, uint256 saltIndex, bytes32 encodedConstructorArgs)
         public
         view
         returns (bool)
