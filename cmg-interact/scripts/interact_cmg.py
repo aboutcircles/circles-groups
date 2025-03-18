@@ -135,47 +135,47 @@ def set_service(service_address):
 
     click.echo(f"Service update transaction hash: 0x{tx_hash.hex()}")
 
-@cli.command()
-@click.argument("mint_handler_address")
-def set_mint_handler(mint_handler_address):
-    """Set mint handler contract address"""
-    account = get_account()
+# @cli.command()
+# @click.argument("mint_handler_address")
+# def set_mint_handler(mint_handler_address):
+#     """Set mint handler contract address"""
+#     account = get_account()
 
-    mint_handler_address = Web3.to_checksum_address(mint_handler_address)
+#     mint_handler_address = Web3.to_checksum_address(mint_handler_address)
 
-    txn = group.functions.setMintHandler(mint_handler_address).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
+#     txn = group.functions.setMintHandler(mint_handler_address).build_transaction({
+#         'from': account.address,
+#         'nonce': w3.eth.get_transaction_count(account.address),
+#         'gas': 200000,
+#         'gasPrice': w3.eth.gas_price
+#     })
 
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
+#     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
+#     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+#     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
+#     click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
-@cli.command()
-@click.argument("redemption_handler_address")
-def set_redemption_handler(redemption_handler_address):
-    """Set redemption handler contract address"""
-    account = get_account()
+# @cli.command()
+# @click.argument("redemption_handler_address")
+# def set_redemption_handler(redemption_handler_address):
+#     """Set redemption handler contract address"""
+#     account = get_account()
 
-    redemption_handler_address = Web3.to_checksum_address(redemption_handler_address)
+#     redemption_handler_address = Web3.to_checksum_address(redemption_handler_address)
 
-    txn = group.functions.setRedemptionHandler(redemption_handler_address).build_transaction({
-        'from': account.address,
-        'nonce': w3.eth.get_transaction_count(account.address),
-        'gas': 200000,
-        'gasPrice': w3.eth.gas_price
-    })
+#     txn = group.functions.setRedemptionHandler(redemption_handler_address).build_transaction({
+#         'from': account.address,
+#         'nonce': w3.eth.get_transaction_count(account.address),
+#         'gas': 200000,
+#         'gasPrice': w3.eth.gas_price
+#     })
 
-    signed_txn = w3.eth.account.sign_transaction(txn, account.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    _ = w3.eth.wait_for_transaction_receipt(tx_hash)
+#     signed_txn = w3.eth.account.sign_transaction(txn, account.key)
+#     tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+#     _ = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
+#     click.echo(f"Transaction hash: 0x{tx_hash.hex()}")
 
 @cli.command()
 @click.argument("minimal_deposit", type=int)
