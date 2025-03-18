@@ -16,7 +16,7 @@ forge inspect src/redemption-operator/CMGRedemptionOperator.sol:CMGRedemptionOpe
 forge inspect src/core-members-group/helpers/UpgradeableRenounceableProxy.sol:UpgradeableRenounceableProxy abi > export-abis/UpgradeableRenounceableProxy.json
 forge inspect src/liquidity-provider/GroupLiquidityProvider.sol:GroupLiquidityProvider abi > export-abis/GroupLiquidityProvider.json
 forge inspect src/liquidity-provider/helpers/GroupLiquidityProviderDeployer.sol:GroupLiquidityProviderDeployer abi > export-abis/GroupLiquidityProviderDeployer.json
-forge inspect src/primary-group/PrimaryGroupRegistry.sol:PrimaryGroupRegistry abi > export-abis/PrimaryGroupRegistry.json
+forge inspect src/affiliate-group/AffiliateGroupRegistry.sol:AffiliateGroupRegistry abi > export-abis/AffiliateGroupRegistry.json
 forge inspect src/membership-conditions/IsHumanCondition.sol:IsHumanCondition abi > export-abis/IsHumanCondition.json
 forge inspect src/membership-conditions/ActiveOneUsdLBPBackerCondition.sol:ActiveOneUsdLBPBackerCondition abi > export-abis/ActiveOneUsdLBPBackerCondition.json
 forge inspect src/membership-conditions/ActiveTenUsdLBPBackerCondition.sol:ActiveTenUsdLBPBackerCondition abi > export-abis/ActiveTenUsdLBPBackerCondition.json

@@ -8,26 +8,26 @@ def ensure_abi_files():
     """Helper function to check for and copy required ABI files"""
     required_abis = ["CoreMembersGroup.json", "CMGMintHandler.json", "CMGRedemptionHandler.json"]
 
-    if not os.path.exists("abis"):
-        os.makedirs("abis")
+    if not os.path.exists("../export-abis"):
+        os.makedirs("../export-abis")
 
     # Check if any required ABI is missing
     missing_abis = False
     for abi_file in required_abis:
-        abi_path = os.path.join("abis", abi_file)
+        abi_path = os.path.join("../export-abis", abi_file)
         if not os.path.exists(abi_path):
             missing_abis = True
             break
 
     # Run copyAbis.sh if any ABI is missing
     if missing_abis:
-        print("Running copyAbis.sh to copy required ABIs...")
-        if os.system("../scripts/copyAbis.sh") != 0:
-            raise Exception("Failed to run copyAbis.sh")
+        print("Running cleanAbis.sh to copy required ABIs...")
+        if os.system("../scripts/cleanAbis.sh") != 0:
+            raise Exception("Failed to run cleanAbis.sh")
 
         # Verify ABIs were copied successfully
         for abi_file in required_abis:
-            abi_path = os.path.join("abis", abi_file)
+            abi_path = os.path.join("../export-abis", abi_file)
             if not os.path.exists(abi_path):
                 raise Exception(f"Failed to copy required ABI file: {abi_file}")
 
@@ -43,17 +43,16 @@ w3 = Web3(Web3.HTTPProvider(os.getenv("RPC_URL_GNOSIS")))
 ensure_abi_files()
 
 # Load contract ABIs
-with open("abis/CoreMembersGroup.json") as f:
-    group_data = json.load(f)
-    group_abi = group_data["abi"]
+with open("../export-abis/CoreMembersGroup.json") as f:
+    group_abi = json.load(f)
 
-with open("abis/CMGMintHandler.json") as f:
-    mint_handler_data = json.load(f)
-    mint_handler_abi = mint_handler_data["abi"]
+with open("../export-abis/CMGMintHandler.json") as f:
+    mint_handler_abi = json.load(f)
+    # mint_handler_abi = mint_handler_data["abi"]
 
-with open("abis/CMGRedemptionHandler.json") as f:
-    redemption_handler_data = json.load(f)
-    redemption_handler_abi = redemption_handler_data["abi"]
+with open("../export-abis/CMGRedemptionHandler.json") as f:
+    redemption_handler_abi = json.load(f)
+    # redemption_handler_abi = redemption_handler_data["abi"]
 
 # Get group address from environment
 GROUP_ADDRESS = Web3.to_checksum_address(os.getenv("GROUP_ADDRESS"))

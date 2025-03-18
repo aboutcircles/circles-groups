@@ -1,7 +1,80 @@
 [
   {
     "type": "constructor",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "_saltIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_service",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_mintHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_redemptionHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_initialConditions",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_symbol",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_circlesCore",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -156,6 +229,29 @@
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "factoryVerification",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "factory",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "saltIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "encodedConstructorArgs",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -362,36 +458,10 @@
   },
   {
     "type": "function",
-    "name": "setMintHandler",
-    "inputs": [
-      {
-        "name": "_mintHandler",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setOwner",
     "inputs": [
       {
         "name": "_owner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setRedemptionHandler",
-    "inputs": [
-      {
-        "name": "_redemptionHandler",
         "type": "address",
         "internalType": "address"
       }
@@ -414,78 +484,61 @@
   },
   {
     "type": "function",
-    "name": "setup",
-    "inputs": [
+    "name": "state",
+    "inputs": [],
+    "outputs": [
       {
-        "name": "_owner",
+        "name": "owner",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_service",
+        "name": "mintHandler",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_mintHandler",
+        "name": "redemptionHandler",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_redemptionHandler",
+        "name": "service",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_initialConditions",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "minimalDeposit",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        "name": "_name",
-        "type": "string",
-        "internalType": "string"
+        "name": "feeCollection",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        "name": "_symbol",
-        "type": "string",
-        "internalType": "string"
+        "name": "hub",
+        "type": "address",
+        "internalType": "contract IHub"
       },
       {
-        "name": "_metadataDigest",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "standardTreasury",
+        "type": "address",
+        "internalType": "contract IStandardTreasury"
       },
       {
-        "name": "_circlesCore",
-        "type": "tuple",
-        "internalType": "struct CirclesCoreAddresses.CirclesCore",
-        "components": [
-          {
-            "name": "hub",
-            "type": "address",
-            "internalType": "contract IHub"
-          },
-          {
-            "name": "standardTreasury",
-            "type": "address",
-            "internalType": "contract IStandardTreasury"
-          },
-          {
-            "name": "nameRegistry",
-            "type": "address",
-            "internalType": "contract INameRegistryExtended"
-          },
-          {
-            "name": "erc20Lift",
-            "type": "address",
-            "internalType": "contract IERC20Lift"
-          }
-        ]
+        "name": "nameRegistry",
+        "type": "address",
+        "internalType": "contract INameRegistryExtended"
+      },
+      {
+        "name": "erc20Lift",
+        "type": "address",
+        "internalType": "contract IERC20Lift"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -545,19 +598,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "Initialized",
-    "inputs": [
-      {
-        "name": "version",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
       }
     ],
     "anonymous": false
@@ -722,16 +762,6 @@
   {
     "type": "error",
     "name": "CMGroupProxyAlreadyInitialised",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidInitialization",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotInitializing",
     "inputs": []
   }
 ]

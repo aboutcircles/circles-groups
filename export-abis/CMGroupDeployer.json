@@ -49,11 +49,6 @@
         "name": "redemptionHandler",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "liquidityProvider",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -114,7 +109,7 @@
       {
         "name": "",
         "type": "address",
-        "internalType": "contract CoreMembersGroup"
+        "internalType": "contract CoreMembersGroupUpgradeable"
       }
     ],
     "stateMutability": "view"
@@ -156,12 +151,6 @@
       },
       {
         "name": "redemptionHandler",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "liquidityProvider",
         "type": "address",
         "indexed": false,
         "internalType": "address"
