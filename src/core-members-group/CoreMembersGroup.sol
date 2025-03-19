@@ -47,6 +47,15 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     uint256 public constant MAX_CONDITIONS = 10;
 
     // State
+     
+    /// @notice MinthandlerConnected determines whether the mint handler is called upon (un)trusting
+    /// to automatically sync the trust connections with the group. The mint handler can
+    /// always be manually synced with `syncTrust` when disconnected from the group's `mirrorTrust`.
+    bool public mintHandlerConnected = true;
+    
+    /// @notice RedemptionHandlerConnected determines whether the redemption handler is called
+    /// upon `beforeMint
+    bool public redemptionHandlerConnected = true;
 
     /// @notice store the state variables, a pattern adopted to stay close to the
     /// upgradeable CMG version
@@ -55,7 +64,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     /// @notice store the parameters to verify this group was deployed by the claimed
     /// factory version. Simple factory verification only stores the factory address
     /// where user must verify group's address. (In contrast with later factory patterns
-    /// where the verification data should have salt and encoded constructor arguments
+    /// where the verification data can have salt and encoded constructor arguments
     /// for create2 deployment)
     SimpleFactoryVerification public simpleFactoryVerification;
 
