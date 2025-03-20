@@ -63,6 +63,13 @@ contract CoreMembersGroup is
     /// @param feeCollection New fee collection address
     event FeeCollectionUpdated(address indexed feeCollection);
 
+    // Errors
+
+    /// @notice Error for fixing v1 group deployer (0x55785b41703728f1F1F05E77e22B13c3FCc9ce65)
+    /// beforeRedemptionPolicy must be callable by treasury
+    /// (not really by hub, but no harm and for consistency)
+    error CMGroupErrorPatch01OnlyHubOrTreasury(address caller);
+
     // Modifiers
 
     /// @notice Only the Circles Hub can call this function
@@ -73,9 +80,15 @@ contract CoreMembersGroup is
         _;
     }
 
-    // modifier onlyHubOrTreasury() {
-
-    // }
+    /// @notice Only the Circles Hub and treasury (likely standard treasury), but patch loads treasury of this group, which would
+    /// be standard treasury unless another implementation was executed
+    /// before this patch
+    modifier onlyHubOrTreasury() {
+        if (msg.sender != address(hub) && msg.sender != address(_patch01Treasury().treasury)) {
+            revert CMGroupErrorPatch01OnlyHubOrTreasury(msg.sender);
+        }
+        _;
+    }
 
     /// @notice Only owner can call
     modifier onlyOwner() {
@@ -135,8 +148,13 @@ contract CoreMembersGroup is
         emit OwnerSet(_owner);
     }
 
+    /// @notice patch 01 introduces treasury address for groups
+    /// of v1 deployer (0x55785b41703728f1F1F05E77e22B13c3FCc9ce65)
+    /// because beforeRedeemPolicy originally got reverted on onlyHub,
+    /// while it is StandardTreasury that makes the call for groups
+    /// based on standard treasury
     function applyPatch01() external virtual reinitializer(2) {
-        _patch01StandardTreasury().standardTreasury = IHubExtended(address(hub)).treasuries(address(this));
+        _patch01Treasury().treasury = IHubExtended(address(hub)).treasuries(address(this));
     }
 
     // External functions
@@ -162,6 +180,13 @@ contract CoreMembersGroup is
             _removeMembershipCondition(_condition);
         }
         emit MembershipConditionEnabled(_condition, _enabled);
+    }
+
+    /// @notice Change the owner address. Only the current owner can change ownership.
+    /// @param _owner New owner address
+    function setOwner(address _owner) external onlyOwner {
+        _setOwner(_owner);
+        emit OwnerSet(_owner);
     }
 
     /// @notice Change the mintHandler contract address. MintHandler contract helps
@@ -285,7 +310,7 @@ contract CoreMembersGroup is
     )
         external
         override
-        onlyHub
+        onlyHubOrTreasury
         returns (
             uint256[] memory _ids,
             uint256[] memory _values,

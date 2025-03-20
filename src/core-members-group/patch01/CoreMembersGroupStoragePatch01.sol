@@ -10,7 +10,7 @@ contract CoreMembersGroupStorage {
     // added for patch01, only needs to be applied to groups
     // from deployer 0x55785b41703728f1F1F05E77e22B13c3FCc9ce65
     // keccak256(abi.encode(uint256(keccak256("circles.storage.patch01.StandardTreasury")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 internal constant STATE_STANDARD_TREASURY_SLOT = 0xc60535c764e7d17044cd1c5b500e587695b3c546f49a308c765a7ee2b9180e00;
+    bytes32 internal constant STATE_TREASURY_SLOT = 0xc60535c764e7d17044cd1c5b500e587695b3c546f49a308c765a7ee2b9180e00;
 
     // State
 
@@ -25,9 +25,9 @@ contract CoreMembersGroupStorage {
         address[] membershipConditions;
     }
 
-    /// @custom:storage-location erc7201:circles.storage.patch01.StandardTreasury
+    /// @custom:storage-location erc7201:circles.storage.patch01.standardTreasury
     struct Patch01State {
-        address standardTreasury;
+        address treasury;
     }
 
     function _state() internal pure returns (State storage state) {
@@ -37,8 +37,7 @@ contract CoreMembersGroupStorage {
         }
     }
 
-
-    /// @notice allocate a new namespace for storage to store standard treasury address for groups
+    /// @notice allocate a new namespace for storage to store treasury address for groups
     /// deployed with v1 deployer (0x55785b41703728f1F1F05E77e22B13c3FCc9ce65)
     /// to not conflict with @custom:storage-location erc7201:circles.storage.CoreMembersGroup
     /// @dev the storage layout of v1 deployer contracts with implementation
@@ -52,8 +51,8 @@ contract CoreMembersGroupStorage {
     ///     address feeCollection;
     ///     address[] membershipConditions;
     /// }
-    function _patch01StandardTreasury() internal pure returns  (Patch01State storage state) {
-        bytes32 stateSlot = STATE_STANDARD_TREASURY_SLOT;
+    function _patch01Treasury() internal pure returns (Patch01State storage state) {
+        bytes32 stateSlot = STATE_TREASURY_SLOT;
         assembly {
             state.slot := stateSlot
         }
