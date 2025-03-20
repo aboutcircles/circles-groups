@@ -10,6 +10,9 @@ mkdir -p flattened
 forge fmt --check src/core-members-group/CoreMembersGroup.sol
 forge flatten src/core-members-group/CoreMembersGroup.sol > flattened/CoreMembersGroup.flat.sol
 
+# Flatten the CoreMembersGroup Patch01 contract
+forge fmt --check src/core-members-group/patch01/CoreMembersGroupPatch01.sol
+forge flatten src/core-members-group/patch01/CoreMembersGroupPatch01.sol > flattened/CoreMembersGroupPatch01.flat.sol
 
 # Flatten the CMGroupDeployer contract
 forge fmt --check src/core-members-group/helpers/CMGroupDeployer.sol
