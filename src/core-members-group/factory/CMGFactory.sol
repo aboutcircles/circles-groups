@@ -31,12 +31,16 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
         address indexed cmgroup, address indexed owner, address indexed mintHandler, address redemptionHandler
     );
 
+    // Constructor
+
     constructor() {
         // create redemption operator
         redemptionOperator = new CMGRedemptionOperator(getCirclesCore());
         // create deployer for liquidity providers
         lpDeployer = new GroupLiquidityProviderDeployer(redemptionOperator, getCirclesCore());
     }
+
+    // External functions
 
     /// @notice Creates a new Core Members Group with associated handlers
     /// @dev Deploys three contracts: CMGMintHandler, CMGRedemptionHandler, and CoreMembersGroup

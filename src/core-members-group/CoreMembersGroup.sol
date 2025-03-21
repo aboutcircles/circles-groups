@@ -38,6 +38,12 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         address factory;
     }
 
+    // Handler Types
+    enum HandlerType {
+        MINT,
+        REDEMPTION
+    }
+
     // Constants
 
     /// @notice maximum minimal amount for deposit to avoid inefficient redemption bookkeeping.
@@ -54,7 +60,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     bool public mintHandlerConnected = true;
 
     /// @notice RedemptionHandlerConnected determines whether the redemption handler is called
-    /// upon `beforeMint
+    /// upon `beforeMintPolicy` and `beforeRedemptionPolicy`
     bool public redemptionHandlerConnected = true;
 
     /// @notice store the state variables, a pattern adopted to stay close to the
@@ -98,6 +104,12 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     /// @notice Event emitted when fee collection address is updated
     /// @param feeCollection New fee collection address
     event FeeCollectionUpdated(address indexed feeCollection);
+
+    /// @notice Event emitted when a handler is connected/disconnected
+    /// @param handlerType Type of handler (MINT or REDEMPTION)
+    /// @param handler Address of the handler
+    /// @param connected Whether the handler was connected or disconnected
+    event HandlerConnected(HandlerType indexed handlerType, address indexed handler, bool connected);
 
     // Modifiers
 
@@ -199,21 +211,19 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         emit OwnerSet(_owner);
     }
 
-    // /// @notice Change the mintHandler contract address. MintHandler contract helps
-    // ///         automate path minting/redemptions.
-    // /// @param _mintHandler Updated mintHandler contract address.
-    // /// @dev The mintHandler contract can be zero address. Only owner can change the mintHandler contract.
-    // function setMintHandler(address _mintHandler) external onlyOwner {
-    //     _setMintHandler(_mintHandler);
-    // }
+    /// @notice Enable or disable the mintHandler connection
+    /// @param _connected Whether to enable or disable the mintHandler
+    function connectMintHandler(bool _connected) external onlyOwner {
+        mintHandlerConnected = _connected;
+        emit HandlerConnected(HandlerType.MINT, state.mintHandler, _connected);
+    }
 
-    // /// @notice Change the redemptionHandler contract address. RedemptionHandler contract helps
-    // ///         track deposits and redemptions for the group.
-    // /// @param _redemptionHandler Updated redemptionHandler contract address.
-    // /// @dev The redemptionHandler contract can be zero address. Only owner can change the redemptionHandler contract.
-    // function setRedemptionHandler(address _redemptionHandler) external onlyOwner {
-    //     _setRedemptionHandler(_redemptionHandler);
-    // }
+    /// @notice Enable or disable the redemptionHandler connection
+    /// @param _connected Whether to enable or disable the redemptionHandler
+    function connectRedemptionHandler(bool _connected) external onlyOwner {
+        redemptionHandlerConnected = _connected;
+        emit HandlerConnected(HandlerType.REDEMPTION, state.redemptionHandler, _connected);
+    }
 
     /// @notice Enable or disable a membership condition contract
     /// @param _condition Address of membership condition contract
@@ -317,7 +327,9 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
             }
         }
         // register deposit with redemption handler
-        _registerDeposit(_collateral, _amounts);
+        if (redemptionHandlerConnected) {
+            _registerDeposit(_collateral, _amounts);
+        }
         return true;
     }
 
@@ -353,7 +365,9 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
         _burnValues = new uint256[](0);
 
         // register redemption with redemption handler
-        _registerRedemption(redemption.redemptionIds, redemption.redemptionValues);
+        if (redemptionHandlerConnected) {
+            _registerRedemption(redemption.redemptionIds, redemption.redemptionValues);
+        }
 
         // standard treasury checks whether the total sums add up to the amount of group Circles redeemed
         // so we can simply decode and pass the request back to treasury.
@@ -494,7 +508,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     }
 
     /// @notice Internal trust function that trusts a single core member
-    ///         through the hub. If mintHandler contract is set,
+    ///         through the hub. If mintHandler contract is set and connected,
     ///         also mirrors the trust there.
     /// @param _trustReceiver Address of core member to trust
     /// @param _expiry Timestamp when trust expires. If >= current time,
@@ -502,7 +516,7 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     function _trust(address _trustReceiver, uint96 _expiry) internal {
         state.hub.trust(_trustReceiver, _expiry);
         address mintHandler_ = state.mintHandler;
-        if (mintHandler_ != address(0)) {
+        if (mintHandler_ != address(0) && mintHandlerConnected) {
             ICMGMintHandler(mintHandler_).mirrorTrust(_trustReceiver, _expiry);
         }
     }
