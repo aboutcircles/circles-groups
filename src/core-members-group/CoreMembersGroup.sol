@@ -47,12 +47,12 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     uint256 public constant MAX_CONDITIONS = 10;
 
     // State
-     
+
     /// @notice MinthandlerConnected determines whether the mint handler is called upon (un)trusting
     /// to automatically sync the trust connections with the group. The mint handler can
     /// always be manually synced with `syncTrust` when disconnected from the group's `mirrorTrust`.
     bool public mintHandlerConnected = true;
-    
+
     /// @notice RedemptionHandlerConnected determines whether the redemption handler is called
     /// upon `beforeMint
     bool public redemptionHandlerConnected = true;
