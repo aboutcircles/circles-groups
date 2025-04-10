@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import {IHub} from "src/circles/IHub.sol";
+import {IHub} from "src/base-group/interfaces/IHub.sol";
 
 /**
  * @title BaseTreasury
