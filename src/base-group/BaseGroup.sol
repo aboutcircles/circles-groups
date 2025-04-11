@@ -8,6 +8,10 @@ import {ILiftERC20} from "src/base-group/interfaces/ILiftERC20.sol";
 import {INameRegistryExtended} from "src/base-group/interfaces/INameRegistry.sol";
 import {IMembershipCondition} from "src/membership-conditions/IMembershipCondition.sol";
 
+/// @title BaseGroup
+/// @notice A base contract for Circles Hub v2 group creation and membership management.
+/// @dev This contract allows the deployment of a treasury, setup of minting policies,
+///      and management of membership conditions for group-based trust relationships.
 contract BaseGroup {
     // =================================================
     //                       ERRORS
@@ -19,12 +23,18 @@ contract BaseGroup {
     /// @notice Thrown when a function is called by an account other than the owner.
     error OnlyOwner();
 
+    /// @notice Thrown when a function is called by an account other than the owner or service.
     error OnlyOwnerOrService();
 
+    /// @notice Thrown when calling parameters are invalid (e.g., zero addresses).
     error InvalidCallingParameters();
 
+    /// @notice Thrown when the maximum number of membership conditions is reached.
     error MaxConditionsActive();
 
+    /// @notice Thrown when a membership condition check fails for a given member and condition.
+    /// @param member The address of the member that failed the check.
+    /// @param failedCondition The address of the failing membership condition contract.
     error MembershipCheckFailed(address member, address failedCondition);
 
     // =================================================
@@ -33,14 +43,23 @@ contract BaseGroup {
 
     /// @notice Circles Hub v2.
     IHub public constant HUB = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
+
     /// @notice Circles v2 LiftERC20 contract.
     ILiftERC20 public constant LIFT_ERC20 = ILiftERC20(address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5));
+
     /// @notice Circles v2 Name Registry contract.
     INameRegistryExtended public constant NAME_REGISTRY =
         INameRegistryExtended(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
 
+    /// @notice Address of the base mint policy that applies to newly created groups.
     address public constant BASE_MINT_POLICY = address(0xCDFc5135AEC0aFbf102C108e7f5C8A88C6112842);
+
+    /// @notice Address of the contract's treasury, deployed during initialization.
+    /// @dev Immutable once set in the constructor.
     address public immutable BASE_TREASURY;
+
+    /// @notice The contract that mirrors trust relationships and serves group mints via transitive transfers.
+    /// @dev Deployed during group creation.
     BaseMintHandler public immutable BASE_MINT_HADLER;
 
     /// @notice The maximum number of membership conditions allowed.
@@ -50,30 +69,39 @@ contract BaseGroup {
     //                    STATE
     // =================================================
 
+    /// @notice The owner address of this group.
+    /// @dev The owner has privileged access to certain administrative functions.
     address public owner;
+
+    /// @notice The service address with shared privileges for membership management.
+    /// @dev Either `owner` or `service` can call certain membership functions.
     address public service;
+
+    /// @notice The fee collection address where any group fees are sent.
     address public feeCollection;
+
+    /// @notice An array of addresses defining membership conditions.
     address[] public membershipConditions;
 
     // =================================================
     //                    EVENTS
     // =================================================
 
-    /// @notice Event emitted when owner is set during setup
+    /// @notice Event emitted when the owner is updated.
     /// @param owner New owner address.
     event OwnerUpdated(address indexed owner);
 
-    /// @notice Track service address changes
+    /// @notice Event emitted when the service address is updated.
     /// @param newService New service address.
     event ServiceUpdated(address indexed newService);
 
-    /// @notice Event emitted when fee collection address is updated
-    /// @param feeCollection New fee collection address
+    /// @notice Event emitted when the fee collection address is updated.
+    /// @param feeCollection New fee collection address.
     event FeeCollectionUpdated(address indexed feeCollection);
 
-    /// @notice Event emitted when membership condition is enabled/disabled
-    /// @param condition Address of the membership condition contract
-    /// @param enabled Whether the condition was enabled or disabled
+    /// @notice Event emitted when a membership condition is enabled or disabled.
+    /// @param condition Address of the membership condition contract.
+    /// @param enabled Whether the condition was enabled (true) or disabled (false).
     event MembershipConditionEnabled(address indexed condition, bool enabled);
 
     // =================================================
@@ -89,7 +117,8 @@ contract BaseGroup {
         _;
     }
 
-    /// @notice Only owner or service can call
+    /// @notice Ensures the function is only called by the Owner or Service.
+    /// @dev Reverts if `msg.sender` is neither.
     modifier onlyOwnerOrService() {
         if (msg.sender != owner && msg.sender != service) {
             revert OnlyOwnerOrService();
@@ -97,8 +126,17 @@ contract BaseGroup {
         _;
     }
 
-    // Constructor
+    // =================================================
+    //                  CONSTRUCTOR
+    // =================================================
 
+    /// @notice Deploys a new BaseGroup along with treasury and mint handler, and initializes membership conditions.
+    /// @param _owner The address to assign as the owner of the group.
+    /// @param _service The address for the service role that shares membership admin privileges with the owner.
+    /// @param _initialConditions An array of membership condition contract addresses to enable immediately.
+    /// @param _name The name for the group (also used for treasury deployment and registration).
+    /// @param _symbol The symbol for the group.
+    /// @param _metadataDigest The IPFS or other off-chain data digest used for metadata references.
     constructor(
         address _owner,
         address _service,
@@ -112,10 +150,11 @@ contract BaseGroup {
         }
         _setOwner(_owner);
         _setService(_service);
-        // set fee collection to be by default the owner Question: why?
+
+        // By default, fee collection is set to the owner address. ???
         feeCollection = _owner;
 
-        // set initial conditions
+        // Set initial membership conditions.
         for (uint256 i; i < _initialConditions.length;) {
             _addMembershipCondition(_initialConditions[i]);
             unchecked {
@@ -123,25 +162,27 @@ contract BaseGroup {
             }
         }
 
-        // deploy treasury
+        // Deploy the treasury for this group.
         BASE_TREASURY = address(new BaseTreasury(address(HUB), address(this), _name));
 
-        // register group in hub
+        // Register the group in the Hub with the base mint policy and the newly deployed treasury.
         HUB.registerCustomGroup(BASE_MINT_POLICY, BASE_TREASURY, _name, _symbol, _metadataDigest);
-        // deploy ERC20s
+
+        // Deploy ERC20s for the group via the LIFT_ERC20 contract.
         address demurrage = LIFT_ERC20.ensureERC20(address(this), uint8(0));
         address inflationary = LIFT_ERC20.ensureERC20(address(this), uint8(1));
 
-        // deploy mint handler
+        // Deploy the base mint handler, which mirrors trust.
         BASE_MINT_HADLER = new BaseMintHandler(address(HUB), address(this), demurrage, inflationary, _name);
     }
 
-    // External functions
+    // =================================================
+    //               EXTERNAL FUNCTIONS
+    // =================================================
 
-    /// @notice Change the service address. Service account is able to trust/untrust group members
-    ///         alongside the owner.
-    /// @param _service Updated service address to give trustBatch privilege to.
-    /// @dev The service account must be a non-zero address. Only owner can change the service address.
+    /// @notice Change the service address, which shares membership admin privileges with the owner.
+    /// @param _service The new service address to set.
+    /// @dev Only callable by the owner. Reverts if `_service` is the zero address.
     function setService(address _service) external onlyOwner {
         if (_service == address(0)) {
             revert InvalidCallingParameters();
@@ -150,14 +191,15 @@ contract BaseGroup {
     }
 
     /// @notice Change the owner address. Only the current owner can change ownership.
-    /// @param _owner New owner address
+    /// @param _owner The new owner address to set.
     function setOwner(address _owner) external onlyOwner {
         _setOwner(_owner);
     }
 
-    /// @notice Enable or disable a membership condition contract
-    /// @param _condition Address of membership condition contract
-    /// @param _enabled Whether to enable (true) or disable (false) the condition
+    /// @notice Enable or disable a membership condition contract.
+    /// @param _condition The address of the membership condition contract.
+    /// @param _enabled Whether to enable (true) or disable (false) the condition.
+    /// @dev Only the owner can call this function.
     function setMembershipCondition(address _condition, bool _enabled) external onlyOwner {
         if (_enabled) {
             _addMembershipCondition(_condition);
@@ -167,9 +209,9 @@ contract BaseGroup {
         emit MembershipConditionEnabled(_condition, _enabled);
     }
 
-    /// @notice Change the fee collection address
-    /// @param _feeCollection New fee collection address
-    /// @dev The fee collection address must not be zero. Only owner can change.
+    /// @notice Change the fee collection address for this group.
+    /// @param _feeCollection The new fee collection address.
+    /// @dev Only the owner can call this. Reverts if `_feeCollection` is the zero address.
     function setFeeCollection(address _feeCollection) external onlyOwner {
         if (_feeCollection == address(0)) {
             revert InvalidCallingParameters();
@@ -178,23 +220,20 @@ contract BaseGroup {
         emit FeeCollectionUpdated(_feeCollection);
     }
 
-    /// @notice trust allows the owner to explicitly set trust relations
-    ///         for the group.
+    /// @notice Explicitly set trust for a single address in this group (with no membership checks).
+    /// @param _trustReceiver The address to trust.
+    /// @param _expiry The timestamp when trust expires. If >= current timestamp, sets trust; if < current timestamp, untrusts.
+    /// @dev Only the owner can call this function.
     function trust(address _trustReceiver, uint96 _expiry) external onlyOwner {
         _trust(_trustReceiver, _expiry);
     }
 
-    /// @notice Trust or untrust a batch of group members with membership condition checks.
-    /// @param _members Array of member addresses to trust/untrust
-    /// @param _expiry Trust expiry timestamp. If >= current timestamp, trust member.
-    ///        If < current timestamp, untrust only currently trusted members (to avoid
-    ///        accidentally trusting new members for a single block).
+    /// @notice Trust or untrust a batch of members with membership condition checks (if trusting).
+    /// @param _members Array of member addresses to trust or untrust.
+    /// @param _expiry If >= current timestamp, new trust is established. If < current timestamp, any currently trusted members will be untrusted.
+    /// @dev Only the owner or service can call this function. Reverts if membership conditions fail for any address.
     function trustBatchWithConditions(address[] memory _members, uint96 _expiry) public virtual onlyOwnerOrService {
         address member;
-        // current block timestamp is an edge-case,
-        // when expiry is now or a future time, this implies establishing trust
-        // so we perform an explicit check on the launchpad whether these addresses
-        // have an active LBP
         if (_expiry >= block.timestamp) {
             for (uint256 i; i < _members.length;) {
                 member = _members[i];
@@ -208,13 +247,8 @@ contract BaseGroup {
                 }
             }
         } else {
-            // hub will update older expiry times to current block.timestamp, so preventatively
-            // already update to current timestamp
+            // If expiry is in the past, we only untrust members that are currently trusted.
             _expiry = uint96(block.timestamp);
-            // if expiry is explicitly set in the past, then that means to untrust the members
-            // however, hub will set trust to current block.timestamp for expiry, so to avoid that
-            // we trust a previously never-trusted members for one block,
-            // first check whether the member is currently trusted;
             for (uint256 i; i < _members.length;) {
                 member = _members[i];
                 if (HUB.isTrusted(address(this), member)) {
@@ -227,48 +261,63 @@ contract BaseGroup {
         }
     }
 
-    /// @notice Sets advanced usage flags for this group in the Hub
-    /// @param _flag Advanced usage flag value to set
+    /// @notice Sets an advanced usage flag in the Hub for this group.
+    /// @param _flag The advanced usage flag to set.
+    /// @dev Only callable by the owner. This is for specialized use-cases recognized by the Hub.
     function setAdvancedUsageFlag(bytes32 _flag) external onlyOwner {
         HUB.setAdvancedUsageFlag(_flag);
     }
 
-    /// @notice Updates the metadata digest for this group in the name registry
-    /// @param _metadataDigest New metadata digest value
+    /// @notice Updates the metadata digest for this group in the Name Registry.
+    /// @param _metadataDigest The new off-chain metadata digest (e.g., IPFS hash).
+    /// @dev Only callable by the owner.
     function updateMetadataDigest(bytes32 _metadataDigest) external onlyOwner {
         NAME_REGISTRY.updateMetadataDigest(_metadataDigest);
     }
 
-    /// @notice Registers a short name for this group in the name registry
+    /// @notice Registers a short name for this group in the Name Registry without a nonce.
+    /// @dev Only callable by the owner. May revert if a short name is already set or the registry rejects the request.
     function registerShortName() external onlyOwner {
         NAME_REGISTRY.registerShortName();
     }
 
-    /// @notice Registers a short name for this group with a specified nonce
-    /// @param _nonce Nonce value to use for short name registration
+    /// @notice Registers a short name for this group in the Name Registry with a specified nonce.
+    /// @param _nonce A user-provided nonce to handle potential name collisions or concurrency issues.
+    /// @dev Only callable by the owner.
     function registerShortNameWithNonce(uint256 _nonce) external onlyOwner {
         NAME_REGISTRY.registerShortNameWithNonce(_nonce);
     }
 
-    // View functions
+    // =================================================
+    //                 VIEW FUNCTIONS
+    // =================================================
 
-    /// @notice Returns the array of membership condition addresses
+    /// @notice Returns the array of membership condition addresses.
+    /// @return An array of addresses corresponding to active membership conditions.
     function getMembershipConditions() external view returns (address[] memory) {
         return membershipConditions;
     }
 
-    // Internal functions
+    // =================================================
+    //               INTERNAL FUNCTIONS
+    // =================================================
 
+    /// @notice Internal function to set the owner and emit an event.
+    /// @param _owner The new owner address.
     function _setOwner(address _owner) internal {
         owner = _owner;
         emit OwnerUpdated(_owner);
     }
 
+    /// @notice Internal function to set the service address and emit an event.
+    /// @param _service The new service address.
     function _setService(address _service) internal {
         service = _service;
         emit ServiceUpdated(_service);
     }
 
+    /// @notice Internal function to add a membership condition, if not already present.
+    /// @param _condition The address of the membership condition contract to add.
     function _addMembershipCondition(address _condition) internal {
         if (_condition == address(0)) {
             return;
@@ -279,7 +328,7 @@ contract BaseGroup {
         }
         for (uint256 i; i < length;) {
             if (membershipConditions[i] == _condition) {
-                // avoid double entry of conditions, silently return
+                // Avoid double entry of conditions.
                 return;
             }
             unchecked {
@@ -289,6 +338,8 @@ contract BaseGroup {
         membershipConditions.push(_condition);
     }
 
+    /// @notice Internal function to remove a membership condition, if present.
+    /// @param _condition The address of the membership condition contract to remove.
     function _removeMembershipCondition(address _condition) internal {
         if (_condition == address(0)) {
             return;
@@ -297,10 +348,9 @@ contract BaseGroup {
         for (uint256 i; i < length;) {
             if (membershipConditions[i] == _condition) {
                 if (i != length - 1) {
-                    // Swap the condition with the last element, if not already last
+                    // Swap the condition with the last element, if not already last.
                     membershipConditions[i] = membershipConditions[length - 1];
                 }
-                // Remove the last element
                 membershipConditions.pop();
                 return;
             }
@@ -310,16 +360,18 @@ contract BaseGroup {
         }
     }
 
-    /// @notice Internal trust function that trusts a single member
-    ///         through the hub and mirrors the mintHandler trust.
-    /// @param _trustReceiver Address of member to trust
-    /// @param _expiry Timestamp when trust expires. If >= current time,
-    ///         establishes trust. If < current time, serves to untrust.
+    /// @notice Internal function that establishes or revokes trust for a single address through the Hub and mirrors that trust in the mint handler.
+    /// @param _trustReceiver The address of the member to trust or untrust.
+    /// @param _expiry The timestamp when trust expires (if >= current time). If < current time, trust is revoked.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
         HUB.trust(_trustReceiver, _expiry);
         BASE_MINT_HADLER.mirrorTrust(_trustReceiver, _expiry);
     }
 
+    /// @notice Checks whether an address passes all active membership conditions.
+    /// @param _avatar The address to be checked.
+    /// @return (bool, address) A tuple where the first element indicates overall pass/fail,
+    ///         and the second element is the address of the failing condition, or address(0) if all pass.
     function _checkMembershipConditions(address _avatar) internal returns (bool, address) {
         uint256 length = membershipConditions.length;
         for (uint256 i; i < length;) {
@@ -330,8 +382,6 @@ contract BaseGroup {
                 ++i;
             }
         }
-        // passed all membership conditions,
-        // true by default if no conditions set
         return (true, address(0));
     }
 }
