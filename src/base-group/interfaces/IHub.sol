@@ -8,6 +8,13 @@ interface IHub is IHubV2 {
     /// @notice registers group with Circles hub
     function registerGroup(address policy, string calldata name, string calldata symbol, bytes32 metadataDigest)
         external;
+    function registerCustomGroup(
+        address _mint,
+        address _treasury,
+        string calldata _name,
+        string calldata _symbol,
+        bytes32 _metadataDigest
+    ) external;
     /// @notice register organization with Circles hub
     function registerOrganization(string calldata name, bytes32 metadataDigest) external;
     /// @notice trust sets the trust of the caller for the receiver with an expiry time.
