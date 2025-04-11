@@ -55,6 +55,25 @@ contract BaseMintHandler is ERC1155Holder {
     /// @dev Token type identifier for demurrage group Circles: keccak256("TYPE_DEMURRAGE")
     bytes32 public constant TYPE_DEMURRAGE = 0xf3f5858942140fd2894eeb8b74cd0ed72d24fc6675d352a2884b1be2f32256fe;
 
+    /// @notice The Hub contract that manages trust relationships and other Circles operations.
+    IHub public immutable HUB;
+
+    /// @notice The address of the group for which this mint handler is created.
+    address public immutable GROUP;
+
+    /// @dev The numeric ID of this group, derived from the group's address.
+    uint256 internal immutable GROUP_ID;
+
+    /// @notice The address of the specialized ERC20 demurrage token of the group.
+    address internal immutable DEMURRAGE;
+
+    /// @notice The address of the specialized ERC20 inflationary token of the group.
+    address internal immutable INFLATIONARY;
+
+    // =================================================
+    //                    EVENTS
+    // =================================================
+
     /// @notice Emitted when a new conversion is initiated in this handler.
     /// @param beneficiary The address for which the minted tokens will be returned.
     /// @param amount The amount being converted (from non-gCRC to gCRC).
@@ -69,15 +88,6 @@ contract BaseMintHandler is ERC1155Holder {
     /// @param amount The amount of minted group Circles or the resulting ERC20 balance.
     /// @param tokenType The token type identifier. 0 indicates normal gCRC, 1 indicates demurrage, 2 indicates inflationary.
     event ReturnedMintedGroupCircles(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
-
-    /// @notice The Hub contract that manages trust relationships and other Circles operations.
-    IHub public immutable HUB;
-
-    /// @notice The address of the group for which this mint handler is created.
-    address public immutable GROUP;
-
-    /// @dev The numeric ID of this group, derived from the group's address.
-    uint256 internal immutable GROUP_ID;
 
     // =================================================
     //                    MODIFIERS
@@ -105,16 +115,21 @@ contract BaseMintHandler is ERC1155Holder {
     //                    CONSTRUCTOR
     // =================================================
 
-    /**
-     * @notice Deploys the BaseMintHandler for a given group and registers it as an organization in the Hub.
-     * @param _hub The address of the Circles Hub contract.
-     * @param _group The address of the Group contract.
-     * @param _groupName The name of the group used for identification in the Hub registry.
-     */
-    constructor(address _hub, address _group, string memory _groupName) {
+    /// @notice Deploys the BaseMintHandler for a given group and registers it as an organization in the Hub.
+    /// @dev Initializes the Hub, Group, and specialized addresses for demurrage and inflationary ERC20 of the group.
+    ///      It also registers the contract in the Hub under the name of the Group with a "-mint-handler" suffix.
+    /// @param _hub The address of the Circles Hub contract.
+    /// @param _group The address of the Group contract.
+    /// @param _demurrage The address of the specialized ERC20 demurrage token of the group.
+    /// @param _inflationary The address of the specialized ERC20 inflationary token of the group.
+    /// @param _groupName The name of the group used for identification in the Hub registry.
+    constructor(address _hub, address _group, address _demurrage, address _inflationary, string memory _groupName) {
         HUB = IHub(_hub);
         GROUP = _group;
         GROUP_ID = uint256(uint160(_group));
+
+        DEMURRAGE = _demurrage;
+        INFLATIONARY = _inflationary;
 
         string memory mintHandlerName = string.concat(_groupName, "-mint-handler");
         HUB.registerOrganization(mintHandlerName, bytes32(0));
@@ -167,10 +182,12 @@ contract BaseMintHandler is ERC1155Holder {
                     HUB.safeTransferFrom(address(this), beneficiary, GROUP_ID, _value, _data);
                 } else {
                     // demurrage or inflationary
-                    // wrap ERC1155 into ERC20 TODO: take balanceBefore
-                    address token = HUB.wrap(GROUP, _value, uint8(tokenType - 1));
-                    ongoingConversion = IERC20(token).balanceOf(address(this));
-                    IERC20(token).transfer(beneficiary, _value);
+                    address token = tokenType == 1 ? DEMURRAGE : INFLATIONARY;
+                    uint256 balanceBefore = IERC20(token).balanceOf(address(this));
+                    // wrap ERC1155 into ERC20
+                    HUB.wrap(GROUP, _value, uint8(tokenType - 1));
+                    ongoingConversion = IERC20(token).balanceOf(address(this)) - balanceBefore;
+                    IERC20(token).transfer(beneficiary, ongoingConversion);
                 }
                 emit ReturnedMintedGroupCircles(beneficiary, ongoingConversion, tokenType);
                 return this.onERC1155Received.selector;
