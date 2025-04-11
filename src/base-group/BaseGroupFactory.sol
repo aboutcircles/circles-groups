@@ -4,6 +4,8 @@ pragma solidity >=0.8.28;
 import "src/base-group/BaseGroup.sol";
 
 contract BaseGroupFactory {
+    error MaxNameLength19();
+
     // Events
 
     /// @notice Emitted when a new BaseGroup is created
@@ -38,6 +40,8 @@ contract BaseGroupFactory {
         string memory _symbol,
         bytes32 _metadataDigest
     ) external returns (address group, address mintHandler, address treasury) {
+        // early revert for long name
+        if (bytes(_name).length > 19) revert MaxNameLength19();
         // create Base Group itself
         BaseGroup baseGroup = new BaseGroup(_owner, _service, _initialConditions, _name, _symbol, _metadataDigest);
 
