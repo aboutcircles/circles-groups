@@ -3,35 +3,49 @@ pragma solidity >=0.8.28;
 
 import "src/base-group/BaseGroup.sol";
 
+/// @title BaseGroupFactory
+/// @notice Factory contract to create instances of BaseGroup. Enforces a maximum name length of 19.
 contract BaseGroupFactory {
+    // =================================================
+    //                       ERRORS
+    // =================================================
+
+    /// @notice Thrown when the provided token name length exceeds 19 characters.
     error MaxNameLength19();
 
-    // Events
+    // =================================================
+    //                    EVENTS
+    // =================================================
 
-    /// @notice Emitted when a new BaseGroup is created
-    /// @param group Base group address
-    /// @param owner Owner of the new group
-    /// @param mintHandler Address of the mintHandler contract
-    /// @param treasury Address of the treasury contract
+    /// @notice Emitted when a new BaseGroup is created.
+    /// @param group BaseGroup address.
+    /// @param owner Owner of the new BaseGroup.
+    /// @param mintHandler Address of the group mint handler contract.
+    /// @param treasury Address of the group treasury contract.
     event BaseGroupCreated(address indexed group, address indexed owner, address indexed mintHandler, address treasury);
 
-    // State
+    // =================================================
+    //                    STATE
+    // =================================================
 
-    /// @notice simple registration of deployment by this factory
+    /// @notice Simple registration of deployment by this factory. Returns true if the address was deployed by this factory.
     mapping(address => bool) public deployedByFactory;
 
-    // External functions
+    // =================================================
+    //               EXTERNAL FUNCTIONS
+    // =================================================
 
-    /// @notice Creates a new Base Group
-    /// @param _owner The owner address for the new group
-    /// @param _service The service address for the new group
-    /// @param _initialConditions Array of initial condition addresses
-    /// @param _name Name of the token
-    /// @param _symbol Symbol of the token
-    /// @param _metadataDigest Hash of additional metadata
-    /// @return group Address of the deployed Base Group contract
-    /// @return mintHandler Address of the deployed mint handler contract
-    /// @return treasury Address of the deployed treasury contract
+    /// @notice Creates a new BaseGroup instance with the given parameters.
+    /// @dev Reverts if the provided `_name` is longer than 19 bytes.
+    /// @param _owner The address that will own the newly created BaseGroup.
+    /// @param _service The address of the service for the new BaseGroup.
+    /// @param _initialConditions An array of initial condition addresses.
+    /// @param _name The group name (must be 19 characters or fewer).
+    /// @param _symbol The group symbol.
+    /// @param _metadataDigest A hash containing additional metadata for the BaseGroup.
+    /// @return group The address of the deployed BaseGroup.
+    /// @return mintHandler The address of the BaseGroup's mint handler contract.
+    /// @return treasury The address of the BaseGroup's treasury contract.
     function createBaseGroup(
         address _owner,
         address _service,
