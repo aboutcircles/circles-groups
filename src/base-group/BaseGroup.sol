@@ -60,7 +60,7 @@ contract BaseGroup {
 
     /// @notice The contract that mirrors trust relationships and serves group mints via transitive transfers.
     /// @dev Deployed during group creation.
-    BaseMintHandler public immutable BASE_MINT_HADLER;
+    BaseMintHandler public immutable BASE_MINT_HANDLER;
 
     /// @notice The maximum number of membership conditions allowed.
     uint256 public constant MAX_CONDITIONS = 10;
@@ -173,7 +173,7 @@ contract BaseGroup {
         address inflationary = LIFT_ERC20.ensureERC20(address(this), uint8(1));
 
         // Deploy the base mint handler, which mirrors trust.
-        BASE_MINT_HADLER = new BaseMintHandler(address(HUB), address(this), demurrage, inflationary, _name);
+        BASE_MINT_HANDLER = new BaseMintHandler(address(HUB), address(this), demurrage, inflationary, _name);
     }
 
     // =================================================
@@ -365,7 +365,7 @@ contract BaseGroup {
     /// @param _expiry The timestamp when trust expires (if >= current time). If < current time, trust is revoked.
     function _trust(address _trustReceiver, uint96 _expiry) internal {
         HUB.trust(_trustReceiver, _expiry);
-        BASE_MINT_HADLER.mirrorTrust(_trustReceiver, _expiry);
+        BASE_MINT_HANDLER.mirrorTrust(_trustReceiver, _expiry);
     }
 
     /// @notice Checks whether an address passes all active membership conditions.

@@ -59,7 +59,7 @@ contract BaseGroupFactory {
         // create Base Group itself
         BaseGroup baseGroup = new BaseGroup(_owner, _service, _initialConditions, _name, _symbol, _metadataDigest);
 
-        mintHandler = address(baseGroup.BASE_MINT_HADLER());
+        mintHandler = address(baseGroup.BASE_MINT_HANDLER());
         treasury = baseGroup.BASE_TREASURY();
         group = address(baseGroup);
 
