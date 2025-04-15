@@ -35,6 +35,25 @@ contract BaseMintHandler is ERC1155Holder {
     error ConversionOngoing();
 
     // =================================================
+    //                    EVENTS
+    // =================================================
+
+    /// @notice Emitted when a new conversion is initiated in this handler.
+    /// @param beneficiary The address for which the minted tokens will be returned.
+    /// @param amount The amount being converted (from non-gCRC to gCRC).
+    /// @param tokenType The token type identifier. 0 indicates ERC1155 gCRC, 1 indicates ERC20 demurrage, 2 indicates ERC20 inflationary.
+    event ConversionInitiated(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
+
+    /// @notice Emitted when an ongoing conversion in transient storage is completed and cleared.
+    event ConversionCleared();
+
+    /// @notice Emitted when minted group Circles are returned (either as gCRC or wrapped as ERC20).
+    /// @param beneficiary The address receiving the minted tokens.
+    /// @param amount The amount of minted group Circles or the resulting ERC20 balance.
+    /// @param tokenType The token type identifier. 0 indicates ERC1155 gCRC, 1 indicates ERC20 demurrage, 2 indicates ERC20 inflationary.
+    event ReturnedMintedGroupCircles(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
+
+    // =================================================
     //                     CONSTANTS
     // =================================================
 
@@ -70,25 +89,6 @@ contract BaseMintHandler is ERC1155Holder {
 
     /// @notice The address of the specialized ERC20 inflationary token of the group.
     address public immutable INFLATIONARY;
-
-    // =================================================
-    //                    EVENTS
-    // =================================================
-
-    /// @notice Emitted when a new conversion is initiated in this handler.
-    /// @param beneficiary The address for which the minted tokens will be returned.
-    /// @param amount The amount being converted (from non-gCRC to gCRC).
-    /// @param tokenType The token type identifier. 0 indicates ERC1155 gCRC, 1 indicates ERC20 demurrage, 2 indicates ERC20 inflationary.
-    event ConversionInitiated(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
-
-    /// @notice Emitted when an ongoing conversion in transient storage is completed and cleared.
-    event ConversionCleared();
-
-    /// @notice Emitted when minted group Circles are returned (either as gCRC or wrapped as ERC20).
-    /// @param beneficiary The address receiving the minted tokens.
-    /// @param amount The amount of minted group Circles or the resulting ERC20 balance.
-    /// @param tokenType The token type identifier. 0 indicates ERC1155 gCRC, 1 indicates ERC20 demurrage, 2 indicates ERC20 inflationary.
-    event ReturnedMintedGroupCircles(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
 
     // =================================================
     //                    MODIFIERS
