@@ -1,10 +1,10 @@
 # Circles Groups: Templates for building groups on Circles
 
-## Type 1: Core Members Groups
+## Type 1: Base Groups
 
-This repository implements a new type of group for the Circles v2 protocol - Core Members Groups (CMG). A CMG allows a group of trusted core members to pool their personal Circles (pCRC) tokens into a shared group currency (gCRC). The group maintains a vault where all deposited pCRC collateral is held and can be redeemed by burning gCRC tokens. This creates a more stable and liquid local currency backed by a diversified pool of personal Circles.
+This repository implements a new type of group for the Circles v2 protocol - Base Groups. A Base Group allows a group of trusted members to pool their personal Circles (pCRC) tokens into a shared group currency (gCRC). The group maintains a treasury where all deposited pCRC collateral is held and can be redeemed via transitive transfer for gCRC tokens. This creates a more stable and liquid local currency backed by a diversified pool of personal Circles.
 
-The CMG contracts extend the base Circles v2 groups functionality with optional mint and redemption handlers. With membership conditions in CMG on-chain conditions can be enforced for trusting new core members (owner can bypass), and integrated liquidity provision helper contract to allow gCRC to flow over the Circles trust graph without people directly trusting the groups. Groups are deployed through a factory contract that ensures standardized setup and initialization. (There are deprecated helper contracts referencing the initial upgradeable versions, but these do not form part of the final code base).
+The Base Group contracts extend the Circles v2 groups functionality with optional mint handler. With membership conditions in Base Group on-chain conditions can be enforced for trusting new members (owner can bypass), and BaseTreasury presented as a vertix on a graph allows gCRC to flow over the Circles trust graph without people directly trusting the groups. Groups are deployed through a factory contract that ensures standardized setup and initialization.
 
 ## Repository Structure
 
@@ -12,23 +12,19 @@ The CMG contracts extend the base Circles v2 groups functionality with optional 
 
 The main implementation consists of several key components:
 
-- **Core Members Group (`/core-members-group`)**: The main group contract that coordinates membership, minting policy and redemptions. Includes:
-  - `CoreMembersGroup.sol`: Base contract implementing group functionality
-  - `CMGMintHandler.sol`: Handles minting of gCRC against pCRC collateral
-  - `CMGRedemptionHandler.sol`: Manages redemption of gCRC back to collateral
-  - `CMGFactory.sol`: Factory contract for standardized deployment of new CMGs
+- **Base Group (`/base-group`)**: The main group contract that consists treasury, minting policy and handler, coordinates membership. Includes:
+  - `BaseGroup.sol`: Base group contract implementing group functionality
+  - `BaseTreasury.sol`: Holds pCRC collateral and allows its redemption via transitive transfers
+  - `BaseMintPolicy.sol`: Base mint policy always allows to mint and burn gCRC
+  - `BaseMintHandler.sol`: Handles minting of gCRC against pCRC collateral via transitive transfers
+  - `BaseGroupFactory.sol`: Factory contract for standardized deployment of new Base Groups
 
-- **Redemption Operator (`/redemption-operator`)**: Helper contract that executes redemptions by finding and claiming available collateral
-
-- **Liquidity Provider (`/liquidity-provider`)**: Contracts that help provide liquidity to CMGs over the Circles trust graph, as at this stage (in the wallets) we discourage people to trust groups directly.
-
-- **Membership Conditions (`/membership-conditions`)**: Pluggable contracts that enforce requirements for core membership
+- **Membership Conditions (`/membership-conditions`)**: Pluggable contracts that enforce requirements for group membership
 
 ### Support Code
 
-- **Tests (`/test`)**: Comprehensive test suite with mocked Circles v2 dependencies
-- **Scripts (`/scripts`)**: Deployment and interaction scripts
-- **Interaction CLI (`/cmg-interact`)**: Python CLI for interacting with deployed CMGs
+- **Tests (`/test/base-group`)**: Comprehensive test suite
+- **Scripts (`/scripts/base-group`)**: Deployment scripts
 
 ## Setup & Development
 
@@ -44,5 +40,3 @@ forge test
 # Build contracts
 forge build
 ```
-
-For deploying and interacting with contracts, see deployment scripts in `/scripts` and the interaction CLI in `/cmg-interact`.
