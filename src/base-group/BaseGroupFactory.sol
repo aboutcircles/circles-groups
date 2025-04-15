@@ -65,7 +65,7 @@ contract BaseGroupFactory {
         group = address(baseGroup);
         mintHandler = address(baseGroup.BASE_MINT_HANDLER());
         treasury = address(baseGroup.BASE_TREASURY());
-        
+
         // store deployment explicitly for easiest check
         deployedByFactory[group] = true;
 
