@@ -4,6 +4,7 @@ pragma solidity >=0.8.28;
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IHub} from "src/base-group/interfaces/IHub.sol";
+import {INameRegistry} from "src/base-group/interfaces/INameRegistry.sol";
 
 /// @title BaseMintHandler
 /// @notice The BaseMintHandler contract manages the conversion of ERC1155 tokens
@@ -27,9 +28,6 @@ contract BaseMintHandler is ERC1155Holder {
     /// @notice Thrown when an unexpected or invalid logic condition occurs.
     error LogicAssertion();
 
-    /// @notice Thrown when an attempt is made to mint or handle the Group's own ID as collateral.
-    error RevertGroupId();
-
     /// @notice Thrown when a zero amount is received where a non-zero amount is expected.
     error ReceivedZeroAmount();
 
@@ -49,26 +47,29 @@ contract BaseMintHandler is ERC1155Holder {
     /// @dev Single transient slot where to store token type to return: keccak256("TOKEN_TYPE_SLOT")
     bytes32 internal constant TOKEN_TYPE_SLOT = 0xcda71533cdfa11dcfe861dbfa38b956c85d855f8e75c6728c650ac844f4fd47e;
 
-    /// @dev Token type identifier for inflationary group Circles: keccak256("TYPE_INFLATIONARY")
+    /// @notice Token type identifier for inflationary group Circles: keccak256("TYPE_INFLATIONARY")
     bytes32 public constant TYPE_INFLATIONARY = 0x9d28938b56c0e8aae8dd05e12461cbabf8f699236c3fd7c54c7d3bb9fb443ed2;
 
-    /// @dev Token type identifier for demurrage group Circles: keccak256("TYPE_DEMURRAGE")
+    /// @notice Token type identifier for demurrage group Circles: keccak256("TYPE_DEMURRAGE")
     bytes32 public constant TYPE_DEMURRAGE = 0xf3f5858942140fd2894eeb8b74cd0ed72d24fc6675d352a2884b1be2f32256fe;
 
-    /// @notice The Hub contract that manages trust relationships and other Circles operations.
+    /// @notice The Circles v2 Hub contract that manages trust relationships and other Circles operations.
     IHub public immutable HUB;
+
+    /// @notice Circles v2 Name Registry contract.
+    INameRegistry public immutable NAME_REGISTRY;
 
     /// @notice The address of the group for which this mint handler is created.
     address public immutable GROUP;
 
-    /// @dev The numeric ID of this group, derived from the group's address.
-    uint256 internal immutable GROUP_ID;
+    /// @notice The numeric ID of this group, derived from the group's address.
+    uint256 public immutable GROUP_ID;
 
     /// @notice The address of the specialized ERC20 demurrage token of the group.
-    address internal immutable DEMURRAGE;
+    address public immutable DEMURRAGE;
 
     /// @notice The address of the specialized ERC20 inflationary token of the group.
-    address internal immutable INFLATIONARY;
+    address public immutable INFLATIONARY;
 
     // =================================================
     //                    EVENTS
@@ -86,7 +87,7 @@ contract BaseMintHandler is ERC1155Holder {
     /// @notice Emitted when minted group Circles are returned (either as gCRC or wrapped as ERC20).
     /// @param beneficiary The address receiving the minted tokens.
     /// @param amount The amount of minted group Circles or the resulting ERC20 balance.
-    /// @param tokenType The token type identifier. 0 indicates normal gCRC, 1 indicates demurrage, 2 indicates inflationary.
+    /// @param tokenType The token type identifier. 0 indicates ERC1155 gCRC, 1 indicates ERC20 demurrage, 2 indicates ERC20 inflationary.
     event ReturnedMintedGroupCircles(address indexed beneficiary, uint256 indexed amount, uint256 indexed tokenType);
 
     // =================================================
@@ -117,14 +118,25 @@ contract BaseMintHandler is ERC1155Holder {
 
     /// @notice Deploys the BaseMintHandler for a given group and registers it as an organization in the Hub.
     /// @dev Initializes the Hub, Group, and specialized addresses for demurrage and inflationary ERC20 of the group.
-    ///      It also registers the contract in the Hub under the name of the Group with a "-mint-handler" suffix.
-    /// @param _hub The address of the Circles Hub contract.
+    ///      It also registers the organization in the Hub under the name of the Group with a "-mint-handler" suffix.
+    /// @param _hub The address of the Circles v2 Hub contract.
+    /// @param _nameRegistry The address of the NameRegistry contract.
     /// @param _group The address of the Group contract.
     /// @param _demurrage The address of the specialized ERC20 demurrage token of the group.
     /// @param _inflationary The address of the specialized ERC20 inflationary token of the group.
-    /// @param _groupName The name of the group used for identification in the Hub registry.
-    constructor(address _hub, address _group, address _demurrage, address _inflationary, string memory _groupName) {
+    /// @param _groupName The name of the group used for identification in the Name Registry.
+    /// @param _metadataDigest The IPFS or other off-chain data digest used for metadata references.
+    constructor(
+        address _hub,
+        address _nameRegistry,
+        address _group,
+        address _demurrage,
+        address _inflationary,
+        string memory _groupName,
+        bytes32 _metadataDigest
+    ) {
         HUB = IHub(_hub);
+        NAME_REGISTRY = INameRegistry(_nameRegistry);
         GROUP = _group;
         GROUP_ID = uint256(uint160(_group));
 
@@ -132,7 +144,7 @@ contract BaseMintHandler is ERC1155Holder {
         INFLATIONARY = _inflationary;
 
         string memory mintHandlerName = string.concat(_groupName, "-mint-handler");
-        HUB.registerOrganization(mintHandlerName, bytes32(0));
+        HUB.registerOrganization(mintHandlerName, _metadataDigest);
     }
 
     // =================================================
@@ -143,11 +155,18 @@ contract BaseMintHandler is ERC1155Holder {
      * @notice Mirrors trust relationships from the Group to this handler in the Hub.
      *         This maintains the same trust state as the Group for automatic path mints.
      * @dev Only the Group can call this function.
-     * @param _backer The address that the Group trusts.
+     * @param _trustReceiver The address that the Group trusts.
      * @param _expiry The expiry time (unix timestamp) until which the trust remains valid.
      */
-    function mirrorTrust(address _backer, uint96 _expiry) external onlyGroup {
-        HUB.trust(_backer, _expiry);
+    function mirrorTrust(address _trustReceiver, uint96 _expiry) external onlyGroup {
+        HUB.trust(_trustReceiver, _expiry);
+    }
+
+    /// @notice Updates the metadata digest for this organization in the Name Registry.
+    /// @param _metadataDigest The new off-chain metadata digest (e.g., IPFS hash).
+    /// @dev Only callable by the group.
+    function updateMetadataDigest(bytes32 _metadataDigest) external onlyGroup {
+        NAME_REGISTRY.updateMetadataDigest(_metadataDigest);
     }
 
     // =================================================
@@ -166,6 +185,7 @@ contract BaseMintHandler is ERC1155Holder {
      */
     function onERC1155Received(address, address _from, uint256 _id, uint256 _value, bytes memory _data)
         public
+        virtual
         override
         onlyHub
         returns (bytes4)
@@ -179,13 +199,13 @@ contract BaseMintHandler is ERC1155Holder {
                 _clearConversion();
                 if (tokenType == 0) {
                     // return the freshly minted gCRC to the beneficiary
-                    HUB.safeTransferFrom(address(this), beneficiary, GROUP_ID, _value, _data);
+                    HUB.safeTransferFrom(address(this), beneficiary, GROUP_ID, ongoingConversion, _data);
                 } else {
                     // demurrage or inflationary
                     address token = tokenType == 1 ? DEMURRAGE : INFLATIONARY;
                     uint256 balanceBefore = IERC20(token).balanceOf(address(this));
                     // wrap ERC1155 into ERC20
-                    HUB.wrap(GROUP, _value, uint8(tokenType - 1));
+                    HUB.wrap(GROUP, ongoingConversion, uint8(tokenType - 1));
                     ongoingConversion = IERC20(token).balanceOf(address(this)) - balanceBefore;
                     IERC20(token).transfer(beneficiary, ongoingConversion);
                 }
@@ -196,15 +216,13 @@ contract BaseMintHandler is ERC1155Holder {
                 revert LogicAssertion();
             }
         }
-        // attempt to mint group id using group id as collateral
-        if (_id == GROUP_ID) revert LogicAssertion();
 
-        // from is not zero (i.e. not minted) && id is not gCRC
+        // from is not zero (i.e. not minted)
 
-        // set our expectation lock (reverts if already ongoing)
+        // set our expectation lock (reverts if already ongoing or _value is zero)
         _initiateConversion(_from, _value, _data);
 
-        // assume any token received (that is not gCRC) to be an attempt to mint gCRC
+        // assume any token received to be an attempt to mint gCRC
         address[] memory collateralAvatars = new address[](1);
         uint256[] memory amounts = new uint256[](1);
         // safely cast because ids received from hub
@@ -232,35 +250,28 @@ contract BaseMintHandler is ERC1155Holder {
         uint256[] memory _ids,
         uint256[] memory _values,
         bytes memory _data
-    ) public override onlyHub returns (bytes4) {
-        // Note: arrays length mismatch is handled on HUB.groupMint(group, collateralAvatars, amounts, data); , but
-        // TODO: check if it is possible to not reach the revert branch and have infinite totalValue
+    ) public virtual override onlyHub returns (bytes4) {
         // it should be impossible that Circles get minted here (as batch)
         if (_from == address(0)) revert LogicAssertion();
+        // early revert on arrays length mismatch
+        if (_ids.length != _values.length) revert LogicAssertion();
 
-        // sum the _values
+        // cast _ids to addresses and sum the _values
         uint256 totalValue;
-        for (uint256 i; i < _values.length;) {
+        address[] memory collateralAvatars = new address[](_ids.length);
+        for (uint256 i; i < _ids.length;) {
             totalValue += _values[i];
+            // confidently cast to address, as ids are given by hub
+            collateralAvatars[i] = address(uint160(_ids[i]));
             unchecked {
                 ++i;
             }
         }
-        // Note: this is double check here, as same is done inside _initiateConversion, but i prefer to remove it from there later
-        if (totalValue == uint256(0)) revert ReceivedZeroAmount();
 
-        (uint256 ongoingConversion,,) = _expectingConversionReturn();
-        // Note: this is double check here, as same is done inside _initiateConversion, tbd where to leave
-        // a batch acceptance call must only happen at the start of a mint conversion
-        if (ongoingConversion != uint256(0)) revert ConversionOngoing();
-
-        // revert if any of the ids reference group id
-        address[] memory collateralAvatars = _castIdsRevertGroupId(_ids);
-
-        // enable the lock
+        // enable the lock (reverts if already ongoing or totalValue is zero)
         _initiateConversion(_from, totalValue, _data);
 
-        // attempt group mint
+        // attempt group mint (reverts if collateral is invalid or custom mint policy)
         HUB.groupMint(GROUP, collateralAvatars, _values, _data);
 
         return this.onERC1155BatchReceived.selector;
@@ -269,26 +280,6 @@ contract BaseMintHandler is ERC1155Holder {
     // =================================================
     //                 INTERNAL FUNCTIONS
     // =================================================
-
-    /**
-     * @notice Converts token IDs to avatar addresses and reverts if any token ID equals the group's ID.
-     * @dev Used internally by `onERC1155BatchReceived` to ensure we never take the group's own ID as collateral.
-     * @param _ids An array of token IDs to check and convert.
-     * @return collateralAvatars An array of collateral avatar addresses converted from token IDs.
-     */
-    function _castIdsRevertGroupId(uint256[] memory _ids) internal view returns (address[] memory collateralAvatars) {
-        collateralAvatars = new address[](_ids.length);
-        for (uint256 i; i < _ids.length;) {
-            if (_ids[i] == GROUP_ID) {
-                revert RevertGroupId();
-            }
-            // confidently cast to address, as ids are given by hub
-            collateralAvatars[i] = address(uint160(_ids[i]));
-            unchecked {
-                ++i;
-            }
-        }
-    }
 
     /**
      * @notice Initiates a conversion process by storing the amount in transient storage.
