@@ -4,7 +4,7 @@ pragma solidity >=0.8.28;
 import "src/base-group/BaseGroup.sol";
 
 /// @title BaseGroupFactory
-/// @notice Factory contract to create instances of BaseGroup. Enforces a maximum name length of 19.
+/// @notice Factory contract to create instances of BaseGroup.
 contract BaseGroupFactory {
     // =================================================
     //                       ERRORS
@@ -28,8 +28,8 @@ contract BaseGroupFactory {
     //                    STATE
     // =================================================
 
-    /// @notice Simple registration of deployment by this factory. Returns true if the address was deployed by this factory.
-    mapping(address => bool) public deployedByFactory;
+    /// @notice Simple registration of deployment by this factory. Returns true if the group was deployed by this factory.
+    mapping(address group => bool deployed) public deployedByFactory;
 
     // =================================================
     //               EXTERNAL FUNCTIONS
@@ -39,16 +39,18 @@ contract BaseGroupFactory {
     /// @dev Reverts if the provided `_name` is longer than 19 bytes.
     /// @param _owner The address that will own the newly created BaseGroup.
     /// @param _service The address of the service for the new BaseGroup.
+    /// @param _feeCollection The address of the fee collection for the new BaseGroup.
     /// @param _initialConditions An array of initial condition addresses.
     /// @param _name The group name (must be 19 characters or fewer).
     /// @param _symbol The group symbol.
     /// @param _metadataDigest A hash containing additional metadata for the BaseGroup.
-    /// @return group The address of the deployed BaseGroup.
+    /// @return group The address of the deployed BaseGroup instance.
     /// @return mintHandler The address of the BaseGroup's mint handler contract.
     /// @return treasury The address of the BaseGroup's treasury contract.
     function createBaseGroup(
         address _owner,
         address _service,
+        address _feeCollection,
         address[] memory _initialConditions,
         string memory _name,
         string memory _symbol,
@@ -57,13 +59,14 @@ contract BaseGroupFactory {
         // early revert for long name
         if (bytes(_name).length > 19) revert MaxNameLength19();
         // create Base Group itself
-        BaseGroup baseGroup = new BaseGroup(_owner, _service, _initialConditions, _name, _symbol, _metadataDigest);
+        BaseGroup baseGroup =
+            new BaseGroup(_owner, _service, _feeCollection, _initialConditions, _name, _symbol, _metadataDigest);
 
-        mintHandler = address(baseGroup.BASE_MINT_HANDLER());
-        treasury = baseGroup.BASE_TREASURY();
         group = address(baseGroup);
-
-        // store deployment explicitly for easiest check by wallet
+        mintHandler = address(baseGroup.BASE_MINT_HANDLER());
+        treasury = address(baseGroup.BASE_TREASURY());
+        
+        // store deployment explicitly for easiest check
         deployedByFactory[group] = true;
 
         emit BaseGroupCreated(group, _owner, mintHandler, treasury);
