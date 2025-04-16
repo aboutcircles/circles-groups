@@ -6,8 +6,10 @@ import "forge-std/StdCheats.sol";
 import "circles-contracts-v2/hub/Hub.sol";
 import "circles-contracts-v2/hub/IHub.sol";
 import "circles-contracts-v2/hub/TypeDefinitions.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FlowMatrixGenerator} from "test/base-group/helpers/FlowMatrixGenerator.sol";
 import {BaseTreasury} from "src/base-group/BaseTreasury.sol";
+import {BaseMintHandler} from "src/base-group/BaseMintHandler.sol";
 import {BaseGroup} from "src/base-group/BaseGroup.sol";
 import {BaseGroupFactory} from "src/base-group/BaseGroupFactory.sol";
 
@@ -29,6 +31,9 @@ contract MintRedemptionFlowTest is Test, FlowMatrixGenerator {
     uint256 groupTokenId;
     address mintHandler;
     address treasury;
+
+    address demurrage;
+    address inflationary;
 
     uint64 today;
 
@@ -63,6 +68,9 @@ contract MintRedemptionFlowTest is Test, FlowMatrixGenerator {
 
         baseGroup = BaseGroup(group);
         groupTokenId = uint256(uint160(group));
+
+        demurrage = BaseMintHandler(mintHandler).DEMURRAGE();
+        inflationary = BaseMintHandler(mintHandler).INFLATIONARY();
 
         // Now the BaseGroup is deployed and registered in the Hub.
         // Optionally, call functions to set additional parameters on the group.
@@ -116,7 +124,111 @@ contract MintRedemptionFlowTest is Test, FlowMatrixGenerator {
     }
 
     // -------------------------------------------------------------------------
-    // Test Flow 2: Batch Group Mint Flow (multiple collaterals)
+    // Test Flow 2: Group Mint and return Demmurage ERC20 gCRC (Single collateral)
+    // -------------------------------------------------------------------------
+    function testERC20DemmurageGroupMintSingleFlow(uint256 totalAmount) public {
+        // Generate flow matrix based on mint handler as path destination and fuzzed: amount.
+        (
+            address sourceAvatar,
+            address[] memory flowVertices,
+            TypeDefinitions.FlowEdge[] memory flowEdges,
+            TypeDefinitions.Stream[] memory streams,
+            uint256[] memory redemptionIds,
+            uint256[] memory redemptionAmounts,
+            bytes memory packedCoordinates
+        ) = generateFlowMatrix(
+            totalAmount, // min 100, max 10_000
+            1, // one terminal edge, equal one collateral id
+            today, // from block state
+            [group, mintHandler] // testing constants: group and mintHandler
+        );
+
+        // Add data to the stream and specify it as Demmurage separator
+        streams[0].data = hex"f3f5858942140fd2894eeb8b74cd0ed72d24fc6675d352a2884b1be2f32256fe";
+
+        // Sanity check single flow - single collateral
+        assertEq(redemptionIds.length, 1, "Sanity check failed: generateFlowMatrix");
+        assertEq(redemptionAmounts.length, 1, "Sanity check failed: generateFlowMatrix");
+
+        // Hub calls the appropriate handler (mintHandler) as destination.
+        // Impersonate source avatar to call the operateFlowMatrix function.
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // At this point, the Hub (via the mintHandler) should have minted group CRC (gCRC)
+        // wrap ERC1155 to Demurrage ERC20 and transferred ERC20 to the source avatar.
+        // Check that source avatar now has a balance of ERC20 group CRC.
+
+        assertEq(hub.balanceOf(sourceAvatar, groupTokenId), 0, "Source avatar should not receive group CRC as ERC1155");
+
+        assertEq(
+            IERC20(demurrage).balanceOf(sourceAvatar),
+            _polishFuzzedTotalAmount(totalAmount),
+            "Source avatar should receive group CRC as ERC20 demurrage"
+        );
+
+        // Check single collateral balance of treasury
+        assertEq(
+            redemptionAmounts[0],
+            hub.balanceOf(treasury, redemptionIds[0]),
+            "Collateral balance hold by treasury does not match"
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Test Flow 3: Group Mint and return Inflationary ERC20 gCRC (Single collateral)
+    // -------------------------------------------------------------------------
+    function testERC20InflationaryGroupMintSingleFlow(uint256 totalAmount) public {
+        // Generate flow matrix based on mint handler as path destination and fuzzed: amount.
+        (
+            address sourceAvatar,
+            address[] memory flowVertices,
+            TypeDefinitions.FlowEdge[] memory flowEdges,
+            TypeDefinitions.Stream[] memory streams,
+            uint256[] memory redemptionIds,
+            uint256[] memory redemptionAmounts,
+            bytes memory packedCoordinates
+        ) = generateFlowMatrix(
+            totalAmount, // min 100, max 10_000
+            1, // one terminal edge, equal one collateral id
+            today, // from block state
+            [group, mintHandler] // testing constants: group and mintHandler
+        );
+
+        // Add data to the stream and specify it as Inflationary separator
+        streams[0].data = hex"9d28938b56c0e8aae8dd05e12461cbabf8f699236c3fd7c54c7d3bb9fb443ed2";
+
+        // Sanity check single flow - single collateral
+        assertEq(redemptionIds.length, 1, "Sanity check failed: generateFlowMatrix");
+        assertEq(redemptionAmounts.length, 1, "Sanity check failed: generateFlowMatrix");
+
+        // Hub calls the appropriate handler (mintHandler) as destination.
+        // Impersonate source avatar to call the operateFlowMatrix function.
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // At this point, the Hub (via the mintHandler) should have minted group CRC (gCRC)
+        // wrap ERC1155 to Inflationary ERC20 and transferred ERC20 to the source avatar.
+        // Check that source avatar now has a balance of ERC20 group CRC.
+
+        assertEq(hub.balanceOf(sourceAvatar, groupTokenId), 0, "Source avatar should not receive group CRC as ERC1155");
+
+        assertEq(
+            IERC20(inflationary).balanceOf(sourceAvatar),
+            hub.convertDemurrageToInflationaryValue(_polishFuzzedTotalAmount(totalAmount), today),
+            "Source avatar should receive group CRC as ERC20 inflationary"
+        );
+
+        // Check single collateral balance of treasury
+        assertEq(
+            redemptionAmounts[0],
+            hub.balanceOf(treasury, redemptionIds[0]),
+            "Collateral balance hold by treasury does not match"
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Test Flow 4: Batch Group Mint Flow (multiple collaterals)
     // -------------------------------------------------------------------------
     function testGroupMintBatchFlow(uint256 totalAmount, uint256 numberOfTerminatedEdges) public {
         // Generate flow matrix based on mint handler as path destination and fuzzed: amount and number of terminal edges,
@@ -165,7 +277,113 @@ contract MintRedemptionFlowTest is Test, FlowMatrixGenerator {
     }
 
     // -------------------------------------------------------------------------
-    // Test Flow 3: Redemption Flow
+    // Test Flow 5: Batch Group Mint Flow and return Demmurage ERC20 gCRC (multiple collaterals)
+    // -------------------------------------------------------------------------
+    function testERC20DemmurageGroupMintBatchFlow(uint256 totalAmount, uint256 numberOfTerminatedEdges) public {
+        // Generate flow matrix based on mint handler as path destination and fuzzed: amount and number of terminal edges,
+        // which are in range from 1 to 10. 3 intermidiate vertices per flow.
+        (
+            address sourceAvatar,
+            address[] memory flowVertices,
+            TypeDefinitions.FlowEdge[] memory flowEdges,
+            TypeDefinitions.Stream[] memory streams,
+            uint256[] memory redemptionIds,
+            uint256[] memory redemptionAmounts,
+            bytes memory packedCoordinates
+        ) = generateFlowMatrix(
+            totalAmount, // min 100, max 10_000
+            numberOfTerminatedEdges, // fuzz from 1 to 10, also equal number of collateral ids for now
+            today, // from block state
+            [group, mintHandler] // constants: group and mintHandler
+        );
+
+        // Add data to the stream and specify it as Demmurage separator
+        streams[0].data = hex"f3f5858942140fd2894eeb8b74cd0ed72d24fc6675d352a2884b1be2f32256fe";
+
+        // Hub calls the appropriate handler (mintHandler) as destination.
+        // Impersonate source avatar to call the operateFlowMatrix function.
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // At this point, the Hub (via the mintHandler) should have minted group CRC (gCRC)
+        // wrap ERC1155 to Demurrage ERC20 and transferred ERC20 to the source avatar.
+        // Check that source avatar now has a balance of ERC20 group CRC.
+        assertEq(hub.balanceOf(sourceAvatar, groupTokenId), 0, "Source avatar should not receive group CRC as ERC1155");
+
+        assertEq(
+            IERC20(demurrage).balanceOf(sourceAvatar),
+            _polishFuzzedTotalAmount(totalAmount),
+            "Source avatar should receive group CRC as ERC20 demurrage"
+        );
+
+        // Check collateral balances of treasury
+        for (uint256 i; i < redemptionIds.length;) {
+            assertEq(
+                redemptionAmounts[i],
+                hub.balanceOf(treasury, redemptionIds[i]),
+                "Collateral balances hold by treasury does not match"
+            );
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Test Flow 6: Batch Group Mint Flow and return Inflationary ERC20 gCRC (multiple collaterals)
+    // -------------------------------------------------------------------------
+    function testERC20InflationaryGroupMintBatchFlow(uint256 totalAmount, uint256 numberOfTerminatedEdges) public {
+        // Generate flow matrix based on mint handler as path destination and fuzzed: amount and number of terminal edges,
+        // which are in range from 1 to 10. 3 intermidiate vertices per flow.
+        (
+            address sourceAvatar,
+            address[] memory flowVertices,
+            TypeDefinitions.FlowEdge[] memory flowEdges,
+            TypeDefinitions.Stream[] memory streams,
+            uint256[] memory redemptionIds,
+            uint256[] memory redemptionAmounts,
+            bytes memory packedCoordinates
+        ) = generateFlowMatrix(
+            totalAmount, // min 100, max 10_000
+            numberOfTerminatedEdges, // fuzz from 1 to 10, also equal number of collateral ids for now
+            today, // from block state
+            [group, mintHandler] // constants: group and mintHandler
+        );
+
+        // Add data to the stream and specify it as Inflationary separator
+        streams[0].data = hex"9d28938b56c0e8aae8dd05e12461cbabf8f699236c3fd7c54c7d3bb9fb443ed2";
+
+        // Hub calls the appropriate handler (mintHandler) as destination.
+        // Impersonate source avatar to call the operateFlowMatrix function.
+        vm.prank(sourceAvatar);
+        hub.operateFlowMatrix(flowVertices, flowEdges, streams, packedCoordinates);
+
+        // At this point, the Hub (via the mintHandler) should have minted group CRC (gCRC)
+        // wrap ERC1155 to Inflationary ERC20 and transferred ERC20 to the source avatar.
+        // Check that source avatar now has a balance of ERC20 group CRC.
+        assertEq(hub.balanceOf(sourceAvatar, groupTokenId), 0, "Source avatar should not receive group CRC as ERC1155");
+
+        assertEq(
+            IERC20(inflationary).balanceOf(sourceAvatar),
+            hub.convertDemurrageToInflationaryValue(_polishFuzzedTotalAmount(totalAmount), today),
+            "Source avatar should receive group CRC as ERC20 inflationary"
+        );
+
+        // Check collateral balances of treasury
+        for (uint256 i; i < redemptionIds.length;) {
+            assertEq(
+                redemptionAmounts[i],
+                hub.balanceOf(treasury, redemptionIds[i]),
+                "Collateral balances hold by treasury does not match"
+            );
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Test Flow 7: Redemption Flow
     // -------------------------------------------------------------------------
 
     function testGroupRedemptionFlow(uint256 totalAmount, uint256 numberOfTerminatedEdges) public {
