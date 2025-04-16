@@ -6,7 +6,7 @@ import {BaseGroupFactory} from "src/base-group/BaseGroupFactory.sol";
 
 contract DeployGroupFactory is Script {
     address deployer = address(0x915aec9009a847a8EB1f65bA87dC02742E37B9D1);
-    BaseGroupFactory public baseGroupFactory; // 0x9d3232483A40A5149a2600A5b6Fb85CFddc487b6
+    BaseGroupFactory public baseGroupFactory; // 0xD0B5Bd9962197BEaC4cbA24244ec3587f19Bd06d
 
     function setUp() public {}
 
