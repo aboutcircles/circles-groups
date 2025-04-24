@@ -63,13 +63,13 @@ contract BaseGroup {
     // =================================================
 
     /// @notice Circles v2 Hub.
-    IHub public constant HUB = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
+    IHub public constant HUB = IHub(address(0x3D61f0A272eC69d65F5CFF097212079aaFDe8267));
 
     /// @notice Circles v2 LiftERC20 contract.
-    ILiftERC20 public constant LIFT_ERC20 = ILiftERC20(address(0x5F99a795dD2743C36D63511f0D4bc667e6d3cDB5));
+    ILiftERC20 public constant LIFT_ERC20 = ILiftERC20(address(0xF47c14035e23E35D551F7d3d96Abbc028143CC11));
 
     /// @notice Circles v2 Name Registry contract.
-    INameRegistry public constant NAME_REGISTRY = INameRegistry(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
+    INameRegistry public constant NAME_REGISTRY = INameRegistry(address(0x8D1BEBbf5b8DFCef0F7E2039e4106A76Cb66f968));
 
     /// @notice Address of the base mint policy that applies to newly created groups.
     address public constant BASE_MINT_POLICY = address(0xCDFc5135AEC0aFbf102C108e7f5C8A88C6112842);

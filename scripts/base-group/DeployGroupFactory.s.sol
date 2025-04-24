@@ -5,8 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {BaseGroupFactory} from "src/base-group/BaseGroupFactory.sol";
 
 contract DeployGroupFactory is Script {
-    address deployer = address(0x915aec9009a847a8EB1f65bA87dC02742E37B9D1);
-    BaseGroupFactory public baseGroupFactory; // 0xD0B5Bd9962197BEaC4cbA24244ec3587f19Bd06d
+    address deployer = address(0x2D75A44e14C660fc5d4d30B22aE133b244D6D30B);
+    BaseGroupFactory public baseGroupFactory; // 0x452C116060cBB484eeDD70F32F08aD4F0685B5D2 rings
 
     function setUp() public {}
 
