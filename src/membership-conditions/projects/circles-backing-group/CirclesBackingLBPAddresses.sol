@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/membership-conditions/projects/circles-backing-group/ICirclesBackingFactory.sol";
+import "src/membership-conditions/ICirclesBackingFactory.sol";
 
 /// @notice Test LBP Factory for 1 USD backing contract addresses
 ///         on Gnosis Chain.
