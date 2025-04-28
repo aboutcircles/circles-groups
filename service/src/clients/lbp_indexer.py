@@ -64,19 +64,27 @@ class CirclesBackingHandler:
                 ],
                 "Filter": [
                     {
-                        "Type": "FilterPredicate",
-                        "FilterType": "GreaterThanOrEqual",
-                        "Column": "blockNumber",
-                        "Value": str(from_block)
-                    },
-                    {
-                        "Type": "FilterPredicate",
-                        "FilterType": "LessThanOrEqual",
-                        "Column": "blockNumber",
-                        "Value": str(to_block)
+                             "Type": "FilterPredicate",
+                             "Column": "emitter",
+                             "FilterType": "Equals",
+                             "Value": "0xeced91232c609a42f6016860e8223b8aecaa7bd0"
                     }
+
+                    # {
+                    #     "Type": "FilterPredicate",
+                    #     "FilterType": "GreaterThanOrEqual",
+                    #     "Column": "blockNumber",
+                    #     "Value": str(from_block)
+                    # },
+                    # {
+                    #     "Type": "FilterPredicate",
+                    #     "FilterType": "LessThanOrEqual",
+                    #     "Column": "blockNumber",
+                    #     "Value": str(to_block)
+                    # }
                 ],
-                "Order": [{"Column": "blockNumber", "SortOrder": "ASC"}],
+
+                "Order": [],
                 "Limit": 1000
             }]
         }
@@ -186,12 +194,12 @@ class CirclesBackingHandler:
             account = self.web3.eth.account.from_key(self.private_key)
 
             # Build the transaction
-            transaction = self.baseGroup_contract.functions.trustBatchwithConditions(
+            transaction = self.baseGroup_contract.functions.trustBatchWithConditions(
                 addresses, expiry
             ).build_transaction({
                 "from": account.address,
                 "nonce": self.web3.eth.get_transaction_count(account.address),
-                "gas": 500000,
+                "gas": 1000000,
                 "gasPrice": self.web3.eth.gas_price,
             })
 
@@ -212,7 +220,8 @@ class CirclesBackingHandler:
 
     def run_event_processor(self, poll_interval: int = 15):
         """Main loop to continuously check for new events"""
-        latest_processed_block = self.web3.eth.block_number - 1000  # Start from 1000 blocks ago
+        deployment_block = 39741602  # Deployment block where indexing should begin
+        latest_processed_block = max(deployment_block, self.web3.eth.block_number - 1000)
 
         print(f"Starting event processor from block {latest_processed_block}")
 
