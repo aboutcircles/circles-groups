@@ -1,0 +1,289 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_owner", "type": "address" },
+      { "internalType": "address", "name": "_service", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "_feeCollection",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_initialConditions",
+        "type": "address[]"
+      },
+      { "internalType": "string", "name": "_name", "type": "string" },
+      { "internalType": "string", "name": "_symbol", "type": "string" },
+      {
+        "internalType": "bytes32",
+        "name": "_metadataDigest",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "InvalidCallingParameters", "type": "error" },
+  { "inputs": [], "name": "MaxConditionsActive", "type": "error" },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "member", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "failedCondition",
+        "type": "address"
+      }
+    ],
+    "name": "MembershipCheckFailed",
+    "type": "error"
+  },
+  { "inputs": [], "name": "OnlyHub", "type": "error" },
+  { "inputs": [], "name": "OnlyOwner", "type": "error" },
+  { "inputs": [], "name": "OnlyOwnerOrService", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "feeCollection",
+        "type": "address"
+      }
+    ],
+    "name": "FeeCollectionUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "condition",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      }
+    ],
+    "name": "MembershipConditionEnabled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnerUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newService",
+        "type": "address"
+      }
+    ],
+    "name": "ServiceUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "BASE_MINT_HANDLER",
+    "outputs": [
+      {
+        "internalType": "contract BaseMintHandler",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "BASE_MINT_POLICY",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "BASE_TREASURY",
+    "outputs": [
+      { "internalType": "contract BaseTreasury", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "HUB",
+    "outputs": [
+      { "internalType": "contract IHub", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "LIFT_ERC20",
+    "outputs": [
+      { "internalType": "contract ILiftERC20", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_CONDITIONS",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "NAME_REGISTRY",
+    "outputs": [
+      {
+        "internalType": "contract INameRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeCollection",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMembershipConditions",
+    "outputs": [
+      { "internalType": "address[]", "name": "", "type": "address[]" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "membershipConditions",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_nonce", "type": "uint256" }
+    ],
+    "name": "registerShortNameWithNonce",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "service",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_feeCollection", "type": "address" }
+    ],
+    "name": "setFeeCollection",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_condition", "type": "address" },
+      { "internalType": "bool", "name": "_enabled", "type": "bool" }
+    ],
+    "name": "setMembershipCondition",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_owner", "type": "address" }
+    ],
+    "name": "setOwner",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_service", "type": "address" }
+    ],
+    "name": "setService",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_trustReceiver",
+        "type": "address"
+      },
+      { "internalType": "uint96", "name": "_expiry", "type": "uint96" }
+    ],
+    "name": "trust",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address[]", "name": "_members", "type": "address[]" },
+      { "internalType": "uint96", "name": "_expiry", "type": "uint96" }
+    ],
+    "name": "trustBatchWithConditions",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_metadataDigest",
+        "type": "bytes32"
+      }
+    ],
+    "name": "updateMetadataDigest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

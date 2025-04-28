@@ -18,7 +18,7 @@ class Settings:
         self.screening_url = self._get_env('ALLOWLIST_ENDPOINT')
         self.private_key = self._get_env('PRIVATE_KEY')
         # File paths
-        self.supergroup_abi_path = os.path.join(self.CONFIG_DIR, 'SuperGroupABI.json')
+        self.baseGroup_abi_path = os.path.join(self.CONFIG_DIR, 'baseGroupABI.json')
         self.circles_backing_abi_path = os.path.join(self.CONFIG_DIR, 'CirclesBackingABI.json')
         self.slack_webhook_url = self._get_env('SLACK_WEBHOOK_URL')
         # # Algorithm settings
@@ -31,12 +31,12 @@ class Settings:
         # self.update_interval = int(self._get_env('UPDATE_INTERVAL', '1800'))  # 30 minutes
         # self.update_max_offset = int(self._get_env('UPDATE_MAX_OFFSET', '300'))  # 5 minutes
 
-        # Supergroup address
-        supergroup_address = self._get_env('SUPERGROUP_ADDRESS')
-        if not Web3.is_address(supergroup_address):
-            raise ValueError(f"Invalid Ethereum address: {supergroup_address}")
+        # Base Group address
+        baseGroup_address = self._get_env('BASEGROUP_ADDRESS')
+        if not Web3.is_address(baseGroup_address):
+            raise ValueError(f"Invalid Ethereum address: {baseGroup_address}")
 
-        self.supergroup_address = Web3.to_checksum_address(supergroup_address)
+        self.baseGroup_address = Web3.to_checksum_address(baseGroup_address)
 
     def _get_env(self, key: str, default: Optional[str] = None) -> str:
         """Get environment variable with optional default"""
@@ -55,9 +55,9 @@ class Settings:
         return {
             'nethermind_rpc_url': self.nethermind_rpc_url,
             'database_url': self.screening_url,
-            'supergroup_address': self.supergroup_address,
+            'baseGroup_address': self.baseGroup_address,
             'private_key': self.private_key,
-            'supergroup_abi_path': self.supergroup_abi_path,
+            'baseGroup_abi_path': self.baseGroup_abi_path,
             'circles_backing_abi_path': self.circles_backing_abi_path
         }
 
