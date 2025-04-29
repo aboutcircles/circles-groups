@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.28;
 
-import "src/circles/Core.sol";
 import "src/circles/IHub.sol";
 import "src/errors/Errors.sol";
 import "src/affiliate-group/IGroupNotifications.sol";
@@ -12,11 +11,11 @@ import "src/affiliate-group/IGroupNotifications.sol";
 /// When a human sets (or changes) their affiliate group, both the old group (if any) and the new group (if any)
 /// are notified by calling onHumanRemoved and onHumanAdded respectively, with a 100k gas limit.
 /// If the group contract does not implement these functions, the calls fail silently.
-contract AffiliateGroupRegistry is CirclesCoreAddresses, ICMGAffiliateGroupRegistryErrors {
+contract AffiliateGroupRegistry is ICMGAffiliateGroupRegistryErrors {
     // State
 
-    /// @notice Core Circles protocol addresses
-    CirclesCore public circlesCore;
+    /// @notice Circles Hub v2.
+    IHub public immutable hub;
 
     /// @notice Mapping from a human to their affiliate group.
     mapping(address => address) public affiliateGroup;
@@ -34,8 +33,8 @@ contract AffiliateGroupRegistry is CirclesCoreAddresses, ICMGAffiliateGroupRegis
 
     // Constructor
 
-    constructor(CirclesCore memory _circlesCore) {
-        circlesCore = _circlesCore;
+    constructor(address _hub) {
+        hub = IHub(_hub);
     }
 
     // External functions
@@ -50,7 +49,7 @@ contract AffiliateGroupRegistry is CirclesCoreAddresses, ICMGAffiliateGroupRegis
             return;
         }
 
-        if (!circlesCore.hub.isHuman(msg.sender) || !circlesCore.hub.isGroup(newGroup)) {
+        if (!hub.isHuman(msg.sender) || !hub.isGroup(newGroup)) {
             revert CMGAffiliateGroupMustBeHumanAndGroupToRegisterAffiliateGroup(msg.sender, newGroup);
         }
 
