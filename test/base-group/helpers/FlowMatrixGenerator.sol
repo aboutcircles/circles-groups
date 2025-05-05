@@ -17,7 +17,7 @@ contract FlowMatrixGenerator is HubStorageWrites {
         uint256 totalAmount, // min 100, max 10_000
         uint256 numberOfTerminatedEdges, // fuzz from 1 to 10, also equal number of collateral ids for now
         uint64 lastUpdatedDay, // from block state
-        address[2] memory groupAndDestination // constants: group and mintHandler (next iteration: should be compatible mintHandler/redemptionHandler)
+        address[2] memory groupAndDestination // constants: group and mintHandler
     )
         internal
         returns (

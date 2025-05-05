@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 import "src/membership-conditions/IsHumanCondition.sol";
 
 contract CoreMembersGroupTest is Test {
@@ -10,7 +10,7 @@ contract CoreMembersGroupTest is Test {
     uint256 public constant CRC = 1e18;
 
     // State
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
     IsHumanCondition public isHumanCondition;
 
     // Test addresses
@@ -43,7 +43,7 @@ contract CoreMembersGroupTest is Test {
         charlieId = uint256(uint160(charlie));
         davidId = uint256(uint160(david));
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
         isHumanCondition = new IsHumanCondition(mockCircles.getCirclesCore());
 
         // Register users as people
@@ -58,7 +58,7 @@ contract CoreMembersGroupTest is Test {
         initialConditions[0] = address(isHumanCondition);
 
         vm.startPrank(owner);
-        cmGroup = mockCircles.createCMGroup(service, initialConditions, "TestCMG", "CMG", bytes32(0));
+        (cmGroup,,) = mockCircles.createCMGroup(owner, service, initialConditions, "TestCMG", "CMG", bytes32(0));
         vm.stopPrank();
 
         // Verify owner is set correctly
@@ -151,39 +151,69 @@ contract CoreMembersGroupTest is Test {
     function testChangeMembershipConditions() public {
         testDeployAndInitialize();
 
+        // Verify initial conditions
+        address[] memory initialConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(initialConditions.length, 1);
+        assertEq(initialConditions[0], address(isHumanCondition));
+
         // Can disable condition
         vm.startPrank(owner);
         ICoreMembersGroup(cmGroup).setMembershipCondition(address(isHumanCondition), false);
         vm.stopPrank();
+
+        // Verify condition was removed
+        address[] memory afterDisableConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(afterDisableConditions.length, 0);
 
         // Can re-enable condition
         vm.startPrank(owner);
         ICoreMembersGroup(cmGroup).setMembershipCondition(address(isHumanCondition), true);
         vm.stopPrank();
 
+        // Verify condition was re-added
+        address[] memory afterEnableConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(afterEnableConditions.length, 1);
+        assertEq(afterEnableConditions[0], address(isHumanCondition));
+
         // adding same condition twice only counts once
         vm.startPrank(owner);
         ICoreMembersGroup(cmGroup).setMembershipCondition(address(isHumanCondition), true);
-        ICoreMembersGroup(cmGroup).setMembershipCondition(address(isHumanCondition), true);
         vm.stopPrank();
 
-        // Verify only one condition was added
-        address[] memory conditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
-        assertEq(conditions.length, 1);
-        assertEq(conditions[0], address(isHumanCondition));
+        // Verify only one condition exists
+        address[] memory afterDoubleAddConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(afterDoubleAddConditions.length, 1);
+        assertEq(afterDoubleAddConditions[0], address(isHumanCondition));
 
         // Try adding 9 more conditions (already have 1)
         vm.startPrank(owner);
+        address[] memory newConditions = new address[](9);
         for (uint256 i = 0; i < 9; i++) {
-            ICoreMembersGroup(cmGroup).setMembershipCondition(
-                makeAddr(string.concat("condition", vm.toString(i))), true
-            );
+            address condition = makeAddr(string.concat("condition", vm.toString(i)));
+            newConditions[i] = condition;
+            ICoreMembersGroup(cmGroup).setMembershipCondition(condition, true);
+        }
+
+        // Verify all 10 conditions were added
+        address[] memory allConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(allConditions.length, 10);
+        assertEq(allConditions[0], address(isHumanCondition));
+        for (uint256 i = 0; i < 9; i++) {
+            assertEq(allConditions[i + 1], newConditions[i]);
         }
 
         // Try to add 11th condition - should fail since already at max of 10
         vm.expectRevert();
         ICoreMembersGroup(cmGroup).setMembershipCondition(makeAddr("failCondition"), true);
         vm.stopPrank();
+
+        // Verify conditions remain unchanged after failed addition
+        address[] memory finalConditions = ICoreMembersGroup(cmGroup).getMembershipConditions();
+        assertEq(finalConditions.length, 10);
+        assertEq(finalConditions[0], address(isHumanCondition));
+        for (uint256 i = 0; i < 9; i++) {
+            assertEq(finalConditions[i + 1], newConditions[i]);
+        }
     }
 
     function testTrustByOwner() public {
@@ -233,8 +263,11 @@ contract CoreMembersGroupTest is Test {
 
         vm.startPrank(service);
         // Set expiry to past timestamp to untrust
-        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, uint96(block.timestamp - 1));
+        ICoreMembersGroup(cmGroup).trustBatchWithConditions(members, uint96(block.timestamp));
         vm.stopPrank();
+
+        // move the timestamp ahead to let untrust take effect
+        vm.warp(block.timestamp + 1);
 
         assertFalse(mockCircles.mockHub().isTrusted(cmGroup, alice));
         assertFalse(mockCircles.mockHub().isTrusted(cmGroup, bob));

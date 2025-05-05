@@ -1,5 +1,5 @@
 [tool.pyright]
-venvPath = "./ces-interact"
+venvPath = "./cmg-interact"
 venv = "venv"
 pythonVersion = "3.10"
 typeCheckingMode = "basic"

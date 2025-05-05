@@ -32,8 +32,8 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, string memory _name, CirclesCore memory _circlesCore)
-        CMGHandler(_cmGroup, _owner, _circlesCore)
+    constructor(address _owner, string memory _name, CirclesCore memory _circlesCore)
+        CMGHandler(msg.sender, _owner, _circlesCore)
     {
         // append "-minter" to group's name to register organization
         string memory orgName = string.concat(_name, "-minter");
@@ -127,8 +127,14 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
             amounts[0] = _value;
             // initiate groupMint (which will call back, but expectation lock is set)
             circlesCore.hub.groupMint(cmGroup, collateralAvatars, amounts, _data);
-            // tidy up before transfering
-            _clearConversion();
+
+            // conversion in cleared upon receiving gCRC from minting; double check it is indeed cleared
+            (uint256 verifyCleared,) = _expectingConversionReturn();
+            if (verifyCleared != uint256(0)) {
+                // unexpected gCRC mint did not occur to clear the ongoing conversion
+                revert CMGHandlerLogicAssertion();
+            }
+
             // return the freshly minted gCRC to sender
             circlesCore.hub.safeTransferFrom(address(this), _from, cmGroupId, _value, _data);
 
@@ -302,7 +308,7 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
             revert CMGHandlerConversionOngoing(ongoingConversion);
         }
 
-        // Store the new conversion amount, beneficiary and data hash in transient storage
+        // Store the new conversion amount, and beneficiary in transient storage
         assembly {
             tstore(conversionSlot, _amount)
             tstore(beneficiarySlot, _beneficiary)

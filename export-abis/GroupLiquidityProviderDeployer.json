@@ -1,0 +1,175 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_redemptionOperator",
+        "type": "address",
+        "internalType": "contract CMGRedemptionOperator"
+      },
+      {
+        "name": "_circlesCore",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "circlesCore",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "hub",
+        "type": "address",
+        "internalType": "contract IHub"
+      },
+      {
+        "name": "standardTreasury",
+        "type": "address",
+        "internalType": "contract IStandardTreasury"
+      },
+      {
+        "name": "nameRegistry",
+        "type": "address",
+        "internalType": "contract INameRegistryExtended"
+      },
+      {
+        "name": "erc20Lift",
+        "type": "address",
+        "internalType": "contract IERC20Lift"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createLiquidityProvider",
+    "inputs": [
+      {
+        "name": "_group",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createLiquidityProviderWithCustomRedemptionOperator",
+    "inputs": [
+      {
+        "name": "_group",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_redemptionOperator",
+        "type": "address",
+        "internalType": "contract CMGRedemptionOperator"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "redemptionOperator",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CMGRedemptionOperator"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "LiquidityProviderCreated",
+    "inputs": [
+      {
+        "name": "liquidityProvider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "group",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "redemptionOperator",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  }
+]

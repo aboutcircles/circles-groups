@@ -53,9 +53,7 @@ contract CMGRedemptionHandler is CMGHandler, ICMGRedemptionHandler, CirclesTypes
 
     // Constructor
 
-    constructor(address _cmGroup, address _owner, CirclesCore memory _circlesCore)
-        CMGHandler(_cmGroup, _owner, _circlesCore)
-    {
+    constructor(address _owner, CirclesCore memory _circlesCore) CMGHandler(msg.sender, _owner, _circlesCore) {
         // Set default minimal tracking amount
         minimalTrackingAmount = 10 ** 15;
     }

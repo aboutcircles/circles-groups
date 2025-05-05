@@ -1,0 +1,82 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_circlesCore",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "circlesCore",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "hub",
+        "type": "address",
+        "internalType": "contract IHub"
+      },
+      {
+        "name": "standardTreasury",
+        "type": "address",
+        "internalType": "contract IStandardTreasury"
+      },
+      {
+        "name": "nameRegistry",
+        "type": "address",
+        "internalType": "contract INameRegistryExtended"
+      },
+      {
+        "name": "erc20Lift",
+        "type": "address",
+        "internalType": "contract IERC20Lift"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "passesMembershipCondition",
+    "inputs": [
+      {
+        "name": "_avatar",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

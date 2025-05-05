@@ -1,0 +1,767 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_saltIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_service",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_mintHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_redemptionHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_initialConditions",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_symbol",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_circlesCore",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "MAX_CONDITIONS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_DEPOSIT_AMOUNT_MINIMUM",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "beforeBurnPolicy",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "beforeMintPolicy",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_collateral",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "_amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "beforeRedeemPolicy",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "_ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "_values",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "_burnIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "_burnValues",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "factoryVerification",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "factory",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "saltIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "encodedConstructorArgs",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "feeCollection",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCirclesCore",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CirclesCoreAddresses.CirclesCore",
+        "components": [
+          {
+            "name": "hub",
+            "type": "address",
+            "internalType": "contract IHub"
+          },
+          {
+            "name": "standardTreasury",
+            "type": "address",
+            "internalType": "contract IStandardTreasury"
+          },
+          {
+            "name": "nameRegistry",
+            "type": "address",
+            "internalType": "contract INameRegistryExtended"
+          },
+          {
+            "name": "erc20Lift",
+            "type": "address",
+            "internalType": "contract IERC20Lift"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getMembershipConditions",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimalDeposit",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mintHandler",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "redemptionHandler",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerShortName",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerShortNameWithNonce",
+    "inputs": [
+      {
+        "name": "_nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "service",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setAdvancedUsageFlag",
+    "inputs": [
+      {
+        "name": "_flag",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setFeeCollection",
+    "inputs": [
+      {
+        "name": "_feeCollection",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMembershipCondition",
+    "inputs": [
+      {
+        "name": "_condition",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinimalDeposit",
+    "inputs": [
+      {
+        "name": "_minimalDeposit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOwner",
+    "inputs": [
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setService",
+    "inputs": [
+      {
+        "name": "_service",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "state",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "mintHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "redemptionHandler",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "service",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minimalDeposit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeCollection",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "hub",
+        "type": "address",
+        "internalType": "contract IHub"
+      },
+      {
+        "name": "standardTreasury",
+        "type": "address",
+        "internalType": "contract IStandardTreasury"
+      },
+      {
+        "name": "nameRegistry",
+        "type": "address",
+        "internalType": "contract INameRegistryExtended"
+      },
+      {
+        "name": "erc20Lift",
+        "type": "address",
+        "internalType": "contract IERC20Lift"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "trust",
+    "inputs": [
+      {
+        "name": "_trustReceiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_expiry",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "trustBatchWithConditions",
+    "inputs": [
+      {
+        "name": "_coreMembers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_expiry",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateMetadataDigest",
+    "inputs": [
+      {
+        "name": "_metadataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "FeeCollectionUpdated",
+    "inputs": [
+      {
+        "name": "feeCollection",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MembershipConditionEnabled",
+    "inputs": [
+      {
+        "name": "condition",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinimalDepositUpdated",
+    "inputs": [
+      {
+        "name": "minimalDeposit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MintHandlerUpdated",
+    "inputs": [
+      {
+        "name": "newMintHandler",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnerSet",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RedemptionHandlerUpdated",
+    "inputs": [
+      {
+        "name": "newRedemptionHandler",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ServiceUpdated",
+    "inputs": [
+      {
+        "name": "newService",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CMGroupInteractionAmountIsBelowMinimum",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receivedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minimalAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CMGroupInvalidCallingParameters",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CMGroupMaxConditionsActive",
+    "inputs": [
+      {
+        "name": "conditionsActive",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CMGroupMembershipCheckFailed",
+    "inputs": [
+      {
+        "name": "avatar",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "failedCondition",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CMGroupOnlyHub",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CMGroupOnlyHubOrTreasury",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CMGroupOnlyOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CMGroupOnlyOwnerOrService",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CMGroupProxyAlreadyInitialised",
+    "inputs": []
+  }
+]

@@ -60,9 +60,9 @@ interface ICMGHandlerErrors {
     error CMGHandlerLogicAssertion();
 }
 
-interface ICMGPrimaryGroupRegistryErrors {
-    /// @notice to register primary group caller must be registered human and group must be group
-    error CMGPrimaryGroupMustBeHumanAndGroupToRegisterPrimaryGroup(address human, address group);
+interface ICMGAffiliateGroupRegistryErrors {
+    /// @notice to register affiliate group caller must be registered human and group must be group
+    error CMGAffiliateGroupMustBeHumanAndGroupToRegisterAffiliateGroup(address human, address group);
 }
 
 interface ICMGRedemptionOperatorErrors {
@@ -78,4 +78,17 @@ interface ICMGRedemptionOperatorErrors {
     error CMGRedemptionOperatorFailedToFindSufficientCollateral(uint256 requestedAmount, uint256 foundAmount);
     /// @notice invalid calling parameters
     error CMGRedemptionOperatorInvalidCallingParameters();
+}
+
+interface IGroupLiquidityProviderErrors {
+    /// @notice Group address cannot be zero
+    error GroupLiquidityProviderGroupCannotBeZeroAddress();
+    /// @notice Owner address cannot be zero
+    error GroupLiquidityProviderOwnerCannotBeZeroAddress();
+    /// @notice Only allow transfers of own tokens
+    error GroupLiquidityProviderCanOnlyTransferOwnTokens();
+    /// @notice Only accept transfers from Hub
+    error GroupLiquidityProviderOnlyAcceptTransfersFromHub();
+    /// @notice Only accept transfers from owner
+    error GroupLiquidityProviderOnlyAcceptTransfersFromOwnerOrVault();
 }

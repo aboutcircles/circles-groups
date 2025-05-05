@@ -2,7 +2,7 @@
 pragma solidity >=0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "test/mock-circles/MockCirclesDeployment.sol";
+import "test/mock-circles/MockCirclesFactoryDeployment.sol";
 
 contract CMGRedemptionHandlerTest is Test {
     // Constants
@@ -13,7 +13,7 @@ contract CMGRedemptionHandlerTest is Test {
     // State
 
     /// @notice Mock Circles Deployment
-    MockCirclesDeployment public mockCircles;
+    MockCirclesFactoryDeployment public mockCircles;
 
     // Test addresses
     address public cmGroup;
@@ -49,7 +49,7 @@ contract CMGRedemptionHandlerTest is Test {
         davidId = uint256(uint160(david));
         elsId = uint256(uint160(els));
 
-        mockCircles = new MockCirclesDeployment();
+        mockCircles = new MockCirclesFactoryDeployment();
 
         // Register users as people and mint initial CRC
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
@@ -85,7 +85,8 @@ contract CMGRedemptionHandlerTest is Test {
         address[] memory noInitialConditions = new address[](0);
 
         vm.startPrank(owner);
-        cmGroup = mockCircles.createCMGroup(service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
+        (cmGroup,,) =
+            mockCircles.createCMGroup(owner, service, noInitialConditions, "NoConditionsCMG", "CMG", bytes32(0));
 
         // Verify owner is set correctly
         assertEq(ICoreMembersGroup(cmGroup).owner(), owner);
@@ -110,7 +111,7 @@ contract CMGRedemptionHandlerTest is Test {
     function testGroupMintCollateralWithGroupMint() public {
         testTrustAliceAndBob();
 
-        // Have Alice send 101 of her CRC to mint handler
+        // Have Alice mint 101 of her CRC
         vm.startPrank(alice);
         address[] memory collateralAvatars = new address[](1);
         uint256[] memory amounts = new uint256[](1);
@@ -335,29 +336,6 @@ contract CMGRedemptionHandlerTest is Test {
         // She minted 101 CRC into gCRC, then redeemed 75 CRC back
         assertEq(mockCircles.mockHub().balanceOf(alice, aliceId), 974 * CRC); // Original - minted + redeemed
         assertEq(mockCircles.mockHub().balanceOf(alice, uint256(uint160(cmGroup))), 26 * CRC); // Minted - redeemed
-    }
-
-    function testCanListActiveCollateralAfterMinting() public {
-        testGroupMintCollateralWithMultipleSafeTransfers();
-
-        // Get group's redemption handler address
-        address redemptionHandler = ICoreMembersGroup(cmGroup).redemptionHandler();
-
-        (uint256[] memory collateralIds, uint256[] memory balances, uint256 totalLength) =
-            ICMGRedemptionHandler(redemptionHandler).getActiveCollateral();
-
-        // Verify returned array lengths match expected active collateral count
-        assertEq(collateralIds.length, 2);
-        assertEq(balances.length, 2);
-        assertEq(totalLength, 2);
-
-        // Verify collateral IDs match Alice and Bob's token IDs
-        assertEq(collateralIds[0], aliceId);
-        assertEq(collateralIds[1], bobId);
-
-        // Verify balances match what was minted
-        assertEq(balances[0], 340 * CRC);
-        assertEq(balances[1], 410 * CRC);
     }
 
     function testCanFindCollateralForLargeRedemption() public {

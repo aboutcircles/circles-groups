@@ -133,7 +133,7 @@ contract MockHub is ERC1155, TypeDefinitions {
     // View functions
 
     function isTrusted(address _truster, address _trustee) public view returns (bool) {
-        return trustMarkers[_truster][_trustee].expiry > block.timestamp;
+        return trustMarkers[_truster][_trustee].expiry >= block.timestamp;
     }
 
     function isHuman(address _avatar) public view returns (bool) {
