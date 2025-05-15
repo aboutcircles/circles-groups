@@ -1,5 +1,6 @@
 import json
 import logging
+import requests
 from datetime import datetime
 from web3 import Web3
 from typing import Set, Dict, Any, List, Optional
@@ -218,33 +219,81 @@ class TrustManagementAlgorithm:
             raise Exception(f"Trust batch transaction failed: {str(e)}")
 
     def check_health(self) -> Dict[str, Any]:
-        """Check the health of the trust management algorithm."""
-        current_block = -1
-        try:
-            current_block = self.web3.eth.block_number
-        except:
-            pass
+       """Check the health of the Trust Management Service, including indexer vs Gnosis chain head."""
 
-        uptime = datetime.now() - self.stats['start_time']
-        uptime_str = str(uptime).split('.')[0]  # Remove microseconds
+       # Setup Gnosis Chain connection (separate from self.web3 which is Circles RPC)
+       gnosis_web3 = Web3(Web3.HTTPProvider("https://rpc.gnosischain.com"))
 
-        processor_stats = self.lbp_processor.get_stats()
+       health = {
+           "status": "unhealthy",
+           "rpc_connected": False,
+           "gnosis_chain_connected": False,
+           "indexer_connected": False,
+           "current_block": -1,  # Circles RPC block
+           "gnosis_head_block": -1,  # Gnosis Chain block
+           "latest_indexed_block": -1,  # From indexer query
+           "last_processed_block": self._last_processed_block,
+           "last_trust_block": self._last_trust_block,
+           "block_lag": -1,  # Circles RPC lag vs. indexer
+           "indexer_vs_head_lag": -1,  # Head lag
+           "uptime": str(datetime.now() - self.stats['start_time']).split('.')[0]
+       }
 
-        return {
-            'status': 'healthy' if current_block > 0 else 'unhealthy',
-            'current_block': current_block,
-            'last_processed_block': self._last_processed_block,
-            'last_trust_block': self._last_trust_block,
-            'block_lag': current_block - self._last_processed_block if current_block > 0 else -1,
-            'uptime': uptime_str,
-            'trusted_accounts_count': len(self._trusted_accounts),
-            'backers_trusted': self.stats['backers_trusted'],
-            'blacklisted_addresses': self.stats['blacklisted_addresses'],
-            'lbp_created': processor_stats['lbp_created'],
-            'lbp_failed': processor_stats['lbp_failed'],
-            'pending_instances': processor_stats['pending_instances'],
-            'problem_instances': processor_stats['problem_instances']
-        }
+       # 1. Check Circles RPC (self.web3)
+       try:
+           if self.web3.is_connected():
+               health["rpc_connected"] = True
+               health["current_block"] = self.web3.eth.block_number
+       except Exception as e:
+           logger.error(f"Circles RPC connection failed: {e}")
+
+       # 2. Check Gnosis chain head
+       try:
+           if gnosis_web3.is_connected():
+               health["gnosis_chain_connected"] = True
+               health["gnosis_head_block"] = gnosis_web3.eth.block_number
+       except Exception as e:
+           logger.error(f"Gnosis Chain RPC connection failed: {e}")
+
+       # 3. Check indexer
+       try:
+           query = {
+               "jsonrpc": "2.0",
+               "id": 1,
+               "method": "circles_query",
+               "params": [{
+                   "Namespace": "System",
+                   "Table": "Block",
+                   "Columns": ["blockNumber"],
+                   "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
+                   "Limit": 1
+               }]
+           }
+           response = requests.post(self.nethermind_client.rpc_url, json=query, timeout=10)
+           result = response.json().get("result", {})
+
+           if result.get('rows'):
+               health["indexer_connected"] = True
+               health["latest_indexed_block"] = int(result['rows'][0][0])
+       except Exception as e:
+           logger.error(f"Indexer connection failed: {e}")
+
+       # 4. Calculate block lags and health status
+       if health["indexer_connected"]:
+           if health["rpc_connected"]:
+               health["block_lag"] = health["current_block"] - health["latest_indexed_block"]
+           if health["gnosis_chain_connected"]:
+               health["indexer_vs_head_lag"] = health["gnosis_head_block"] - health["latest_indexed_block"]
+
+           lag = health["indexer_vs_head_lag"]
+           if lag <= 5:
+               health["status"] = "healthy"
+           elif lag <= 10:
+               health["status"] = "degraded"
+           else:
+               health["status"] = "unhealthy"
+
+       return health
 
     def flush(self):
         """Reset algorithm state completely, fetching fresh trust data"""

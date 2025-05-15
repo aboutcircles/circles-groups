@@ -117,7 +117,7 @@ class TestNethermindClient(unittest.TestCase):
         self.mock_post.return_value = response
 
         # Call the method
-        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup", from_block=50)
+        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup")
 
         # Assertions
         self.mock_post.assert_called_once()
@@ -152,7 +152,7 @@ class TestNethermindClient(unittest.TestCase):
         self.client._cache['last_processed_block'] = 100
 
         # Call the method with from_block > 0 to test cache fallback
-        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup", from_block=50)
+        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup")
 
         # Assertions
         self.mock_post.assert_called_once()
@@ -171,7 +171,7 @@ class TestNethermindClient(unittest.TestCase):
         self.client._cache['last_processed_block'] = 100
 
         # Call the method
-        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup", from_block=50)
+        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup")
 
         # Assertions
         self.assertEqual(trustees, {"0xcached"})  # Should use cached values
@@ -179,7 +179,7 @@ class TestNethermindClient(unittest.TestCase):
 
         # Test with no cache - should return empty set and from_block
         self.client._cache['trusted_accounts'] = None
-        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup", from_block=50)
+        trustees, latest_block = self.client.fetch_group_trust_relations("0xBaseGroup")
         self.assertEqual(trustees, set())
         self.assertEqual(latest_block, 50)
 
@@ -195,7 +195,7 @@ class TestNethermindClient(unittest.TestCase):
         self.mock_web3.to_checksum_address.return_value = "0xChecksum"
 
         # Call the method
-        self.client.eth_call_reset_cowswap_order("0xinstance")
+        self.client.validate_reset_cowswap_order("0xinstance","private_key")
 
         # Assertions
         self.mock_web3.eth.contract.assert_called_once_with(address="0xChecksum", abi=self.client.abi)
@@ -211,7 +211,7 @@ class TestNethermindClient(unittest.TestCase):
 
         # Call the method - should raise the error for caller to handle
         with self.assertRaises(ContractLogicError):
-            self.client.eth_call_reset_cowswap_order("0xinstance")
+            self.client.validate_reset_cowswap_order("0xinstance","private_key")
 
     def test_eth_call_create_lbp_success(self):
         """Test eth_call for createLBP success."""
@@ -224,7 +224,7 @@ class TestNethermindClient(unittest.TestCase):
         self.mock_web3.to_checksum_address.return_value = "0xChecksum"
 
         # Call the method
-        self.client.eth_call_create_lbp("0xinstance")
+        self.client.validate_create_lbp("0xinstance","private_key")
 
         # Assertions
         self.mock_web3.eth.contract.assert_called_once_with(address="0xChecksum", abi=self.client.abi)
@@ -240,7 +240,7 @@ class TestNethermindClient(unittest.TestCase):
 
         # Call the method - should raise the error for caller to handle
         with self.assertRaises(ContractLogicError):
-            self.client.eth_call_create_lbp("0xinstance")
+            self.client.validate_create_lbp("0xinstance","private_key")
 
     def test_execute_reset_cowswap_order_success(self):
         """Test executing resetCowswapOrder successfully."""
@@ -261,7 +261,7 @@ class TestNethermindClient(unittest.TestCase):
         self.mock_web3.eth.wait_for_transaction_receipt.return_value = receipt
 
         # Call the method
-        result = self.client.execute_reset_cowswap_order("0xinstance", "private_key")
+        result = self.client.execute_cowswap_order("0xinstance", "private_key")
 
         # Assertions
         self.assertEqual(result["transactionHash"], tx_hash.hex())
@@ -278,7 +278,7 @@ class TestNethermindClient(unittest.TestCase):
 
         # Call the method - should raise the error for caller to handle
         with self.assertRaises(Exception):
-            self.client.execute_reset_cowswap_order("0xinstance", "private_key")
+            self.client.execute_cowswap_order("0xinstance", "private_key")
 
     def test_execute_create_lbp_success(self):
         """Test executing createLBP successfully."""

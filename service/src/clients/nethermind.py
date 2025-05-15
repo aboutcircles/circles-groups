@@ -480,8 +480,8 @@ class NethermindClient:
                 "id": 1,
                 "method": "circles_query",
                 "params": [{
-                    "Namespace": "V_CrcV2",
-                    "Table": "BlockProcessed",
+                    "Namespace": "System",
+                    "Table": "Block",
                     "Columns": ["blockNumber"],
                     "Order": [{"Column": "blockNumber", "SortOrder": "DESC"}],
                     "Limit": 1

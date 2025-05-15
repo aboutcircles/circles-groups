@@ -35,18 +35,24 @@ class ScreeningClient:
             return []
 
     def check_health(self) -> Dict:
-        """Check the health of the screening service."""
+        """Check the health of the screening service using a dummy blacklist check."""
         health = {
             "connected": False,
             "status": "unhealthy"
         }
 
         try:
-            response = requests.get(f"{self.base_url}/health", timeout=5)
-            health["connected"] = response.status_code == 200
+            test_address = ["0x0000000000000000000000000000000000000000"]
+            endpoint = f"{self.base_url}/bot-analytics/classify"
+            response = requests.post(endpoint, json={"addresses": test_address}, timeout=5)
 
-            if health["connected"]:
-                health["status"] = "healthy"
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, dict) and "verdicts" in data:
+                    health["connected"] = True
+                    health["status"] = "healthy"
+            else:
+                logger.warning(f"Screening health check returned non-200 status: {response.status_code}")
 
         except Exception as e:
             logger.error(f"Screening service health check failed: {e}")

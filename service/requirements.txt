@@ -1,7 +1,8 @@
 python-dotenv
 requests
 web3
-
+uvicorn
+fastapi
 
 # for tests
 pytest
