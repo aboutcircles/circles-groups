@@ -8,7 +8,7 @@ build/
 dist/
 *.log
 *.tmp
-
+*/json
 # Unit test / coverage reports
 htmlcov/
 .tox/
