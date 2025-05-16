@@ -28,10 +28,19 @@ logger = logging.getLogger(__name__)
 polling_service = None
 health_server = None
 slack_notifier = None
+trust_algorithm = None
 
 def signal_handler(sig, frame):
     """Handle signals for graceful shutdown."""
     logger.info(f"Received signal {sig}, shutting down...")
+
+    # Save state before shutdown
+    if trust_algorithm:
+        try:
+            trust_algorithm._save_state()
+            logger.info(f"Saved last processed block: {trust_algorithm._last_processed_block}")
+        except Exception as e:
+            logger.error(f"Error saving state: {e}")
 
     if polling_service:
         try:
@@ -58,7 +67,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def main():
-    global polling_service, health_server, slack_notifier
+    global polling_service, health_server, slack_notifier, trust_algorithm  # Add trust_algorithm to globals
 
     logger.info("Starting Circles Trust Management Service")
     logger.info(f"Starting from block {settings.deploy_block}")
@@ -122,6 +131,14 @@ def main():
         logger.critical("Service crashed", exc_info=True)
         if slack_notifier:
             slack_notifier.send_message(f"🚨 Circles Trust Service crashed: {e}")
+
+        # Save state even on crash
+        if trust_algorithm:
+            try:
+                trust_algorithm._save_state()
+                logger.info(f"Saved state after crash, last processed block: {trust_algorithm._last_processed_block}")
+            except Exception as save_error:
+                logger.error(f"Failed to save state after crash: {save_error}")
     finally:
         # This section will execute on a normal exit or uncaught exception
         logger.info("Service is shutting down")
@@ -132,6 +149,14 @@ def main():
                 logger.info("Polling service stopped")
             except Exception as e:
                 logger.error(f"Error stopping polling service during shutdown: {e}")
+
+        # Save state one final time during normal shutdown
+        if trust_algorithm:
+            try:
+                trust_algorithm._save_state()
+                logger.info(f"Final state save, last processed block: {trust_algorithm._last_processed_block}")
+            except Exception as e:
+                logger.error(f"Error saving final state: {e}")
 
         if slack_notifier:
             try:

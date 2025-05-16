@@ -44,7 +44,9 @@ async def health_check():
             if screening_health.get('status') != 'healthy' and health['status'] == 'healthy':
                 health['status'] = 'degraded'
 
-        return JSONResponse(content=health, status_code=200)
+              # Decide status code based on final health status
+        status_code = 200 if health['status'] == 'healthy' else 500
+        return JSONResponse(content=health, status_code=status_code)
 
     except Exception as e:
         logger.error(f"Health check failed: {e}", exc_info=True)

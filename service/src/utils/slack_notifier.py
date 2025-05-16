@@ -41,9 +41,9 @@ class SlackNotifier:
             logger.error(f"Failed to send Slack notification: {e}")
             return False
 
-    def notify_service_start(self) -> bool:
-        """Notify that the service has started."""
-        return self.send_message("🟢 Circles Trust Management service has started.")
+    # def notify_service_start(self) -> bool:
+    #     """Notify that the service has started."""
+    #     # return self.send_message("🟢 Circles Trust Management service has started.")
 
     def notify_service_stop(self) -> bool:
         """Notify that the service has stopped."""

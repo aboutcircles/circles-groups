@@ -13,6 +13,7 @@ class Settings:
         # Set up base paths
         self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.CONFIG_DIR = os.path.join(self.BASE_DIR, 'config')
+        self.state_dir = self._get_env('STATE_DIR', '')  # Directory to store state files
 
         # RPC endpoints
         self.nethermind_rpc_url = self._get_env('NETHERMIND_RPC_URL')

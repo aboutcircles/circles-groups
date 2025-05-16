@@ -18,7 +18,8 @@ class PollingService:
         nethermind_client: NethermindClient,
         poll_interval: int = 5,  # seconds
         health_check_interval: int = 3600,  # 1 hour
-        slack_notifier: Optional[SlackNotifier] = None
+        slack_notifier: Optional[SlackNotifier] = None,
+        grace_period_days: float = 1.0  # Grace period in days
     ):
         self.trust_algorithm = trust_algorithm
         self.nethermind_client = nethermind_client
@@ -29,6 +30,10 @@ class PollingService:
         self.last_health_check = datetime.now()
         self.running = False
         self.start_time = None
+
+        # Calculate grace period in blocks (assuming ~12 second blocks on Gnosis Chain)
+        self.MAX_GRACE_PERIOD_BLOCKS = int(grace_period_days * 24 * 60 * 60 / 12)
+        logger.info(f"Grace period set to {grace_period_days} days ({self.MAX_GRACE_PERIOD_BLOCKS} blocks)")
 
         if not self.web3.is_connected():
             raise ConnectionError("Failed to connect to the blockchain")
@@ -62,27 +67,138 @@ class PollingService:
         logger.info("Stopping PollingService...")
         self.running = False
 
+    def _ensure_connected(self):
+        """Ensure RPC connection is active."""
+        if self.web3.is_connected():
+            return True
+
+        # Try to reconnect
+        logger.warning("RPC connection lost. Attempting to reconnect...")
+        retry_count = 0
+        max_retries = 5
+
+        while not self.web3.is_connected() and retry_count < max_retries:
+            retry_count += 1
+            logger.info(f"Reconnection attempt {retry_count}/{max_retries}")
+
+            try:
+                # Re-initialize web3 connection
+                self.web3 = Web3(Web3.HTTPProvider(self.nethermind_client.rpc_url))
+                # Update reference in nethermind client
+                self.nethermind_client.web3 = self.web3
+
+                if self.web3.is_connected():
+                    logger.info("Successfully reconnected to RPC")
+                    return True
+            except Exception as e:
+                logger.error(f"Reconnection attempt failed: {e}")
+
+            # Wait before retrying (with backoff)
+            time.sleep(5 * (2 ** min(retry_count - 1, 4)))  # Capped exponential backoff
+
+        logger.error("Failed to reconnect to RPC after multiple attempts")
+        return False
+
     def _run_polling_loop(self):
-        """Main polling loop."""
-        latest_block_number = None
+        """Main polling loop with improved sync and grace period recovery."""
+        last_successful_run = time.time()
 
         while self.running:
             try:
-                current_block_number = self.web3.eth.block_number
+                # Ensure RPC connection
+                if not self._ensure_connected():
+                    logger.warning("RPC connection unavailable, waiting to retry...")
+                    time.sleep(10)  # Wait before retrying
+                    continue
 
-                if current_block_number != latest_block_number:
-                    latest_block_number = current_block_number
-                    logger.info(f"Processing new block: {latest_block_number}")
+                # Get current block number
+                current_block_number = self.web3.eth.block_number
+                last_processed_block = self.trust_algorithm._last_processed_block
+
+                # Calculate blocks to be processed
+                blocks_behind = current_block_number - last_processed_block
+
+                # Check if we're significantly behind (potential RPC downtime)
+                if blocks_behind > 20:  # Arbitrary threshold to detect significant lag
+                    logger.warning(
+                        f"Service is {blocks_behind} blocks behind current chain state. "
+                        f"This may indicate prior RPC connectivity issues."
+                    )
+
+                    # Check if we're within grace period capacity
+                    if blocks_behind <= self.MAX_GRACE_PERIOD_BLOCKS:
+                        logger.info(f"Processing backlog within grace period: {blocks_behind} blocks")
+
+                        # Optional: Process in smaller batches if significantly behind
+                        if blocks_behind > 100:
+                            logger.info("Processing backlog in batches to avoid timeout")
+
+                            # Process all missed blocks by triggering run for each batch
+                            self.trust_algorithm.run()
+
+                            # Allow a small pause between runs to avoid overwhelming the node
+                            time.sleep(1)
+                        else:
+                            # Standard processing for smaller backlogs
+                            logger.info(f"Processing blocks {last_processed_block+1} to {current_block_number}")
+                            self.trust_algorithm.run()
+                    else:
+                        # Beyond grace period capacity, requires intervention
+                        logger.critical(
+                            f"Service is too far behind ({blocks_behind} blocks, max grace: {self.MAX_GRACE_PERIOD_BLOCKS}). "
+                            f"Manual intervention may be required."
+                        )
+                        if self.slack_notifier:
+                            self.slack_notifier.send_message(
+                                f"🚨 CRITICAL: Service is {blocks_behind} blocks behind (more than 1 day). "
+                                f"Manual intervention required to prevent missing events."
+                            )
+
+                        # Option 1: Skip forward and log the action - better for non-essential services
+                        # safe_start_block = current_block_number - self.MAX_GRACE_PERIOD_BLOCKS // 2
+                        # logger.warning(f"Skipping forward to block {safe_start_block} due to excessive lag")
+                        # self.trust_algorithm._last_processed_block = safe_start_block
+
+                        # Option 2: Continue processing from where we are - may take a long time to catch up
+                        logger.warning("Attempting to process large backlog - this may take a long time")
+                        self.trust_algorithm.run()
+
+                        # Option 3: Fail loudly - better for financial applications
+                        # raise RuntimeError(
+                        #     f"Service backlog exceeds grace period: {blocks_behind} blocks behind. "
+                        #     f"Manual recovery required."
+                        # )
+
+                # Standard case - processing current blocks
+                elif current_block_number > last_processed_block:
+                    logger.info(f"Processing blocks {last_processed_block+1} to {current_block_number}")
                     self.trust_algorithm.run()
 
-                # Send health check if interval has passed
-                if (datetime.now() - self.last_health_check).total_seconds() > self.health_check_interval:
+                # Update last successful run timestamp
+                last_successful_run = time.time()
+
+                # Health check
+                health_check_interval_passed = (datetime.now() - self.last_health_check).total_seconds() > self.health_check_interval
+                if health_check_interval_passed:
                     self._send_health_check()
                     self.last_health_check = datetime.now()
 
+                # Sleep before next check
                 time.sleep(self.poll_interval)
+
             except Exception as e:
                 logger.error(f"Error in polling loop: {e}", exc_info=True)
+
+                # Calculate downtime
+                downtime = time.time() - last_successful_run
+
+                # Alert if downtime is significant
+                if downtime > 300 and self.slack_notifier:  # 5 minutes
+                    self.slack_notifier.send_message(
+                        f"⚠️ Service experiencing issues for {int(downtime/60)} minutes. Error: {str(e)}"
+                    )
+
+                # Wait before retrying
                 time.sleep(self.poll_interval)
 
     def _send_health_check(self):
