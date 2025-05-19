@@ -5,6 +5,8 @@ from typing import Set, Tuple, Dict, List, Optional
 from web3 import Web3
 from web3.exceptions import ContractLogicError
 from src.config.settings import settings
+from src.utils import error_handler
+from src.utils.error_handler import identify_contract_error, get_status_from_error_name
 
 logger = logging.getLogger(__name__)
 
@@ -261,15 +263,18 @@ class NethermindClient:
             contract.functions.resetCowswapOrder().call({'from': account.address})
             return {"status": "valid"}
         except ContractLogicError as e:
-            error_message = str(e)
+            error_name, error_code = identify_contract_error(e)
             #reverterror handling
             # Check for specific error constants
-            if "OrderAlreadySettled" in error_message:
-                return {"status": "order_already_settled", "message": error_message}
-            elif "OrderUidIsTheSame" in error_message:
-                return {"status": "order_uid_same", "message": error_message}
-            else:
-                return {"status": "contract_error", "message": error_message}
+            # Map error names to status codes
+
+                   # Return structured error information
+            return {
+                "status": get_status_from_error_name(error_name),
+                "message": str(e),
+                "error_name": error_name,
+                "error_code": error_code
+            }
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
@@ -295,17 +300,18 @@ class NethermindClient:
             contract.functions.createLBP().call({'from': account.address})
             return {"status": "valid"}
         except ContractLogicError as e:
-            error_message = str(e)
+            error_name, error_code = identify_contract_error(e)
 
-            # Check for specific error constants
-            if "LBPAlreadyCreated" in error_message:
-                return {"status": "lbp_already_created", "message": error_message}
-            elif "BackingAssetBalanceInsufficient" in error_message:
-                return {"status": "insufficient_balance", "message": error_message}
-            else:
-                return {"status": "contract_error", "message": error_message}
+                    # Return structured error information
+            return {
+                "status": get_status_from_error_name(error_name),
+                "message": str(e),
+                "error_name": error_name,
+                "error_code": error_code
+            }
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
 
     def check_completed_event(self, instance_address: str, backer_address: str) -> bool:
         """Check if CirclesBackingCompleted event exists for the given instance."""
@@ -388,78 +394,76 @@ class NethermindClient:
             return None
 
     def execute_create_lbp(self, instance_address: str, private_key: str) -> Dict:
-        """Execute CreateLBP on a circles backing instance"""
-        try:
-            checksum_instance = self.web3.to_checksum_address(instance_address)
-            account = self.web3.eth.account.from_key(private_key)
+            """Execute CreateLBP on a circles backing instance"""
+            try:
+                checksum_instance = self.web3.to_checksum_address(instance_address)
+                account = self.web3.eth.account.from_key(private_key)
 
                 # Get ABI if not already set
-            if self.abi is None:
-                from config.settings import settings
-                with open(settings.circles_backing_abi_path, "r") as f:
-                    self.abi = json.load(f)
+                if self.abi is None:
+                    from config.settings import settings
+                    with open(settings.circles_backing_abi_path, "r") as f:
+                        self.abi = json.load(f)
 
-            contract = self.web3.eth.contract(address=checksum_instance, abi=self.abi)
+                contract = self.web3.eth.contract(address=checksum_instance, abi=self.abi)
 
-            transaction = contract.functions.createLBP().build_transaction({
-                "from": account.address,
-                "nonce": self.web3.eth.get_transaction_count(account.address),
-                "gas": 1000000,
-                "gasPrice": self.web3.eth.gas_price,
-            })
+                transaction = contract.functions.createLBP().build_transaction({
+                    "from": account.address,
+                    "nonce": self.web3.eth.get_transaction_count(account.address),
+                    "gas": 1000000,
+                    "gasPrice": self.web3.eth.gas_price,
+                })
 
-            signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key)
-            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+                signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key)
+                tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
-            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+                receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
 
-            return {
-                "status": "success",
-                "receipt": dict(receipt),
-                "tx_hash": tx_hash.hex()
-            }
-        except ContractLogicError as e:
-            return {
-            "status": "error",
-            "message": str(e)
-            }
+                return {
+                    "status": "success",
+                    "receipt": dict(receipt),
+                    "tx_hash": tx_hash.hex()
+                }
+            except Exception:
+                # Note: We don't process contract errors here - we let them
+                # propagate so they can be caught and handled by the processor
+                raise
 
     def execute_cowswap_order(self, instance_address: str, private_key: str) -> Dict:
-        """Execute resetCowswapOrder on a backing instance."""
+            """Execute resetCowswapOrder on a backing instance."""
 
-        try:
-            checksum_instance = self.web3.to_checksum_address(instance_address)
-            account = self.web3.eth.account.from_key(private_key)
+            try:
+                checksum_instance = self.web3.to_checksum_address(instance_address)
+                account = self.web3.eth.account.from_key(private_key)
 
-            # Get ABI if not already set
-            if self.abi is None:
-                from config.settings import settings
-                with open(settings.circles_backing_abi_path, "r") as f:
-                    self.abi = json.load(f)
+                # Get ABI if not already set
+                if self.abi is None:
+                    from config.settings import settings
+                    with open(settings.circles_backing_abi_path, "r") as f:
+                        self.abi = json.load(f)
 
-            contract = self.web3.eth.contract(address=checksum_instance, abi=self.abi)
+                contract = self.web3.eth.contract(address=checksum_instance, abi=self.abi)
 
-            transaction = contract.functions.resetCowswapOrder().build_transaction({
-                "from": account.address,
-                "nonce": self.web3.eth.get_transaction_count(account.address),
-                "gas": 300000,
-                "gasPrice": self.web3.eth.gas_price,
-            })
+                transaction = contract.functions.resetCowswapOrder().build_transaction({
+                    "from": account.address,
+                    "nonce": self.web3.eth.get_transaction_count(account.address),
+                    "gas": 300000,
+                    "gasPrice": self.web3.eth.gas_price,
+                })
 
-            signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key)
-            tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
-            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+                signed_tx = self.web3.eth.account.sign_transaction(transaction, private_key)
+                tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+                receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
 
-            return {
-                "status": "success",
-                "receipt": dict(receipt),
-                "tx_hash": tx_hash.hex()
-            }
-        except ContractLogicError as e:
-            return {
-                "status": "error",
-                "message": str(e)
-            }
+                return {
+                    "status": "success",
+                    "receipt": dict(receipt),
+                    "tx_hash": tx_hash.hex()
+                }
+            except Exception:
+                    # Note: We don't process contract errors here - we let them
+                    # propagate so they can be caught and handled by the processor
+                    raise
 
     def check_health(self) -> Dict:
         """Check the health of the RPC connection and indexer."""
