@@ -77,7 +77,7 @@ class LBPProcessor:
 
                 logger.info(f"✅ Successfully reset Cowswap order for {instance}")
                 self.stats['reset_succeeded'] += 1
-                self._schedule_completion_check(instance, backer, tx_receipt.get('transactionHash'))
+                self._schedule_completion_check(instance, backer, tx_receipt.get('tx_hash'))
                 self._notify(f"✅ Successfully reset Cowswap order for {instance}")
 
                 return True
@@ -101,7 +101,7 @@ class LBPProcessor:
                     self._notify(f"❌ Unknown resetCowswapOrder error: {error_message}")
                     return False
 
-        except Exception as e:
+        except ContractLogicError as e:
             logger.exception(f"🚨 Unhandled error processing instance {instance}: {e}")
             self._add_problem_instance(instance, backer, str(e))
             self._notify(f"🚨 Unhandled error processing instance {instance}: {e}")
@@ -122,7 +122,7 @@ class LBPProcessor:
 
                 logger.info(f"✅ Successfully created LBP for {instance}")
                 self.stats['lbp_created'] += 1
-                self._schedule_completion_check(instance, backer, tx_receipt.get('transactionHash'))
+                self._schedule_completion_check(instance, backer, tx_receipt.get('tx_hash'))
                 self._notify(f"✅ LBP created for {instance}")
 
                 return True
@@ -149,7 +149,7 @@ class LBPProcessor:
                     self._notify(f"❌ Unknown createLBP error: {error_message}")
                     return False
 
-        except Exception as e:
+        except ContractLogicError as e:
             logger.exception(f"🚨 Error creating LBP for {instance}: {e}")
             self._add_problem_instance(instance, backer, str(e))
             self._notify(f"🚨 Error creating LBP for {instance}: {e}")
@@ -236,7 +236,7 @@ class LBPProcessor:
 
                 logger.info(f"✅ Successfully reset Cowswap order for {instance} on retry")
                 self.stats['reset_succeeded'] += 1
-                self._schedule_completion_check(instance, backer, tx_receipt.get('transactionHash'))
+                self._schedule_completion_check(instance, backer, tx_receipt.get('tx_hash'))
                 self._notify(f"✅ Reset succeeded for {instance} on retry #{retry_count}")
 
                 # Remove from pending instances

@@ -439,11 +439,10 @@ class TestNethermindClient(unittest.TestCase):
         self.mock_web3.eth.wait_for_transaction_receipt.return_value = receipt
 
         # Call the method
-        result = self.client.try_reset_cowswap_order("0xinstance", "private_key")
+        result = self.client.execute_cowswap_order("0xinstance", "private_key")
 
         # Assertions
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(result["receipt"], receipt)
+        self.assertEqual(result["transactionHash"], tx_hash.hex())
         mock_contract.functions.resetCowswapOrder.assert_called_once()
 
     def test_try_reset_cowswap_order_already_settled(self):
@@ -456,7 +455,7 @@ class TestNethermindClient(unittest.TestCase):
         mock_contract.functions.resetCowswapOrder.return_value.build_transaction.side_effect = Exception("OrderAlreadySettled")
 
         # Call the method
-        result = self.client.try_reset_cowswap_order("0xinstance", "private_key")
+        result = self.client.validate_reset_cowswap_order("0xinstance", "private_key")
 
         # Assertions
         self.assertEqual(result["status"], "order_already_settled")
@@ -471,7 +470,7 @@ class TestNethermindClient(unittest.TestCase):
         mock_contract.functions.resetCowswapOrder.return_value.build_transaction.side_effect = Exception("OrderUidIsTheSame")
 
         # Call the method
-        result = self.client.try_reset_cowswap_order("0xinstance", "private_key")
+        result = self.client.validate_reset_cowswap_order("0xinstance", "private_key")
 
         # Assertions
         self.assertEqual(result["status"], "order_uid_same")
