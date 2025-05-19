@@ -10,6 +10,7 @@ from algorithm.lbp_processor import LBPProcessor
 from utils.slack_notifier import SlackNotifier
 from config.settings import settings
 from utils.state import StateManager
+from web3.exceptions import ContractLogicError
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +266,7 @@ class TrustManagementAlgorithm:
 
             return receipt
 
-        except Exception as e:
+        except ContractLogicError as e:
             logger.error(f"Error executing trust batch: {e}", exc_info=True)
             raise Exception(f"Trust batch transaction failed: {str(e)}")
 
