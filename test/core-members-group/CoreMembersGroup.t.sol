@@ -44,7 +44,7 @@ contract CoreMembersGroupTest is Test {
         davidId = uint256(uint160(david));
 
         mockCircles = new MockCirclesFactoryDeployment();
-        isHumanCondition = new IsHumanCondition(mockCircles.getCirclesCore());
+        isHumanCondition = new IsHumanCondition(address(mockCircles.mockHub()));
 
         // Register users as people
         mockCircles.mockHub().registerHuman(alice, 1000 * CRC);
