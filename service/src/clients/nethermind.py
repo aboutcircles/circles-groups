@@ -4,47 +4,49 @@ import logging
 from typing import Set, Tuple, Dict, List, Optional
 from web3 import Web3
 from web3.exceptions import ContractLogicError
-from src.config.settings import settings
-from src.utils import error_handler
-from src.utils.error_handler import identify_contract_error, get_status_from_error_name
+from config.settings import settings
+from utils import error_handler
+from utils.error_handler import identify_contract_error, get_status_from_error_name
 
 logger = logging.getLogger(__name__)
 
 class NethermindClient:
-    def __init__(self, rpc_url: str, factory_address: Optional[str] = None ):
-        """
-        Initialize the NethermindClient.
+    def __init__(self, rpc_url: str, gnosis_rpc: str, factory_address: Optional[str] = None ):
+            """
+            Initialize the NethermindClient.
 
-        Args:
-            rpc_url: The URL of the Nethermind RPC endpoint
-            factory_address: Optional factory address, will use settings if not provided
-        """
-        self.rpc_url = rpc_url
-        self.web3 = Web3(Web3.HTTPProvider(rpc_url))
-        if not self.web3.is_connected():
-            raise ConnectionError(f"Failed to connect to node at {rpc_url}")
+            Args:
+                gnosis_rpc: URL for gnosis RPC
+                rpc_url: The URL of the Nethermind RPC endpoint
+                factory_address: Optional factory address, will use settings if not provided
+            """
+            self.rpc_url = rpc_url
+            self.gnosis_rpc_url = gnosis_rpc
+            self.web3 = Web3(Web3.HTTPProvider(gnosis_rpc))
+            if not self.web3.is_connected():
+                raise ConnectionError(f"Failed to connect to node at {gnosis_rpc}")
 
-        # Set factory address, falling back to settings if needed
-        if factory_address is None:
-            # Use the already imported settings instead of re-importing
-            factory_address = settings.factory_address
+            # Set factory address, falling back to settings if needed
+            if factory_address is None:
+                # Use the already imported settings instead of re-importing
+                factory_address = settings.factory_address
 
-        # Ensure factory address is properly formatted (lowercase for queries)
-        self.factory_address = factory_address.lower() if factory_address else ""
+            # Ensure factory address is properly formatted (lowercase for queries)
+            self.factory_address = factory_address.lower() if factory_address else ""
 
-        if self.factory_address:
-            logger.info(f"NethermindClient initialized with factory address: {self.factory_address}")
-        else:
-            logger.warning("NethermindClient initialized without factory address")
+            if self.factory_address:
+                logger.info(f"NethermindClient initialized with factory address: {self.factory_address}")
+            else:
+                logger.warning("NethermindClient initialized without factory address")
 
-        # Initialize cache
-        self._cache = {
-            'trusted_accounts': set(),
-            'last_processed_block': 0
-        }
+            # Initialize cache
+            self._cache = {
+                'trusted_accounts': set(),
+                'last_processed_block': 0
+            }
 
-        # Initialize abi property
-        self.abi = None
+            # Initialize abi property
+            self.abi = None
 
     def fetch_backing_status(self, from_block: int = 0):
         """
@@ -160,7 +162,7 @@ class NethermindClient:
                     completed_backers.add(backer)
                     latest_block = max(latest_block, block_num)
 
-            # Find instances needing LBP (initiated but not completed)
+            #Find instances needing LBP (initiated but not completed)
             needs_lbp = [
                 (backer, instance) for (backer, instance) in initiated_instances
                 if (backer, instance) not in completed_instances
@@ -171,6 +173,7 @@ class NethermindClient:
             logger.info(f"Latest block processed: {latest_block}")
 
             return needs_lbp, completed_backers, latest_block
+
 
         except Exception as e:
             logger.error(f"Error fetching backing status: {e}")
@@ -262,21 +265,17 @@ class NethermindClient:
         try:
             contract.functions.resetCowswapOrder().call({'from': account.address})
             return {"status": "valid"}
-        except ContractLogicError as e:
+        except Exception as e:
+            # Use the general exception handler and identify_contract_error
             error_name, error_code = identify_contract_error(e)
-            #reverterror handling
-            # Check for specific error constants
-            # Map error names to status codes
 
-                   # Return structured error information
+            # Return structured error information
             return {
                 "status": get_status_from_error_name(error_name),
                 "message": str(e),
                 "error_name": error_name,
                 "error_code": error_code
             }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
 
     def validate_create_lbp(self, instance_address: str, private_key: str) -> Dict:
         """
@@ -299,7 +298,7 @@ class NethermindClient:
         try:
             contract.functions.createLBP().call({'from': account.address})
             return {"status": "valid"}
-        except ContractLogicError as e:
+        except Exception as e:
             error_name, error_code = identify_contract_error(e)
 
                     # Return structured error information
@@ -309,8 +308,6 @@ class NethermindClient:
                 "error_name": error_name,
                 "error_code": error_code
             }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
 
 
     def check_completed_event(self, instance_address: str, backer_address: str) -> bool:

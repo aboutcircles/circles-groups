@@ -2,10 +2,10 @@ import logging
 import time
 from typing import Dict, Set, Optional
 from web3 import Web3
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, Web3RPCError
 from clients.nethermind import NethermindClient
 from utils.slack_notifier import SlackNotifier
-from utils.error_handler import identify_contract_error, get_status_from_error_name
+from utils.error_handler import identify_contract_error, get_status_from_error_name, web3_rpc_retry
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class LBPProcessor:
             'indexer_issues': 0
         }
 
+    @web3_rpc_retry
     def process_instance(self, instance: str, backer: str) -> bool:
         """
         Process a backing instance that needs LBP creation.
@@ -81,18 +82,18 @@ class LBPProcessor:
 
                     return True
 
-                except ContractLogicError as e:
+                except Exception as e:
+                    self._notify(f"❌ Error executing cowswap order: {str(e)}")
                     error_info = identify_contract_error(e)
                     return self._handle_contract_error(instance, backer, error_info, "cowswap")
-                    self._notify(f"❌ Error executing cowswap order: {str(e)}")
-                    return False
 
             else:
                 # Handle validation errors
                 return self._handle_contract_error(instance, backer, validation_result, "cowswap")
 
-        except ContractLogicError as e:
+        except Exception as e:
                     # Handle unexpected contract errors
+                    self._notify(f"❌ Unexpected error in process_instance: {str(e)}")
                     error_info = identify_contract_error(e)
                     return self._handle_contract_error(instance, backer, error_info, "cowswap")
 
@@ -118,26 +119,24 @@ class LBPProcessor:
                     self._notify(f"✅ LBP created for {instance}")
                     return True
 
-                except ContractLogicError as e:
+                except Exception as e:
+                    self._notify(f"❌ Error executing createLBP: {str(e)}")
+                    logger.error(f"❌ Error executing createLBP: {str(e)}")
+                    self.stats['lbp_failed'] += 1
                     error_info = identify_contract_error(e)
                     return self._handle_contract_error(instance, backer, error_info, "createLBP")
 
-                    logger.error(f"❌ Error executing createLBP: {str(e)}")
-                    self.stats['lbp_failed'] += 1
-                    self._notify(f"❌ Error executing createLBP: {str(e)}")
-                    return False
 
             else:
                  return self._handle_contract_error(instance, backer, validation_result, "createLBP")
 
-        except ContractLogicError as e:
-            error_info = identify_contract_error(e)
-            return self._handle_contract_error(instance, backer, error_info, "createLBP")
+        except Exception as e:
             logger.exception(f"🚨 Error validating LBP for {instance}: {e}")
             self.stats['lbp_failed'] += 1
             self._add_problem_instance(instance, backer, str(e))
             self._notify(f"🚨 Error creating LBP for {instance}: {e}")
-            return False
+            error_info = identify_contract_error(e)
+            return self._handle_contract_error(instance, backer, error_info, "createLBP")
 
     def process_pending_instances(self):
         """Process pending instances ready for retry."""
@@ -176,7 +175,7 @@ class LBPProcessor:
                 del self.pending_instances[instance]
                 continue
 
-            # Update attempt time
+            # Update attempt time and count
             self.pending_instances[instance]['last_attempt'] = current_time
             self.pending_instances[instance]['retry_count'] = retry_count + 1
 
@@ -193,30 +192,41 @@ class LBPProcessor:
                     # After too many retries, try creating LBP again
                     if retry_count > 10:
                         logger.warning(f"⚠️ Too many completion checks for {instance}, trying createLBP again")
-                        self._handle_create_lbp(instance, backer)
-                        del self.pending_instances[instance]  # Remove from pending after retry
+                        result = self._handle_create_lbp(instance, backer)
+                        if result:
+                            logger.info(f"Successfully retried createLBP for {instance}")
+                            del self.pending_instances[instance]
 
                 elif instance_type == 'reset_retry':
                     # Process retry for resetCowswapOrder
-                    self._process_reset_retry(instance, backer, retry_count)
+                    result = self._process_reset_retry(instance, backer, retry_count)
 
-            except ContractLogicError as e:
-                        # Handle contract errors with our centralized handler
-                        error_info = identify_contract_error(e)
-                        error_name, error_code = error_info
-                        error_msg = f"{error_name or 'Unknown error'} [{error_code}]"
-
-                        logger.error(f"🚨 Contract error retrying {instance}: {error_msg}")
-                        self.pending_instances[instance]['error'] = error_msg
-                        self._notify(f"🚨 Contract error retrying {instance}: {error_msg}")
+                    # If retry was successful, remove from pending
+                    if result:
+                        del self.pending_instances[instance]
 
             except Exception as e:
-                logger.exception(f"🚨 Error retrying {instance}: {e}")
-                self.pending_instances[instance]['error'] = str(e)
-                self._notify(f"🚨 Error retrying {instance}: {e}")
+                # Simple error handling for any unexpected errors
+                error_info = identify_contract_error(e)
+                error_name = error_info[0] if isinstance(error_info, tuple) and len(error_info) > 0 else "Unknown error"
+                error_code = error_info[1] if isinstance(error_info, tuple) and len(error_info) > 1 else None
+
+                error_msg = f"{error_name}"
+                if error_code:
+                    error_msg += f" [{error_code}]"
+
+                # Log error and store for future reference
+                logger.error(f"🚨 Error processing pending instance {instance}: {error_msg}")
+                self.pending_instances[instance]['error'] = error_msg
+                self._notify(f"🚨 Error processing pending instance {instance}: {error_msg}")
 
     def _process_reset_retry(self, instance: str, backer: str, retry_count: int):
-        """Process a retry for resetCowswapOrder."""
+        """
+        Process a retry for resetCowswapOrder.
+
+        Returns:
+            bool: True if processed successfully or special case handled, False otherwise
+        """
         try:
             # Validate resetCowswapOrder first
             validation_result = self.client.validate_reset_cowswap_order(
@@ -237,116 +247,114 @@ class LBPProcessor:
                     self._schedule_completion_check(instance, backer, tx_receipt.get('tx_hash'))
                     self._notify(f"✅ Reset succeeded for {instance} on retry #{retry_count}")
 
-                    # Remove from pending instances
-                    del self.pending_instances[instance]
+                    return True  # Success
 
-                except ContractLogicError as e:
+                except Exception as e:
                     # Use our centralized error handler
                     error_info = identify_contract_error(e)
                     self.stats['reset_failed'] += 1
 
-                    # Store error in pending instance record
-                    error_name, error_code = error_info
-                    error_msg = f"{error_name or 'Unknown error'} [{error_code}]"
-                    self.pending_instances[instance]['error'] = error_msg
+                    # Store simple error message for reference
+                    if isinstance(error_info, tuple) and len(error_info) >= 2:
+                        self.pending_instances[instance]['error'] = f"{error_info[0] or 'Unknown'} [{error_info[1]}]"
+                    else:
+                        self.pending_instances[instance]['error'] = str(e)
 
-                    # Use our contract error handler
+                    # Delegate to our contract error handler
                     result = self._handle_contract_error(instance, backer, error_info, "cowswap")
 
-                    # If it's OrderAlreadySettled and createLBP was successful, remove from pending
-                    if error_name == "OrderAlreadySettled" and result:
-                        del self.pending_instances[instance]
+
+                    return result  # Return result from error handler
 
             else:
-                # Use our centralized error handler for validation errors
+                # Invalid - delegate to error handler
+                self.pending_instances[instance]['error'] = f"{validation_result.get('error_name', 'Validation failed')} [{validation_result.get('error_code', '')}]".strip()
+
+                # Use our standard error handler
                 result = self._handle_contract_error(instance, backer, validation_result, "cowswap")
 
-                # Store the formatted error in the pending instance
-                error_name = validation_result.get("error_name", "Unknown error")
-                error_code = validation_result.get("error_code")
-                error_msg = f"{error_name} [{error_code}]"
-                self.pending_instances[instance]['error'] = error_msg
+                # Check for special case: OrderAlreadySettled handled successfully
+                if validation_result.get("status") == "order_already_settled" and result:
+                    return True
 
-                # Special case: If it's OrderAlreadySettled and createLBP was successful, remove from pending
-                if validation_result["status"] == "order_already_settled" and result:
-                    del self.pending_instances[instance]
+                return result  # Return result from error handler
 
         except Exception as e:
-            # Handle other exceptions
-            if isinstance(e, ContractLogicError):
-                error_info = identify_contract_error(e)
-                error_name, error_code = error_info
-                error_msg = f"{error_name or 'Unknown error'} [{error_code}]"
-            else:
-                error_msg = str(e)
+            # Final fallback for any unexpected exceptions
+            error_info = identify_contract_error(e)
 
-            logger.exception(f"🚨 Error in retry reset for {instance}: {error_msg}")
-            self.pending_instances[instance]['error'] = error_msg
-            self._notify(f"🚨 Error in retry reset for {instance}: {error_msg}")
+            # Store simple error message
+            if isinstance(error_info, tuple) and len(error_info) >= 2:
+                self.pending_instances[instance]['error'] = f"{error_info[0] or 'Unknown'} [{error_info[1]}]"
+            else:
+                self.pending_instances[instance]['error'] = str(e)
+
+            logger.exception(f"🚨 Unexpected error in retry reset for {instance}")
+            self._notify(f"🚨 Unexpected error in retry reset for {instance}: {str(e)}")
+            return False  # Error case
 
     def _handle_contract_error(self, instance: str, backer: str, error_result, operation="cowswap"):
-        """
-        Handle contract errors consistently, whether from validation or execution.
+            """
+            Handle contract errors consistently, whether from validation or execution.
 
-        Args:
-            instance: The instance address
-            backer: The backer address
-            error_result: Either a validation result dict or a tuple of (error_name, error_code)
-            operation: The operation being performed (cowswap or createLBP)
+            Args:
+                instance: The instance address
+                backer: The backer address
+                error_result: Either a validation result dict or a tuple of (error_name, error_code)
+                operation: The operation being performed (cowswap or createLBP)
 
-        Returns:
-            bool: Result of handling the error
-        """
-        if isinstance(error_result, dict):
+            Returns:
+                bool: Result of handling the error
+            """
+            if isinstance(error_result, dict):
+                status = error_result.get("status", "unknown")
+                error_name = error_result.get("error_name", "Unknown error")
+                error_code = error_result.get("error_code")
+            else:
+                # It's a direct error name and code tuple from identify_contract_error
+                error_name, error_code = error_result
 
-            status = error_result.get("status", "unknown")
-            error_name = error_result.get("error_name", "Unknown error")
-            error_code = error_result.get("error_code")
-        else:
-            # It's a direct error name and code tuple from identify_contract_error
-            error_name, error_code = error_result
+                # Use the get_status_from_error_name function to get the status
+                status = get_status_from_error_name(error_name)
 
-            # Use the get_status_from_error_name function to get the status
-            status = get_status_from_error_name(error_name)
+            # Handle different error statuses
+            if status == "order_already_settled":
+                logger.info(f"⚠️ Order already settled for {instance}, trying createLBP")
+                return self._handle_create_lbp(instance, backer)
 
-        # Handle different error statuses
-        if status == "order_already_settled":
-            logger.info(f"⚠️ Order already settled for {instance}, trying createLBP")
-            return self._handle_create_lbp(instance, backer)
+            elif status == "order_uid_same":
+                logger.warning(f"⏱️ OrderUidIsTheSame for {instance} - scheduling retry")
+                self._schedule_reset_retry(instance, backer)
+                self._notify(f"⏱️ OrderUID is the same for {instance}, scheduled retry")
+                return True
 
-        elif status == "order_uid_same":
-            logger.warning(f"⏱️ OrderUidIsTheSame for {instance} - scheduling retry")
-            self._schedule_reset_retry(instance, backer)
-            self._notify(f"⏱️ OrderUID is the same for {instance}, scheduled retry")
-            return True
+            elif status == "lbp_already_created":
+                logger.info(f"ℹ️ LBP already created for {instance}, checking for completed event")
+                self._schedule_completion_check(instance, backer)
+                self._check_for_indexer_issue(instance, backer)
+                return True
 
-        elif status == "lbp_already_created":
-            logger.info(f"ℹ️ LBP already created for {instance}, checking for completed event")
-            self._schedule_completion_check(instance, backer)
-            self._check_for_indexer_issue(instance, backer)
-            return True
+            elif status == "insufficient_balance":
+                logger.warning(f"❗ Insufficient backing asset balance for {instance}")
+                self._add_problem_instance(instance, backer, 'Insufficient backing asset balance')
+                if self.slack:
+                    self.slack.notify_insufficient_balance(instance, backer)
+                return False
 
-        elif status == "insufficient_balance":
-            logger.warning(f"❗ Insufficient backing asset balance for {instance}")
-            self._add_problem_instance(instance, backer, 'Insufficient backing asset balance')
-            if self.slack:
-                self.slack.notify_insufficient_balance(instance, backer)
-            return False
+            else:
+                # Generic contract error
+                error_msg = f"{error_name or 'Unknown'} [{error_code}]"
+                logger.error(f"---❌ Contract error in {operation}: {error_msg}")
 
-        else:
-            # Generic contract error
-            error_msg = f"{error_name or 'Unknown'} [{error_code}]"
-            logger.error(f"❌ Contract error in {operation}: {error_msg}")
+                # Update stats based on operation
+                if operation == "cowswap":
+                    self.stats['reset_failed'] += 1
+                elif operation == "createLBP":
+                    self.stats['lbp_failed'] += 1
 
-            # Update stats based on operation
-            # if operation == "cowswap":
-            #     self.stats['reset_failed'] += 1
-            # elif operation == "createLBP":
-            #     self.stats['lbp_failed'] += 1
-
-            self._add_problem_instance(instance, backer, f"Contract error: {error_msg}")
-            self._notify(f"❌ {operation} error: {error_msg}")
-            return False
+                self._add_problem_instance(instance, backer, f"Contract error: {error_msg}")
+                self._notify(f"❌ {operation} error: {error_msg}")
+                return False
 
     def _schedule_completion_check(self, instance: str, backer: str, tx_hash=None):
         """Schedule a check for completed event in the next block."""

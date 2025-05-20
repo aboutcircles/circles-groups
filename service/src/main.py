@@ -3,7 +3,6 @@ import logging
 import signal
 import sys
 from dotenv import load_dotenv
-
 from clients.nethermind import NethermindClient
 from clients.screening import ScreeningClient
 from algorithm.trust_management import TrustManagementAlgorithm
@@ -80,7 +79,7 @@ def main():
     load_dotenv()
 
     # Initialize clients
-    nethermind_client = NethermindClient(settings.nethermind_rpc_url)
+    nethermind_client = NethermindClient(settings.nethermind_rpc_url, settings.nethermind_gnosis_rpc)
     screening_client = ScreeningClient(settings.screening_url)
 
     # Initialize Slack notifier

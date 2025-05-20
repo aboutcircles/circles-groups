@@ -19,6 +19,7 @@ class Settings:
         self.nethermind_rpc_url = self._get_env('NETHERMIND_RPC_URL')
         self.screening_url = self._get_env('ALLOWLIST_ENDPOINT')
         self.private_key = self._get_env('PRIVATE_KEY')
+        self.nethermind_gnosis_rpc = self._get_env('GNOSIS_RPC_URL')
 
         # File paths
         self.baseGroup_abi_path = os.path.join(self.CONFIG_DIR, 'BaseGroupABI.json')

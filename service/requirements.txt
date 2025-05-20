@@ -3,7 +3,8 @@ requests
 web3
 uvicorn
 fastapi
+tenacity
 
-# for tests
+t for tests
 pytest
 requests_mock
