@@ -82,7 +82,8 @@ contract BaseGroupMintRouter {
      *
      *  To support this flow:
      *   - The Router approves human addresses as operators (`setApprovalForAll`) so they can call `operateFlowMatrix`.
-     *   - The Router must also trust CRCs trusted by the BaseGroup in order to route them as valid collateral for group minting.
+     *   - The Router must also trust CRCs that are trusted by the BaseGroup, so those CRCs are accepted as valid
+     *     collateral for group minting when routed through the Router.
      *
      *  Requirements:
      *   - Reverts {Frozen} if the Router is frozen.
@@ -93,7 +94,7 @@ contract BaseGroupMintRouter {
      *       * Grants operator approval via `HUB.setApprovalForAll(crc, true)`.
      *
      * @param baseGroup The BaseGroup instance into which CRC routing is enabled.
-     * @param crcArray  List of human CRC addresses to approve and, if trusted by the BaseGroup, also trust through the Router.
+     * @param crcArray  List of human CRC addresses to approve and, if trusted by the BaseGroup, also be trusted by the Router.
      */
     function enableCRCForRouting(address baseGroup, address[] memory crcArray) external {
         if (frozen) revert Frozen();
