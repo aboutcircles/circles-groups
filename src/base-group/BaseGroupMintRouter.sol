@@ -7,7 +7,7 @@ import {IBaseGroupFactory} from "src/base-group/interfaces/IBaseGroupFactory.sol
 // no callbacks, should not hold CRC
 
 contract BaseGroupMintRouter {
-    error Freezed();
+    error Frozen();
     error OnlyAdmin();
     error OnlyHuman();
     error OnlyBaseGroup();
@@ -17,7 +17,7 @@ contract BaseGroupMintRouter {
         IBaseGroupFactory(address(0xD0B5Bd9962197BEaC4cbA24244ec3587f19Bd06d));
     address internal immutable ADMIN;
 
-    bool freezed;
+    bool frozen;
 
     /// @notice Ensures the function is only called by the Admin.
     /// @dev Reverts if `msg.sender` is not the Admin.
@@ -34,7 +34,7 @@ contract BaseGroupMintRouter {
     }
 
     function enableCRCForRouting(address baseGroup, address[] memory crcArray) external {
-        if (freezed) revert Freezed();
+        if (frozen) revert Frozen();
         if (!BASE_GROUP_FACTORY.deployedByFactory(baseGroup)) revert OnlyBaseGroup();
 
         for (uint256 i; i < crcArray.length;) {
@@ -52,8 +52,8 @@ contract BaseGroupMintRouter {
 
     // Roll back logic
 
-    function freeze(bool _freezed) external onlyAdmin {
-        freezed = _freezed;
+    function freeze(bool _freeze) external onlyAdmin {
+        frozen = _freeze;
     }
 
     function disableCRCForRouting(address[] memory crcArray) external onlyAdmin {
