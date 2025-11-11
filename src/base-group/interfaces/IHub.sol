@@ -1,7 +1,21 @@
-// SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.28;
-
 interface IHub {
+    struct FlowEdge {
+        uint16 streamSinkId;
+        uint192 amount;
+    }
+
+    struct Stream {
+        uint16 sourceCoordinate;
+        uint16[] flowEdgeIds;
+        bytes data;
+    }
+
+    function operateFlowMatrix(
+        address[] calldata _flowVertices,
+        FlowEdge[] calldata _flow,
+        Stream[] calldata _streams,
+        bytes calldata _packedCoordinates
+    ) external;
     /// @notice returns the value of tokens of token type `id` owned by `account` at current day.
     function balanceOf(address account, uint256 id) external view returns (uint256);
     /// @notice burns ERC1155 amount of id owned by caller.
@@ -33,4 +47,5 @@ interface IHub {
     function wrap(address avatar, uint256 amount, uint8 circlesType) external returns (address);
     function isHuman(address avatar) external view returns (bool);
     function setApprovalForAll(address _operator, bool _approved) external;
+    function trustMarkers(address, address) external view returns (address, uint96);
 }
