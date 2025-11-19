@@ -135,8 +135,8 @@ contract BaseGroupMintRouterTest is Test, HubStorageWrites, CirclesV2Setup {
         bytes memory packCoordinate;
         address[] memory flowVertices = new address[](4); // sourceAvatar, group, router, sinkAvatar
         flowVertices[0] = sourceAvatar;
-        flowVertices[1] = address(baseGroup);
-        flowVertices[2] = address(router);
+        flowVertices[1] = address(router);
+        flowVertices[2] = address(baseGroup);
         flowVertices[3] = sinkAvatar;
         uint16[] memory indexes;
         (flowVertices, indexes) = _sortWithMapping(flowVertices);
@@ -146,29 +146,10 @@ contract BaseGroupMintRouterTest is Test, HubStorageWrites, CirclesV2Setup {
         flowEdges[2] = TypeDefinitions.FlowEdge({streamSinkId: uint16(1), amount: crcAmount});
 
         uint16[] memory flowEdgeIds = new uint16[](1);
-        flowEdgeIds[0] = uint16(2);
-
-        uint16 sinkVertexId;
-        uint16 sourceVertexId;
-        uint16 groupVertexId;
-        uint16 routerVertexId;
-
-        // Get the array id for each vertiex
-        for (uint16 i = 0; i < flowVertices.length; i++) {
-            if (flowVertices[i] == sinkAvatar) {
-                sinkVertexId = i;
-            } else if (flowVertices[i] == sourceAvatar) {
-                sourceVertexId = i;
-            } else if (flowVertices[i] == address(baseGroup)) {
-                groupVertexId = i;
-            } else if (flowVertices[i] == address(router)) {
-                routerVertexId = i;
-            } else {
-                return;
-            }
-        }
+        flowEdgeIds[0] = uint16(2); // the last flowEdges is terminated edge
+    
         streams[0] = TypeDefinitions.Stream({
-            sourceCoordinate: uint16(sourceVertexId), // group -> sinkAvatar
+            sourceCoordinate: indexes[0], // group -> sinkAvatar
             flowEdgeIds: flowEdgeIds,
             data: bytes("")
         });
@@ -176,19 +157,19 @@ contract BaseGroupMintRouterTest is Test, HubStorageWrites, CirclesV2Setup {
         uint16[] memory coords = new uint16[]((flowEdges.length) * 3);
 
         // sourceAvatar --sourceCRC-->router
-        coords[0] = uint16(sourceVertexId);
-        coords[1] = uint16(sourceVertexId);
-        coords[2] = uint16(routerVertexId);
+        coords[0] = uint16(indexes[0]);
+        coords[1] = uint16(indexes[0]);
+        coords[2] = uint16(indexes[1]);
 
         // router --sourceCRC--> group
-        coords[3] = uint16(sourceVertexId);
-        coords[4] = uint16(routerVertexId);
-        coords[5] = uint16(groupVertexId);
+        coords[3] = uint16(indexes[0]);
+        coords[4] = uint16(indexes[1]);
+        coords[5] = uint16(indexes[2]);
 
         // group --groupCRC--> sinkAvatar
-        coords[6] = uint16(groupVertexId);
-        coords[7] = uint16(groupVertexId);
-        coords[8] = uint16(sinkVertexId);
+        coords[6] = uint16(indexes[2]);
+        coords[7] = uint16(indexes[2]);
+        coords[8] = uint16(indexes[3]);
 
         packCoordinate = _packCoordinates(coords);
 
@@ -212,7 +193,7 @@ contract BaseGroupMintRouterTest is Test, HubStorageWrites, CirclesV2Setup {
      * @param crc The address of the CRC token to disable.
      */
     function testDisableCRCForRouter(address crc) public {
-        vm.assume(crc != address(0));
+        vm.assume(crc != address(0) && crc!= SENTINEL);
         vm.assume(HUB_V2.isTrusted(address(router), crc) == false);
 
         _setTrust(address(router), crc);
@@ -261,8 +242,8 @@ contract BaseGroupMintRouterTest is Test, HubStorageWrites, CirclesV2Setup {
      * @param _crc The address of the CRC token to enable.
      */
     function testEnableCRCForRouting(bool _frozen, address _baseGroup, address _crc) public {
-        vm.assume(_crc != address(0));
-        vm.assume(_baseGroup != address(0));
+        vm.assume(_crc != address(0) && _crc!= SENTINEL);
+        vm.assume(_baseGroup != address(0) && _baseGroup!= SENTINEL);
         address[] memory crcArray = new address[](1);
         crcArray[0] = _crc;
         if (_frozen) {
