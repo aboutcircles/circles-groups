@@ -4,46 +4,51 @@
 
 ### Problem Statement
 
-Currently, minting group tokens is only possible under the following condition:
+Currently, minting group token is only possible with the following situations:
 
-1. **Avatar's personal CRC is trusted by the group**
-2. **Avatar sends personal CRC directly to the group as collateral**, and the group mints group CRC to a recipient
+1. Via `groupMint`: User calls `groupMint` by providing the accepted collateral trusted by group. User gets the same amount of group CRC in return. Collateral CRCs are transferred to treasury and user gets the same amount of group CRC in return.
 
-**Critical constraint:** The destination node of a transfer flow MUST be the group node itself.
-
-If a group node appears as an **intermediate node** in the transfer flow (not the final destination) and the final destination only accepts the group CRC, the transaction will revert within a SINGLE `operateFlowMatrix` call. This happens because:
+2. Via `operateFlowMatrix`: Only valid when group node is right after the source node in a path. If not, operateFlowMatrix call will revert due to missing approval from the operator.
 
 - The operator (the address calling `operateFlowMatrix`) needs approval from the sender in the flow edge that precedes the group minting step
 - Without this approval, the `safeBatchTransferFrom` call fails with `ERC1155MissingApprovalForAll`
+
+Specifically, the logic will revert in
+
+```solidity
+// From = msg.sender
+ if (_from != sender && !isApprovedForAll(_from, sender)) {
+            revert ERC1155MissingApprovalForAll(sender, _from);
+        }
+```
 
 ### Use Case Example
 
 **Scenario: A contract that only accepts group CRC**
 
-When a user wants to interact with a contract (e.g., an offer contract) that only accepts group CRC, they currently must:
+When a user wants to interact with a contract (e.g., an offer contract) that only accepts group CRC, they currently have two options:
 
-1. **Step 1:** Send their trusted personal CRC to the group to mint group CRC
-2. **Step 2:** Send the newly minted group CRC to the target contract
+1. Get the group CRC via `groupMint` first, and then groupCRC transfer to the receiver contract.
 
-This requires **two separate transactions**.
+2. User send available CRCs to receiver contract, and let pathfinder find a path that convert available CRCs into group CRC that is accepted by the receiver contract.
 
 ### The Solution
 
 The Router contract enables **single-transaction flows** by:
 
 1. **Acting as an intermediary organization node** that is inserted before group nodes in transfer paths
-2. **Trusting all personal CRCs** that are trusted by any group it serves
-3. **Granting operator approval** (`setApprovalForAll`) to all personal CRC holders, allowing them to transfer personal CRCs on behalf of the Router during `operateFlowMatrix` execution
+2. **Trusting all human CRCs** that are trusted by any group it serves
+3. **Granting operator approval** (`setApprovalForAll`) to human CRCs, allowing them to transfer human CRCs on behalf of the Router during `operateFlowMatrix` execution
 
 ### How This Changes User Experience
 
 Users can now execute **one transfer flow** where:
 
 - **Source:** User's address
-- **Destination:** A contract/address that only accepts group CRC
+- **Destination:** Not necessarily only accepts group CRC, but in such case, group mint along the path is valid.
 - **Intermediate steps:** Group minting happens automatically along the path
 
-The Router is inserted between the user and the group, providing the necessary approvals for the group minting operation to succeed.
+The Router is inserted before the group, providing the necessary approvals for the group minting operation to succeed.
 
 ---
 
@@ -99,8 +104,8 @@ The Router contract solves this by:
 
 **Creating an Organization node (Router) that:**
 
-1. **Trusts every personal CRC** that is trusted by any group
-2. **Grants operator approval** for all these personal CRCs by calling `setApprovalForAll(crc, true)`
+1. **Trusts every human CRC** that is trusted by any group
+2. **Grants operator approval** for all these human CRCs by calling `setApprovalForAll(crc, true)`
 3. This means: `isApprovedForAll(Router, personal_crc) = true` for all relevant CRCs
 
 **Integration with Pathfinder:**
@@ -142,11 +147,11 @@ A ↔ B ↔ C ↔ D
 
 ### Flow Edges
 
-| From              | To                | Token                 | Value     | Fraction |
-| ----------------- | ----------------- | --------------------- | --------- | -------- |
-| 0xde37 (A)        | 0xdc28 (B-Router) | 0x14c1 (Personal CRC) | 10.000000 | 100.00%  |
-| 0xdc28 (B-Router) | 0xbfce (C-Group)  | 0x14c1 (Personal CRC) | 10.000000 | 100.00%  |
-| 0xbfce (C-Group)  | 0xf7bd (D)        | 0xbfce (Group CRC)    | 10.000000 | 100.00%  |
+| From              | To                | Token              | Value     | Fraction |
+| ----------------- | ----------------- | ------------------ | --------- | -------- |
+| 0xde37 (A)        | 0xdc28 (B-Router) | 0x14c1 (Human CRC) | 10.000000 | 100.00%  |
+| 0xdc28 (B-Router) | 0xbfce (C-Group)  | 0x14c1 (Human CRC) | 10.000000 | 100.00%  |
+| 0xbfce (C-Group)  | 0xf7bd (D)        | 0xbfce (Group CRC) | 10.000000 | 100.00%  |
 
 ### `operateFlowMatrix` Parameters
 
@@ -155,7 +160,7 @@ A ↔ B ↔ C ↔ D
   "method": "operateFlowMatrix",
   "params": {
     "_flowVertices": [
-      "0x14c16ce62d26fd51582a646e2e30a3267b1e6d7e", // Personal CRC token
+      "0x14c16ce62d26fd51582a646e2e30a3267b1e6d7e", // Human CRC token
       "0xbfce3136dbe261e4dbd757bb9a718bed8a9993d5", // Group C (address = token)
       "0xdc287474114cc0551a81ddc2eb51783fbf34802f", // Router B
       "0xde374ece6fa50e781e81aac78e811b33d16912c7", // Avatar A
@@ -263,7 +268,7 @@ graph TD
 
 ### Key Steps
 
-**Assumption:** Avatar A sends 100 AT (personal CRC) to Avatar B, who only accepts GT (group token)
+**Assumption:** Avatar A sends 100 AT (human CRC) to Avatar B, who only accepts GT (group token)
 
 1. **Graph Construction:**
    - TokenPool (virtual node) for AT is created
@@ -287,7 +292,7 @@ graph TD
 ### Key Features
 
 1. **Single Public Function:** `enableCRCForRouting(address baseGroup, address[] memory crcArray)`
-   - Enables personal CRCs to be routed through the Router for group minting
+   - Enables human CRCs to be routed through the Router for group minting
    - Validates that `baseGroup` was deployed by the Base Group Factory
    - For each CRC:
      - Verifies it's a human CRC
@@ -305,7 +310,7 @@ graph TD
 
 - **Immutable Admin:** Set at deployment, cannot be changed
 - **Factory Validation:** Only groups deployed by the official factory are supported
-- **Human CRC Only:** Only personal CRCs from registered humans can be enabled
+- **Human CRC Only:** Only human CRCs from registered humans can be enabled
 - **Frozen State:** Admin can freeze to prevent new setups during migration
 
 ---
