@@ -6,7 +6,7 @@
 
 Currently, minting group token is only possible with the following situations:
 
-1. Via `groupMint`: User calls `groupMint` by providing the accepted collateral trusted by group. User gets the same amount of group CRC in return. Collateral CRCs are transferred to treasury and user gets the same amount of group CRC in return.
+1. Via `groupMint`: User calls `groupMint` by providing the accepted collateral trusted by group. User gets the same amount of group CRC in return. Collateral CRCs are transferred to treasury and group mint groupCRC to user.
 
 2. Via `operateFlowMatrix`: Only valid when group node is right after the source node in a path. If not, operateFlowMatrix call will revert due to missing approval from the operator.
 
@@ -45,8 +45,8 @@ The Router contract enables **single-transaction flows** by:
 Users can now execute **one transfer flow** where:
 
 - **Source:** User's address
-- **Destination:** Not necessarily only accepts group CRC, but in such case, group mint along the path is valid.
 - **Intermediate steps:** Group minting happens automatically along the path
+- **Destination:** Not necessarily only accepts group CRC, but in such case, group mint along the path is possible.
 
 The Router is inserted before the group, providing the necessary approvals for the group minting operation to succeed.
 
@@ -65,7 +65,7 @@ A ↔ B ↔ C ↔ D
 
 Where:
 
-- **A, B, D:** Avatar nodes
+- **A, B, D:** Human Avatar nodes
 - **C:** Group node
 
 **Assumptions:**
