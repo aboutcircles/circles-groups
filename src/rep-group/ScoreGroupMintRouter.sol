@@ -4,21 +4,10 @@ pragma solidity ^0.8.28;
 import {IHub} from "src/base-group/interfaces/IHub.sol";
 import {IBaseGroupFactory} from "src/base-group/interfaces/IBaseGroupFactory.sol";
 
-// Dev: migrate gnosis group members to new group
-// 1. trust group CRC only(?) -> Not needed, because new group don't trust gnosis group CRC
-// 2. trust personalCRC only (?)
-// Migration workflow: gnosis group member -> redeem collateral from group -> get colalteral -> route through Router -> mint new group CRC
-//
-// 1. Using the original Router logic: personalCRC -> Router -> group
-// 2. With new Router: router -> redeem gnosis CRC to collateral -> MintRouter -> new group mint
 /**
- * @title BaseGroupMintRouter
- * @notice Technical helper that enables CRCs for routing for a BaseGroup minting along a path.
- * @dev
- *  - Intended to be minimally visible: no duplicate events; Hub emits authoritative events.
- *  - Exposes exactly ONE public action for normal operation: {enableCRCForRouting}.
- *  - Admin actions exist ONLY to roll the entire state back when migrating away from this router.
- *  - Contract should not hold CRC; there are no callbacks.
+ * @title ScoreGroupMintRouter
+ * @notice Technical helper that enables CRCs for routing for a ScoreGroup minting along a path.
+ * 
  */
 contract ScoreGroupMintRouter {
     // =================================================
@@ -32,7 +21,7 @@ contract ScoreGroupMintRouter {
     /// @notice Address is not recognized as a human by the Hub.
     error OnlyHuman();
 
-    error NotGroupMember();
+
 
     // =================================================
     //             CONSTANTS & IMMUTABLES
@@ -98,7 +87,7 @@ contract ScoreGroupMintRouter {
      *       * Reverts {OnlyHuman} if `HUB.isHuman(crc)` is false (only human CRCs are valid).
      *       * If the GnosisGroup already trusts the CRC, the Router also trusts it via `HUB.trust(crc, type(uint96).max)`.
      *       * Grants operator approval via `HUB.setApprovalForAll(crc, true)`.
-     *
+     *   - Admin-only.
      * @param crcArray  List of human CRC addresses to approve and, if trusted by the GnosisGroup, also be trusted by the Router.
      */
     function enableCRCForRouting(address[] memory crcArray) external onlyAdmin {
@@ -123,7 +112,7 @@ contract ScoreGroupMintRouter {
     /**
      * @notice Freeze or unfreeze the Router.
      * @dev
-     *  Freezing blocks new Router → BaseGroup edges from being created via {enableCRCForRouting}.
+     *  Freezing blocks new Router → ScoreGroup edges from being created via {enableCRCForRouting}.
      *  This is used during migrations to ensure no new paths are established while state is being rolled back.
      *
      *  Requirements:
@@ -138,7 +127,7 @@ contract ScoreGroupMintRouter {
     /**
      * @notice Roll back Router state for a list of CRCs by removing trust and revoking approvals.
      * @dev
-     *  The Router is a node in the Hub’s trust graph, forming a path: Router → BaseGroup.
+     *  The Router is a node in the Hub’s trust graph, forming a path: Router → ScoreGroup.
      *
      *  This function dismantles that path during migration to a new Router:
      *   - Removes Router’s trust in the CRC (if set).
