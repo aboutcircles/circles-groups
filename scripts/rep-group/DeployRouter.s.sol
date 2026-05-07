@@ -16,12 +16,12 @@ import {ScoreGroupMintRouter} from "src/rep-group/ScoreGroupMintRouter.sol";
  *       --broadcast -vv
  */
 contract DeployRouter is Script {
-    address constant ADMIN = address();
-    address constant DEPLOYER = address();
+    address constant ADMIN = 0x2951100fdfCB0c9677Eea28332CE2306fc67b9eB;
+    address constant DEPLOYER = 0xcCC2F6aE2b268Ea5700C74276574ecb45a8Ce47f;
 
     function run() public {
         vm.startBroadcast(DEPLOYER);
-        ScoreGroupMintRouter router = new ScoreGroupMintRouter(ADMIN);
+        ScoreGroupMintRouter router = new ScoreGroupMintRouter(ADMIN); // 0x57f419d38fB95400A0a8479B16891d36F09b06E7
         vm.stopBroadcast();
 
         console.log("ScoreGroupMintRouter:", address(router));
