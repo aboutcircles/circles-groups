@@ -10,6 +10,11 @@ interface IHub is IHubV2 {
         external;
     /// @notice register organization with Circles hub
     function registerOrganization(string calldata name, bytes32 metadataDigest) external;
+    /// @notice register human with Circles hub. Inviter must have trusted the caller; after the
+    /// invitation period the inviter burns INVITATION_COST and the new human receives WELCOME_BONUS.
+    function registerHuman(address inviter, bytes32 metadataDigest) external;
+    /// @notice claim any pending personal Circles issuance for the caller (must be a registered human).
+    function personalMint() external;
     /// @notice trust sets the trust of the caller for the receiver with an expiry time.
     function trust(address _trustReceiver, uint96 _expiry) external;
     /// @notice isTrusted returns true if the expiry time of the trust relation is in the future

@@ -2,12 +2,23 @@
 pragma solidity ^0.8.28;
 
 import {IHub} from "src/base-group/interfaces/IHub.sol";
-import {IBaseGroupFactory} from "src/base-group/interfaces/IBaseGroupFactory.sol";
 
 /**
  * @title ScoreGroupMintRouter
- * @notice Technical helper that enables CRCs for routing for a ScoreGroup minting along a path.
- * 
+ * @notice Technical helper that routes personal CRCs into a ScoreGroup mint along a Hub trust path.
+ * @dev
+ *  Design split between admin and public:
+ *   - Admin-only: {enableCRCForRouting} establishes which personal CRCs the Router itself trusts.
+ *     Trust on the Router is what makes a CRC eligible to terminate at the Router and from there
+ *     be forwarded into the ScoreGroup as collateral. This is the only privileged hook into the
+ *     mint path: gate the set of CRCs that can ever produce a group mint.
+ *   - Public: {setApprovalForCRC} lets anyone authorize themselves (or any address they pass in)
+ *     as an ERC1155 operator on the Router so they can call `Hub.operateFlowMatrix` and push
+ *     CRCs through the Router → ScoreGroup edge. Routing is permissionless; the only constraint
+ *     is that the collateral CRC must be (a) trusted by the Router (admin-curated) and
+ *     (b) trusted by the ScoreGroup as valid collateral.
+ *
+ *  The Router is registered as a Hub organization at construction so it can sit on the trust graph.
  */
 contract ScoreGroupMintRouter {
     // =================================================
@@ -21,8 +32,7 @@ contract ScoreGroupMintRouter {
     /// @notice Address is not recognized as a human by the Hub.
     error OnlyHuman();
 
-
-
+    error ArrayLengthMismatch();
     // =================================================
     //             CONSTANTS & IMMUTABLES
     // =================================================
@@ -30,16 +40,16 @@ contract ScoreGroupMintRouter {
     /// @notice Circles Hub v2.
     IHub internal constant HUB = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
 
-    /// @notice Privileged address allowed to run rollback-only admin actions.
+    /// @notice Privileged address allowed to curate the trusted CRC set ({trustCRCForMinting})
+    /// and to perform rollback actions during migrations.
     address internal immutable ADMIN;
-
-    address public GNOSIS_GROUP = 0xC19BC204eb1c1D5B3FE500E5E5dfaBaB625F286c;
 
     // =================================================
     //                      STORAGE
     // =================================================
 
-    /// @notice Global switch that blocks the public enable function when true.
+    /// @notice Global switch that blocks {trustCRCForMinting} and {setApprovalForCRC} when true.
+    /// Used during migration so no new mint paths can be established mid-rollback.
     bool frozen;
 
     // =================================================
@@ -67,28 +77,27 @@ contract ScoreGroupMintRouter {
     }
 
     // =================================================
-    //                PUBLIC FUNCTION (ONLY)
+    //                ADMIN-CURATED MINT GATE
     // =================================================
 
     /**
-     * @notice Enable CRCs to be routed into a ScoreGroup through this Router.
+     * @notice Admin-curated set of personal CRCs that the Router will accept on its
+     *         Hub trust edges, making them eligible to be routed into a ScoreGroup mint.
      * @dev
-     *  The Router is an organization and therefore a node in the Hub’s trust graph.
-     *  Minting a ScoreGroup CRC happens along a trust path: Router  →  ScoreGroup
+     *  This is the single privileged hook into the mint path. Only CRCs added here can
+     *  ever flow `... → Router → ScoreGroup` and result in a group mint, because the
+     *  ScoreGroup edge requires the Router to trust the inbound CRC under the Hub's
+     *  `isPermittedFlow` rules.
      *
-     *  To support this flow:
-     *   - The Router approves human addresses as operators (`setApprovalForAll`) so they can call `operateFlowMatrix`.
-     *   - The Router must also trust CRCs that are trusted by the GnosisGroup, so those CRCs are accepted as valid
-     *     collateral for group minting when routed through the Router.
+     *  For each CRC in `crcArray` the Router calls `HUB.trust(crc, type(uint96).max)`
+     *  so the Hub records the Router as a truster of that CRC.
      *
      *  Requirements:
-     *   - Reverts {Frozen} if the Router is frozen.
-     *   - For each CRC in `crcArray`:
-     *       * Reverts {OnlyHuman} if `HUB.isHuman(crc)` is false (only human CRCs are valid).
-     *       * If the GnosisGroup already trusts the CRC, the Router also trusts it via `HUB.trust(crc, type(uint96).max)`.
-     *       * Grants operator approval via `HUB.setApprovalForAll(crc, true)`.
      *   - Admin-only.
-     * @param crcArray  List of human CRC addresses to approve and, if trusted by the GnosisGroup, also be trusted by the Router.
+     *   - Reverts {Frozen} if the Router is frozen.
+     *   - Reverts {OnlyHuman} if any entry is not a registered human in the Hub.
+     *
+     * @param crcArray  Personal CRC avatar addresses to be trusted by the Router.
      */
     function enableCRCForRouting(address[] memory crcArray) external onlyAdmin {
         if (frozen) revert Frozen();
@@ -96,9 +105,8 @@ contract ScoreGroupMintRouter {
         for (uint256 i; i < crcArray.length;) {
             address crc = crcArray[i];
             if (!HUB.isHuman(crc)) revert OnlyHuman();
-            if (HUB.isTrusted(GNOSIS_GROUP, crc)) HUB.trust(crc, type(uint96).max);
+            HUB.trust(crc, type(uint96).max);
 
-            HUB.setApprovalForAll(crc, true);
             unchecked {
                 ++i;
             }
@@ -106,48 +114,80 @@ contract ScoreGroupMintRouter {
     }
 
     // =================================================
-    //        ADMIN ROLLBACK FUNCTIONS (MIGRATIONS)
+    //              PERMISSIONLESS ROUTING
     // =================================================
+
+    /**
+     * @notice Authorize one or more addresses as ERC1155 operators on the Router so
+     *         they can drive `Hub.operateFlowMatrix` calls that move CRCs out of the
+     *         Router toward the ScoreGroup.
+     * @dev
+     *  Permissionless on purpose: anyone can call this and any address they pass in
+     *  becomes an approved operator of the Router on the Hub. The Router never holds
+     *  CRCs at rest — within a single `operateFlowMatrix` call CRCs flow
+     *  `... → Router → ScoreGroup`, and the operator just needs ERC1155 approval to
+     *  push the Router → Group hop.
+     *
+     *  Authorization here does not, on its own, allow a mint to happen. A mint also
+     *  requires that:
+     *   - the collateral CRC is trusted by the Router (via the admin-only
+     *     {trustCRCForMinting}); and
+     *   - the collateral CRC is trusted by the ScoreGroup as valid collateral.
+     *
+     *  Requirements:
+     *   - Reverts {Frozen} if the Router is frozen.
+     *
+     * @param crcArray  Addresses to approve as Router operators on the Hub
+     *                  (typically the addresses that will call `operateFlowMatrix`).
+     */
+    function setApprovalForCRC(address[] memory crcArray, bool[] memory boolArray) external {
+        if (frozen) revert Frozen();
+        if (crcArray.length != boolArray.length) revert ArrayLengthMismatch();
+
+        for (uint256 i; i < crcArray.length;) {
+            address crc = crcArray[i];
+            bool boolean = boolArray[i];
+
+            HUB.setApprovalForAll(crc, boolean);
+            unchecked {
+                ++i;
+            }
+        }
+    }
 
     /**
      * @notice Freeze or unfreeze the Router.
      * @dev
-     *  Freezing blocks new Router → ScoreGroup edges from being created via {enableCRCForRouting}.
-     *  This is used during migrations to ensure no new paths are established while state is being rolled back.
+     *  When frozen, both the admin-curated {trustCRCForMinting} and the permissionless
+     *  {setApprovalForCRC} are blocked, so no new mint paths can be added while the
+     *  Router is being rolled back.
      *
      *  Requirements:
      *   - Admin-only.
      *
-     * @param _freeze Set to true to block {enableCRCForRouting}, false to allow it again.
+     * @param _freeze Set to true to block adding new paths, false to allow it again.
      */
     function freeze(bool _freeze) external onlyAdmin {
         frozen = _freeze;
     }
 
     /**
-     * @notice Roll back Router state for a list of CRCs by removing trust and revoking approvals.
+     * @notice Roll back the admin-curated trust for a list of CRCs.
      * @dev
-     *  The Router is a node in the Hub’s trust graph, forming a path: Router → ScoreGroup.
+     *  Counterpart to {trustCRCForMinting}: removes the Router's trust in each listed CRC
+     *  so it is no longer eligible to flow through the Router into the ScoreGroup mint
+     *  path. Operator approvals granted via {setApprovalForCRC} are not touched here —
+     *  use {revokeApprovalForCRC} for that.
      *
-     *  This function dismantles that path during migration to a new Router:
-     *   - Removes Router’s trust in the CRC (if set).
-     *   - Revokes operator approval (`setApprovalForAll`) so the CRC can no longer call `operateFlowMatrix` through this Router.
      *
-     *  Requirements:
-     *   - Admin-only. Intended solely for rollback / migration, not day-to-day use.
-     *   - For each CRC in `crcArray`:
-     *       * If the Router currently trusts the CRC (`HUB.isTrusted(address(this), crc)`), it resets trust to 0.
-     *       * Calls `HUB.setApprovalForAll(crc, false)` to revoke operator status.
-     *
-     * @param crcArray List of CRC addresses whose routing and operator rights are revoked from this Router.
+     * @param crcArray List of CRC addresses whose trust on the Router is revoked.
      */
-    function disableCRCForRouting(address[] memory crcArray) external onlyAdmin {
+    function disableCRCForRouting(address[] memory crcArray) external {
         for (uint256 i; i < crcArray.length;) {
             address crc = crcArray[i];
             // untrust
-            if (HUB.isTrusted(address(this), crc)) HUB.trust(crc, uint96(0));
-            // revoke approval
-            HUB.setApprovalForAll(crc, false);
+            HUB.trust(crc, uint96(0));
+
             unchecked {
                 ++i;
             }
