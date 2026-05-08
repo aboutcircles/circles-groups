@@ -14,7 +14,9 @@ library SMT {
         uint16 p = 20;
         uint160 proofBits;
         uint160 index = _index;
-        assembly { proofBits := div(mload(add(proof, 32)), exp(256, 12)) }
+        assembly {
+            proofBits := div(mload(add(proof, 32)), exp(256, 12))
+        }
 
         for (uint256 d = 0; d < 160; d++) {
             if (proofBits % 2 == 0) {
@@ -23,7 +25,9 @@ library SMT {
             } else {
                 p += 32;
                 require(proof.length >= p, "proof not long enough");
-                assembly { proofElement := mload(add(proof, p)) }
+                assembly {
+                    proofElement := mload(add(proof, p))
+                }
             }
             if (computedHash == 0 && proofElement == 0) {
                 computedHash = 0;

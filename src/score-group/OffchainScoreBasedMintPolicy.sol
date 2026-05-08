@@ -3,12 +3,12 @@ pragma solidity ^0.8.28;
 
 import {IHub} from "src/score-group/interfaces/IHub.sol";
 import {SMT} from "src/score-group/libraries/SparseMerkleTree.sol";
-import {GroupDemurrage} from "src/score-group/GroupDemurrage.sol";
+import {Demurrage} from "src/score-group/Demurrage.sol";
 
 /**
  * @title OffchainScoreBasedMintPolicy
  */
-contract OffchainScoreBasedMintPolicy is GroupDemurrage {
+contract OffchainScoreBasedMintPolicy is Demurrage {
     using SMT for bytes32;
 
     // =================================================

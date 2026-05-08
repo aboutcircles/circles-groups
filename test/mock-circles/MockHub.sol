@@ -55,9 +55,7 @@ contract MockHub is ERC1155, TypeDefinitions {
         string calldata, /*_name*/
         string calldata, /*_symbol*/
         bytes32 /*_metadataDigest*/
-    )
-        public
-    {
+    ) public {
         require(registrations[msg.sender] == AvatarTypes.Unregistered, "group address already registered");
         // store mint policy
         mintPolicies[msg.sender] = IMintPolicy(_mint);
@@ -71,9 +69,7 @@ contract MockHub is ERC1155, TypeDefinitions {
         string calldata,
         /*_name*/
         bytes32 /*_metadataDigest*/
-    )
-        public
-    {
+    ) public {
         require(registrations[msg.sender] == AvatarTypes.Unregistered, "organization address already registered");
         registrations[msg.sender] = AvatarTypes.Organization;
     }
@@ -128,13 +124,7 @@ contract MockHub is ERC1155, TypeDefinitions {
         _safeBatchTransferFrom(msg.sender, vault, collateralIds, _amounts, _data);
     }
 
-    function burn(
-        uint256 _id,
-        uint256 _amount,
-        bytes memory /*_data*/
-    )
-        public
-    {
+    function burn(uint256 _id, uint256 _amount, bytes memory /*_data*/ ) public {
         // todo: beforeBurn policy hook is not mocked
 
         _burn(msg.sender, _id, _amount);

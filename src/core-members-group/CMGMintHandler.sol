@@ -95,12 +95,7 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
         uint256 _id,
         uint256 _value,
         bytes memory _data
-    )
-        public
-        override
-        onlyHub
-        returns (bytes4)
-    {
+    ) public override onlyHub returns (bytes4) {
         // check transient storage to see if we are expecting a return
         (uint256 ongoingConversion,) = _expectingConversionReturn();
 

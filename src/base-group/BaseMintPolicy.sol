@@ -18,11 +18,7 @@ contract BaseMintPolicy {
         uint256[] calldata, /*_collateral*/
         uint256[] calldata, /*_amounts*/
         bytes calldata /*_data*/
-    )
-        external
-        virtual
-        returns (bool)
-    {
+    ) external virtual returns (bool) {
         return true;
     }
 
@@ -39,11 +35,7 @@ contract BaseMintPolicy {
         uint256,
         /*_amount*/
         bytes calldata /*_data*/
-    )
-        external
-        virtual
-        returns (bool)
-    {
+    ) external virtual returns (bool) {
         return true;
     }
 }

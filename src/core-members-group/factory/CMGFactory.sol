@@ -67,7 +67,7 @@ contract CMGroupFactory is CirclesCoreAddresses, CirclesV2BetaAddresses {
 
         // create Core Members Group itself
         ICoreMembersGroup coreMembersGroup =
-        (new CoreMembersGroup(_owner, _service, _initialConditions, _name, _symbol, _metadataDigest, circlesCore));
+            (new CoreMembersGroup(_owner, _service, _initialConditions, _name, _symbol, _metadataDigest, circlesCore));
 
         address mintHandler = coreMembersGroup.mintHandler();
         address redemptionHandler = coreMembersGroup.redemptionHandler();

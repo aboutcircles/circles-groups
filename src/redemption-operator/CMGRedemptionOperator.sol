@@ -76,8 +76,9 @@ contract CMGRedemptionOperator is CirclesCoreAddresses, CirclesTypes, ICMGRedemp
         bytes memory data = redemptionHandler.structureRedemptionData(_redemptionIds, _redemptionValues);
 
         // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
-        circlesCore.hub
-            .safeTransferFrom(msg.sender, address(circlesCore.standardTreasury), _toTokenId(_group), value, data);
+        circlesCore.hub.safeTransferFrom(
+            msg.sender, address(circlesCore.standardTreasury), _toTokenId(_group), value, data
+        );
 
         // the vault will directly transfer to msg.sender, so no need for acceptance handler
 
@@ -120,10 +121,9 @@ contract CMGRedemptionOperator is CirclesCoreAddresses, CirclesTypes, ICMGRedemp
         bytes memory data = redemptionHandler.structureRedemptionData(collateralIds, amounts);
 
         // to redeem the group Circles must be sent to StandardTreasury with the correct data formatted.
-        circlesCore.hub
-            .safeTransferFrom(
-                msg.sender, address(circlesCore.standardTreasury), _toTokenId(_group), totalValueFound, data
-            );
+        circlesCore.hub.safeTransferFrom(
+            msg.sender, address(circlesCore.standardTreasury), _toTokenId(_group), totalValueFound, data
+        );
 
         // the vault will directly transfer to msg.sender, so no need for acceptance handler
 

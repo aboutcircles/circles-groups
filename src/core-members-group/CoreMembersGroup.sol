@@ -269,7 +269,11 @@ contract CoreMembersGroup is MintPolicy, CirclesCoreAddresses, ICoreMembersGroup
     /// @param _expiry Trust expiry timestamp. If >= current timestamp, trust core member.
     ///        If < current timestamp, untrust only currently trusted core members (to avoid
     ///        accidentally trusting new core members for a single block).
-    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry) public virtual onlyOwnerOrService {
+    function trustBatchWithConditions(address[] memory _coreMembers, uint96 _expiry)
+        public
+        virtual
+        onlyOwnerOrService
+    {
         uint256 length = _coreMembers.length;
         address coreMember;
         // current block timestamp is an edge-case,

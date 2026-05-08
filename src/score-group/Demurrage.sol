@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ABDKMath64x64 as Math64x64} from "lib/circles-contracts-v2/lib/abdk-libraries-solidity/ABDKMath64x64.sol";
 
-contract GroupDemurrage {
+contract Demurrage {
     /// @dev Discounted balance with a last updated timestamp.
     struct DiscountedBalance {
         uint192 balance;
