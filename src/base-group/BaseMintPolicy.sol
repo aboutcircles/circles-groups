@@ -18,7 +18,11 @@ contract BaseMintPolicy {
         uint256[] calldata, /*_collateral*/
         uint256[] calldata, /*_amounts*/
         bytes calldata /*_data*/
-    ) external virtual returns (bool) {
+    )
+        external
+        virtual
+        returns (bool)
+    {
         return true;
     }
 
@@ -27,7 +31,15 @@ contract BaseMintPolicy {
      * @dev Always returns true in this base implementation.
      * @return bool A boolean value indicating whether the burn is approved (always true here).
      */
-    function beforeBurnPolicy(address, /*_burner*/ address, /*_group*/ uint256, /*_amount*/ bytes calldata /*_data*/ )
+    function beforeBurnPolicy(
+        address,
+        /*_burner*/
+        address,
+        /*_group*/
+        uint256,
+        /*_amount*/
+        bytes calldata /*_data*/
+    )
         external
         virtual
         returns (bool)

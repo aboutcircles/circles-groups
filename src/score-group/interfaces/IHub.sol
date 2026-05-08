@@ -33,4 +33,12 @@ interface IHub {
     function wrap(address avatar, uint256 amount, uint8 circlesType) external returns (address);
     function isHuman(address avatar) external view returns (bool);
     function setApprovalForAll(address _operator, bool _approved) external;
+    function calculateIssuance(address _human)
+        external
+        view
+        returns (uint256 issuance, uint256 startPeriod, uint256 endPeriod);
+    function mintPolicies(address group) external view returns (address mintPolicy);
+    function totalSupply(uint256 _id) external view returns (uint256);
+    function day(uint256 _timestamp) external view returns (uint64);
+    function treasuries(address group) external view returns (address);
 }

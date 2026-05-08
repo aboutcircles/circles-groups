@@ -147,8 +147,7 @@ contract CirclesV2Setup is Test {
 
         // Refer to state changes in the HubV2 creation tx https://dashboard.tenderly.co/gnosisdao/bridges/tx/0xce97f248dec3aceb4ee4a950f9df08fdcac0d550e23dbd47b66183b5e660e581/state-diff
         HUB_V2_INITIAL_STATE[0] = KeyValuePair({
-            key: bytes32(0),
-            value: bytes32(0x000000000000000000000000000000000000000000000000000000005f879100)
+            key: bytes32(0), value: bytes32(0x000000000000000000000000000000000000000000000000000000005f879100)
         });
         HUB_V2_INITIAL_STATE[1] = KeyValuePair({
             key: bytes32(0x0000000000000000000000000000000000000000000000000000000000000001),
@@ -262,8 +261,7 @@ contract CirclesV2Setup is Test {
 
         // Refer to https://dashboard.tenderly.co/gnosisdao/bridges/tx/0x9efa4415c9fc8d689af13675c6e5fdd9ea6ad2d3cbedb8070f0e0cdd516a7477/state-diff
         HUB_V1_INITIAL_STATE[0] = KeyValuePair({
-            key: bytes32(0),
-            value: bytes32(0x4352430000000000000000000000000000000000000000000000000000000006)
+            key: bytes32(0), value: bytes32(0x4352430000000000000000000000000000000000000000000000000000000006)
         });
         HUB_V1_INITIAL_STATE[1] = KeyValuePair({
             key: bytes32(0x0000000000000000000000000000000000000000000000000000000000000001),
@@ -292,8 +290,7 @@ contract CirclesV2Setup is Test {
 
         // Refer to https://dashboard.tenderly.co/gnosisdao/bridges/tx/0x453cdf86fd94a5201a491288d5c7055205f8e02bd7962eaa0f25353da45f4d48/state-diff
         ERC20_LIFT_INITIAL_STATE[0] = KeyValuePair({
-            key: bytes32(0),
-            value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
+            key: bytes32(0), value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
         });
 
         ERC20_LIFT_INITIAL_STATE[1] = KeyValuePair({
@@ -404,8 +401,7 @@ contract CirclesV2Setup is Test {
 
         // Refer to https://dashboard.tenderly.co/gnosisdao/bridges/tx/0x82e14c6759511c464c442fcc0d8aa256b20aad19aca7e7dffbd443b88dc33f2e/state-diff
         NAME_REGISTRY_INITIAL_STATE[0] = KeyValuePair({
-            key: bytes32(0),
-            value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
+            key: bytes32(0), value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
         });
 
         NAME_REGISTRY_INITIAL_STATE[1] = KeyValuePair({
@@ -431,8 +427,7 @@ contract CirclesV2Setup is Test {
         KeyValuePair[2] memory STANDARDY_VAULT_INITIAL_STATE;
         // Refer to https://dashboard.tenderly.co/gnosisdao/bridges/tx/0xc62e4b325e550a49101438bc90daa17f02b7d8874fd193857cb703a812e9b64d/state-diff
         STANDARD_TREASURY_INITIAL_STATE[0] = KeyValuePair({
-            key: bytes32(0),
-            value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
+            key: bytes32(0), value: bytes32(0x000000000000000000000000c12c1e50abb450d6205ea2c3fa861b3b834d13e8)
         });
 
         // Refer to https://dashboard.tenderly.co/gnosisdao/bridges/tx/0x477986b21729c2bf3cbb51a4f28ec63cff1090cee2045b88961d52eac6df8438/state-diff
@@ -460,5 +455,4 @@ contract CirclesV2Setup is Test {
         _setUpNameRegistry();
         _setUpTreasury();
     }
-
 }

@@ -347,10 +347,10 @@ contract CMGRedemptionHandlerTest is Test {
         // Have redemption handler search for 250 CRC worth of collateral
         (uint256[] memory foundIds, uint256[] memory foundAmounts) = ICMGRedemptionHandler(redemptionHandler)
             .findCollateral(
-            cmGroup,
-            370 * CRC,
-            false // don't accept partial fills
-        );
+                cmGroup,
+                370 * CRC,
+                false // don't accept partial fills
+            );
 
         // Verify it found sufficient collateral
         uint256 total = 0;
@@ -494,9 +494,8 @@ contract CMGRedemptionHandlerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(charlie);
-        mockCircles.mockHub().safeTransferFrom(
-            charlie, ICoreMembersGroup(cmGroup).mintHandler(), charlieId, 400 * CRC, ""
-        );
+        mockCircles.mockHub()
+            .safeTransferFrom(charlie, ICoreMembersGroup(cmGroup).mintHandler(), charlieId, 400 * CRC, "");
         vm.stopPrank();
 
         // First round of redemptions - Alice redeems 150 CRC

@@ -88,7 +88,14 @@ contract CMGMintHandler is CMGHandler, ERC1155Holder, ICMGMintHandler {
     /// @param _value Amount of tokens being transferred
     /// @param _data Additional data passed with transfer
     /// @return bytes4 Function selector to confirm transfer acceptance
-    function onERC1155Received(address, /*_operator*/ address _from, uint256 _id, uint256 _value, bytes memory _data)
+    function onERC1155Received(
+        address,
+        /*_operator*/
+        address _from,
+        uint256 _id,
+        uint256 _value,
+        bytes memory _data
+    )
         public
         override
         onlyHub

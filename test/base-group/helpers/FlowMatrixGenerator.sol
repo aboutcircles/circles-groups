@@ -75,9 +75,7 @@ contract FlowMatrixGenerator is HubStorageWrites {
         // for now have only 1 stream
         streams = new TypeDefinitions.Stream[](1);
         streams[0] = TypeDefinitions.Stream({
-            sourceCoordinate: uint16(0),
-            flowEdgeIds: new uint16[](numberOfTerminatedEdges),
-            data: ""
+            sourceCoordinate: uint16(0), flowEdgeIds: new uint16[](numberOfTerminatedEdges), data: ""
         });
         redemptionIds = new uint256[](numberOfTerminatedEdges);
         redemptionAmounts = new uint256[](numberOfTerminatedEdges);
