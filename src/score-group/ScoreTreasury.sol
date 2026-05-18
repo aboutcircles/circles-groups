@@ -8,6 +8,20 @@ import {IOffchainScoreBasedMintPolicy} from "src/score-group/interfaces/IOffchai
 
 /**
  * @title ScoreTreasury
+ * @notice Custody contract for ScoreGroup collateral that routes received collateral into score-based sub-treasuries.
+ * @dev
+ * The treasury receives Circles Hub ERC1155 collateral and immediately forwards it to one of two
+ * sub-treasuries:
+ * - collateral received from the configured mint router is routed to the high-score sub-treasury;
+ * - collateral received from a personal mint flow is routed according to the score consumed from the
+ *   configured mint policy in the same transaction.
+ *
+ * The treasury itself is an ERC1155 receiver and only accepts transfers initiated by the Hub. Before
+ * forwarding collateral, it verifies that the group trusts each collateral avatar represented by the
+ * ERC1155 token id.
+ *
+ * The contract also exposes an aggregate collateral balance helper used by the mint policy to account
+ * for collateral held across both sub-treasuries.
  */
 contract ScoreTreasury is ERC1155Holder {
     // =================================================
@@ -24,8 +38,16 @@ contract ScoreTreasury is ERC1155Holder {
      */
     error OnlyGroup();
 
+    /**
+     * @notice Thrown when a batch collateral transfer is received from an account other than the configured mint router.
+     */
     error OnlyMintRouter();
 
+    /**
+     * @notice Thrown when a personal mint transfer cannot consume a non-zero score from the mint policy.
+     * @dev A zero consumed score is treated as evidence that the collateral transfer was not part of the
+     *      expected atomic personal mint flow.
+     */
     error AtomicMintRequired();
 
     /**
@@ -37,6 +59,11 @@ contract ScoreTreasury is ERC1155Holder {
     //                     CONSTANTS
     // =================================================
 
+    /**
+     * @notice Minimum score routed to the high-score sub-treasury for personal mint collateral.
+     * @dev Personal mint collateral with a consumed score below this threshold is routed to the low-score
+     *      sub-treasury. Scores greater than or equal to this threshold are routed to the high-score sub-treasury.
+     */
     uint256 public constant HIGH_SCORE_THRESHOLD = 50;
 
     /**
@@ -48,10 +75,25 @@ contract ScoreTreasury is ERC1155Holder {
      * @notice The address of the group for which this treasury is created.
      */
     address public immutable GROUP;
+
+    /**
+     * @notice Mint policy used to consume the transient score associated with a personal mint flow.
+     */
     IOffchainScoreBasedMintPolicy public immutable MINT_POLICY;
+
+    /**
+     * @notice Router address whose incoming collateral is always routed to the high-score sub-treasury.
+     */
     address public immutable MINT_ROUTER;
 
+    /**
+     * @notice Sub-treasury that receives collateral from personal mint flows with scores below {HIGH_SCORE_THRESHOLD}.
+     */
     address public immutable LOW_SCORE_SUB_TREASURY;
+
+    /**
+     * @notice Sub-treasury that receives router collateral and personal mint collateral with scores at or above {HIGH_SCORE_THRESHOLD}.
+     */
     address public immutable HIGH_SCORE_SUB_TREASURY;
 
     // =================================================
@@ -73,6 +115,19 @@ contract ScoreTreasury is ERC1155Holder {
     //                    CONSTRUCTOR
     // =================================================
 
+    /**
+     * @notice Deploys the treasury and its two score-tier sub-treasuries.
+     * @dev
+     * The deploying treasury becomes the `TREASURY` authorized to send collateral into both
+     * sub-treasuries. Each sub-treasury registers itself as a Hub organization during construction.
+     *
+     * @param _hub Address of the Circles Hub used for ERC1155 balances, transfers, burns, trust, and registration.
+     * @param _group Group avatar address associated with this treasury.
+     * @param _mintPolicy Mint policy used to consume personal-mint scores.
+     * @param _mintRouter Router address whose incoming collateral is treated as router/migration collateral.
+     * @param _groupName Human-readable group name used to derive sub-treasury organization names.
+     * @param _metadataDigest Initial metadata digest passed to each sub-treasury organization registration.
+     */
     constructor(
         address _hub,
         address _group,
@@ -94,9 +149,13 @@ contract ScoreTreasury is ERC1155Holder {
     // =================================================
 
     /**
-     * @notice Updates the metadata digest for this organization in the Name Registry.
-     * @param _metadataDigest The new off-chain metadata digest (e.g., IPFS hash).
-     * @dev Only callable by the group.
+     * @notice Updates the metadata digest for both sub-treasury organizations.
+     * @dev
+     * Only the configured group may call this function. The treasury forwards the metadata update to
+     * both sub-treasuries, which then call the supplied name registry from their own organization context.
+     *
+     * @param nameRegistry Address of the name registry contract to update.
+     * @param _metadataDigest New off-chain metadata digest for both sub-treasury organizations.
      */
     function updateMetadataDigest(address nameRegistry, bytes32 _metadataDigest) external {
         if (msg.sender != GROUP) revert OnlyGroup();
@@ -104,6 +163,15 @@ contract ScoreTreasury is ERC1155Holder {
         ScoreSubTreasury(HIGH_SCORE_SUB_TREASURY).updateMetadataDigest(nameRegistry, _metadataDigest);
     }
 
+    /**
+     * @notice Returns the total collateral balance held across both score-tier sub-treasuries.
+     * @dev
+     * The returned value is the sum of the Hub ERC1155 balances for `collateralId` held by
+     * {LOW_SCORE_SUB_TREASURY} and {HIGH_SCORE_SUB_TREASURY}.
+     *
+     * @param collateralId ERC1155 collateral token id to query.
+     * @return balance Aggregate collateral balance across both sub-treasuries.
+     */
     function balanceOfCollateral(uint256 collateralId) external view returns (uint256 balance) {
         balance = HUB.balanceOf(LOW_SCORE_SUB_TREASURY, collateralId);
         balance += HUB.balanceOf(HIGH_SCORE_SUB_TREASURY, collateralId);
@@ -114,12 +182,23 @@ contract ScoreTreasury is ERC1155Holder {
     // =================================================
 
     /**
-     * @notice Handles the receipt of a single ERC1155 token id.
-     * @dev Only the Hub contract can call this function.
-     *      Checks if the received ERC1155 token is trusted by the group.
-     *      Burns group id balance, if present.
-     * @param _id The ID of the token being transferred.
-     * @return A bytes4 constant (this function’s selector), indicating success.
+     * @notice Handles receipt of a single ERC1155 collateral token from the Hub.
+     * @dev
+     * Only callable by the Hub. The received token id must represent collateral trusted by the group.
+     *
+     * Routing behavior:
+     * - if `from` is the configured mint router, the collateral is forwarded to the high-score sub-treasury;
+     * - otherwise, the treasury consumes the score stored by the mint policy for `(from, block.timestamp)`;
+     * - personal mint collateral with score below {HIGH_SCORE_THRESHOLD} is forwarded to the low-score
+     *   sub-treasury, while score greater than or equal to the threshold is forwarded to the high-score
+     *   sub-treasury.
+     *
+     * Reverts with {AtomicMintRequired} if no non-zero score can be consumed for a non-router transfer.
+     *
+     * @param from Address reported by the Hub as the source of the ERC1155 transfer.
+     * @param _id ERC1155 token id being received.
+     * @param _value Amount of `_id` being received.
+     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
      */
     function onERC1155Received(address, address from, uint256 _id, uint256 _value, bytes memory)
         public
@@ -148,12 +227,16 @@ contract ScoreTreasury is ERC1155Holder {
     }
 
     /**
-     * @notice Handles the receipt of multiple ERC1155 token ids in a single batch transfer.
-     * @dev Only the Hub contract can call this function.
-     *      Checks if each of the received token IDs is trusted by the group.
-     *      Burns group id balance, if present.
-     * @param _ids An array containing IDs of each token being transferred.
-     * @return A bytes4 constant (this function’s selector), indicating success.
+     * @notice Handles receipt of multiple ERC1155 collateral token ids from the Hub.
+     * @dev
+     * Only callable by the Hub and only accepts batch transfers whose `from` address is the configured
+     * mint router. Every received token id must represent collateral trusted by the group. All received
+     * collateral is forwarded to the high-score sub-treasury.
+     *
+     * @param from Address reported by the Hub as the source of the batch transfer.
+     * @param _ids ERC1155 token ids being received.
+     * @param _values Amounts received for each token id in `_ids`.
+     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
      */
     function onERC1155BatchReceived(
         address,
@@ -175,9 +258,12 @@ contract ScoreTreasury is ERC1155Holder {
     // =================================================
 
     /**
-     * @notice Verifies that all token IDs in `_ids` are trusted by the group.
-     * @dev Reverts with `CollateralIsNotTrustedByGroup()` if any token ID is not trusted.
-     * @param _ids An array of ERC1155 token IDs to be checked.
+     * @notice Verifies that all supplied ERC1155 token ids correspond to collateral trusted by the group.
+     * @dev
+     * Each ERC1155 token id is interpreted as an avatar address by truncating to `address(uint160(id))`.
+     * Reverts with {CollateralIsNotTrustedByGroup} if the group does not trust any corresponding avatar.
+     *
+     * @param _ids ERC1155 token ids to validate as group-trusted collateral.
      */
     function _verifyGroupTrusts(uint256[] memory _ids) internal {
         for (uint256 i; i < _ids.length;) {
@@ -191,6 +277,17 @@ contract ScoreTreasury is ERC1155Holder {
     }
 }
 
+/**
+ * @title ScoreSubTreasury
+ * @notice ERC1155 holding organization used by {ScoreTreasury} for one score tier.
+ * @dev
+ * A sub-treasury is deployed by {ScoreTreasury}, registers itself as a Hub organization, and trusts
+ * the associated group. It only accepts ERC1155 transfers sent by the parent treasury through the Hub.
+ *
+ * Whenever it receives collateral from the parent treasury, it burns any group-token balance it holds.
+ * This keeps group-token balances from accumulating inside the sub-treasury after Hub flows that may
+ * leave group id tokens alongside collateral.
+ */
 contract ScoreSubTreasury is ERC1155Holder {
     // =================================================
     //                       ERRORS
@@ -201,6 +298,9 @@ contract ScoreSubTreasury is ERC1155Holder {
      */
     error OnlyHub();
 
+    /**
+     * @notice Thrown when a received ERC1155 transfer does not originate from the parent treasury.
+     */
     error OnlyTreasury();
 
     // =================================================
@@ -212,10 +312,13 @@ contract ScoreSubTreasury is ERC1155Holder {
      */
     IHub public immutable HUB;
 
+    /**
+     * @notice Parent treasury authorized to send ERC1155 tokens into this sub-treasury.
+     */
     address public immutable TREASURY;
 
     /**
-     * @notice The address of the group for which this treasury is created.
+     * @notice The address of the group for which this sub-treasury is created.
      */
     address public immutable GROUP;
 
@@ -234,6 +337,11 @@ contract ScoreSubTreasury is ERC1155Holder {
         _;
     }
 
+    /**
+     * @notice Ensures an ERC1155 transfer was sent from the parent treasury.
+     * @dev Reverts with {OnlyTreasury} if `from` is not {TREASURY}.
+     * @param from Address reported by the Hub as the source of the ERC1155 transfer.
+     */
     modifier onlyTreasury(address from) {
         if (from != TREASURY) {
             revert OnlyTreasury();
@@ -245,6 +353,18 @@ contract ScoreSubTreasury is ERC1155Holder {
     //                    CONSTRUCTOR
     // =================================================
 
+    /**
+     * @notice Deploys a sub-treasury and registers it as a Hub organization.
+     * @dev
+     * The deploying contract becomes {TREASURY}. The sub-treasury registers an organization named
+     * `string.concat(_groupName, "-sub-treasury")`, then trusts the associated group with the maximum
+     * expiry value.
+     *
+     * @param _hub Address of the Circles Hub.
+     * @param _group Group avatar address associated with the parent treasury.
+     * @param _groupName Human-readable group name used to derive the organization name.
+     * @param _metadataDigest Initial metadata digest used during Hub organization registration.
+     */
     constructor(address _hub, address _group, string memory _groupName, bytes32 _metadataDigest) {
         HUB = IHub(_hub);
         GROUP = _group;
@@ -260,8 +380,10 @@ contract ScoreSubTreasury is ERC1155Holder {
     // =================================================
 
     /**
-     * @notice Burns all ERC1155 Group id tokens balance held by this treasury.
-     * @dev The token ID for the group is derived from the `GROUP` address.
+     * @notice Burns all group-token balance currently held by this sub-treasury.
+     * @dev
+     * The group token id is derived from `GROUP` as `uint256(uint160(GROUP))`. If this sub-treasury
+     * holds no group-token balance, the function is a no-op.
      */
     function burn() public {
         uint256 id = uint256(uint160(GROUP));
@@ -270,9 +392,10 @@ contract ScoreSubTreasury is ERC1155Holder {
     }
 
     /**
-     * @notice Updates the metadata digest for this organization in the Name Registry.
-     * @param _metadataDigest The new off-chain metadata digest (e.g., IPFS hash).
-     * @dev Only callable by the group.
+     * @notice Updates this sub-treasury organization's metadata digest in a name registry.
+     * @dev Only callable by the parent treasury.
+     * @param nameRegistry Address of the name registry contract to update.
+     * @param _metadataDigest New off-chain metadata digest for this sub-treasury organization.
      */
     function updateMetadataDigest(address nameRegistry, bytes32 _metadataDigest) external onlyTreasury(msg.sender) {
         INameRegistry(nameRegistry).updateMetadataDigest(_metadataDigest);
@@ -282,6 +405,15 @@ contract ScoreSubTreasury is ERC1155Holder {
     //         ERC1155 RECEIVER OVERRIDDEN FUNCTIONS
     // =================================================
 
+    /**
+     * @notice Handles receipt of a single ERC1155 token from the parent treasury through the Hub.
+     * @dev
+     * Only callable by the Hub, and the transfer source reported by the Hub must be the parent treasury.
+     * After receiving the token, the sub-treasury burns any group-token balance it holds.
+     *
+     * @param from Address reported by the Hub as the source of the ERC1155 transfer.
+     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
+     */
     function onERC1155Received(address, address from, uint256, uint256, bytes memory)
         public
         virtual
@@ -294,6 +426,15 @@ contract ScoreSubTreasury is ERC1155Holder {
         return this.onERC1155Received.selector;
     }
 
+    /**
+     * @notice Handles receipt of a batch ERC1155 transfer from the parent treasury through the Hub.
+     * @dev
+     * Only callable by the Hub, and the transfer source reported by the Hub must be the parent treasury.
+     * After receiving the batch, the sub-treasury burns any group-token balance it holds.
+     *
+     * @param from Address reported by the Hub as the source of the batch transfer.
+     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
+     */
     function onERC1155BatchReceived(address, address from, uint256[] memory, uint256[] memory, bytes memory)
         public
         virtual
