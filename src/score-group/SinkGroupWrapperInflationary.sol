@@ -4,8 +4,21 @@ pragma solidity >=0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IHub} from "src/score-group/interfaces/IHub.sol";
 
-/// @title SinkGroupWrapperInflationary
-
+/**
+ * @title SinkGroupWrapperInflationary
+ * @notice Helper organization that receives Circles group ERC1155 tokens and wraps them into inflationary ERC20s.
+ * @dev
+ * The contract registers itself as a Hub organization during construction so it can participate in
+ * the Circles Hub trust graph. A group must first be trusted through {trust} before its ERC1155
+ * group token can be routed to this wrapper under the Hub's flow rules.
+ *
+ * When this contract receives a single ERC1155 group token transfer from the Hub, it wraps the
+ * received group balance into the group's inflationary ERC20 representation by calling
+ * `HUB.wrap(group, amount, 1)`, then transfers the resulting ERC20 balance to the original sender.
+ *
+ * This contract only implements single-token ERC1155 receipt. Batch receipt is intentionally not
+ * implemented by this contract.
+ */
 contract SinkGroupWrapperInflationary {
     // =================================================
     //                       ERRORS
@@ -14,9 +27,10 @@ contract SinkGroupWrapperInflationary {
     /// @notice Thrown when a function is called by an account other than the Hub.
     error OnlyHub();
 
-    /// @notice Thrown when a function is called by an account other than the Group.
+    /// @notice Thrown when an operation expects a Hub group but the supplied or derived address is not a group.
     error OnlyGroup();
 
+    /// @notice Thrown when the ERC1155 transfer source is the zero address.
     error InvalidSource();
 
     /// @notice Thrown when a zero amount is received where a non-zero amount is expected.
@@ -26,21 +40,29 @@ contract SinkGroupWrapperInflationary {
     //                    EVENTS
     // =================================================
 
+    /**
+     * @notice Emitted after received group ERC1155 tokens are wrapped into inflationary ERC20s.
+     * @param group Group address whose ERC1155 group token was wrapped.
+     * @param amount Amount of ERC1155 group tokens received and passed to the Hub wrapper.
+     * @param beneficiary Address that receives the resulting inflationary ERC20 balance.
+     */
     event GroupWrapped(address indexed group, uint256 indexed amount, address indexed beneficiary);
 
     // =================================================
     //                     CONSTANTS
     // =================================================
 
-    /// @notice Circles v2 Hub.
+    /// @notice Circles v2 Hub used for organization registration, trust, group checks, and wrapping.
     IHub public constant HUB = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
 
     // =================================================
     //                    MODIFIERS
     // =================================================
 
-    /// @notice Ensures the function is only called by the Hub.
-    /// @dev Reverts if `msg.sender` is not the Hub contract.
+    /**
+     * @notice Ensures the function is only called by the Hub.
+     * @dev Reverts with {OnlyHub} if `msg.sender` is not the configured Hub address.
+     */
     modifier onlyHub() {
         if (msg.sender != address(HUB)) {
             revert OnlyHub();
@@ -52,6 +74,12 @@ contract SinkGroupWrapperInflationary {
     //                    CONSTRUCTOR
     // =================================================
 
+    /**
+     * @notice Deploys the wrapper and registers it as a Hub organization.
+     * @dev
+     * Registers the organization name `group-inflationary-wrapper` with an empty metadata digest.
+     * Registration allows this contract to exist as an avatar on the Circles Hub trust graph.
+     */
     constructor() {
         HUB.registerOrganization("group-inflationary-wrapper", bytes32(0));
     }
@@ -60,6 +88,15 @@ contract SinkGroupWrapperInflationary {
     //                EXTERNAL FUNCTIONS
     // =================================================
 
+    /**
+     * @notice Trusts a group so its group ERC1155 token can be routed to this wrapper.
+     * @dev
+     * Reverts with {OnlyGroup} if `_group` is not recognized by the Hub as a group.
+     * On success, calls `HUB.trust(_group, type(uint96).max)` from this contract's organization
+     * context, granting effectively unbounded trust duration according to the Hub's trust semantics.
+     *
+     * @param _group Group avatar address to trust.
+     */
     function trust(address _group) external {
         if (!HUB.isGroup(_group)) revert OnlyGroup();
         HUB.trust(_group, type(uint96).max);
@@ -69,6 +106,32 @@ contract SinkGroupWrapperInflationary {
     //         ERC1155 RECEIVER FUNCTION
     // =================================================
 
+    /**
+     * @notice Receives one group ERC1155 token id, wraps it into an inflationary ERC20, and forwards the ERC20 to the sender.
+     * @dev
+     * Only callable by the Hub. The token id is interpreted as a group avatar address by truncating it to
+     * `address(uint160(_id))`, and the derived address must be recognized by the Hub as a group.
+     *
+     * The function wraps `_value` units of the received group ERC1155 token through `HUB.wrap(group, _value, uint8(1))`.
+     * The wrapper type `1` corresponds to the inflationary ERC20 representation under the Hub's wrapping API.
+     * After wrapping, the contract transfers its full resulting balance of that inflationary ERC20 to `_from`.
+     *
+     * Requirements:
+     * - Caller must be the Hub.
+     * - `_from` must not be the zero address.
+     * - `_value` must be non-zero.
+     * - `_id`, interpreted as an address, must correspond to a Hub group.
+     *
+     * Effects:
+     * - Wraps the received ERC1155 group token amount into the group's inflationary ERC20.
+     * - Transfers this contract's full balance of the resulting inflationary ERC20 to `_from`.
+     * - Emits {GroupWrapped}.
+     *
+     * @param _from Original source address of the ERC1155 transfer and recipient of the wrapped ERC20 balance.
+     * @param _id ERC1155 token id, interpreted as the group address.
+     * @param _value Amount of group ERC1155 tokens received and wrapped.
+     * @return The ERC1155 receiver selector confirming successful receipt.
+     */
     function onERC1155Received(address, address _from, uint256 _id, uint256 _value, bytes memory)
         external
         onlyHub
