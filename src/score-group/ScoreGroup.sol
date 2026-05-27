@@ -49,6 +49,7 @@ contract ScoreGroup {
     /**
      * @notice Emitted after the score group has completed constructor initialization.
      * @param metadataManager Address allowed to update group and treasury metadata digests.
+     * @param merkleTreeManager Address whose Merkle tree registry namespace is used for score proof verification.
      * @param mintRouter Address of the deployed score group mint router.
      * @param treasury Address of the deployed score treasury.
      * @param stableERC20 Address of the stable ERC20 wrapper for this group token.
@@ -56,8 +57,9 @@ contract ScoreGroup {
      */
     event ScoreGroupInitialized(
         address indexed metadataManager,
+        address indexed merkleTreeManager,
         address indexed mintRouter,
-        address indexed treasury,
+        address treasury,
         address stableERC20,
         address demurrageERC20
     );
@@ -82,7 +84,7 @@ contract ScoreGroup {
     /// @notice Circles v2 Name Registry contract.
     INameRegistry public constant NAME_REGISTRY = INameRegistry(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
 
-    /// @notice Address of the score mint policy that applies to newly created groups.
+    /// @notice Address of the score mint policy used when registering this group.
     address public constant SCORE_MINT_POLICY = address(0x83e4C27Dcf0068678C603c392513E05F844b5666);
 
     /// @notice The group's treasury contract, deployed during initialization.
@@ -105,6 +107,10 @@ contract ScoreGroup {
     /// @dev Also indirectly updates metadata on both score sub-treasuries through {SCORE_TREASURY}.
     address public immutable METADATA_MANAGER;
 
+    /// @notice Merkle tree manager namespace used by this group for score proof verification.
+    /// @dev Passed to the score mint policy during construction and stored immutably for external discovery.
+    address public immutable MERKLE_TREE_MANAGER;
+
     // =================================================
     //                    STATE
     // =================================================
@@ -112,10 +118,6 @@ contract ScoreGroup {
     /// @notice Tracks whether a human has opted out from being trusted by third parties on behalf of the group.
     /// @dev If true, only the human itself may call {trust} for its own avatar, which clears the opt-out flag.
     mapping(address => bool) public optOuts;
-
-    // =================================================
-    //                    MODIFIERS
-    // =================================================
 
     // =================================================
     //                  CONSTRUCTOR
@@ -129,7 +131,8 @@ contract ScoreGroup {
      *
      * The constructor registers this contract as a custom group in the Hub, using {SCORE_MINT_POLICY} as the
      * mint policy and the newly deployed {SCORE_TREASURY} as the treasury. It then initializes the mint policy
-     * for this group with `_merkleTreeManager` and the deployed mint router.
+     * for this group with `_merkleTreeManager` as the trusted Merkle tree registry namespace and the deployed
+     * mint router.
      *
      * Short-name registration is best-effort: failure of `NAME_REGISTRY.registerShortName()` is intentionally
      * ignored. ERC20 wrapper creation through {LIFT_ERC20} is not best-effort and will revert if either wrapper
@@ -137,7 +140,7 @@ contract ScoreGroup {
      *
      * @param _metadataManager Address authorized to update metadata for the group and treasury hierarchy.
      * @param _mintRouterAdmin Admin address for the deployed {ScoreGroupMintRouter}.
-     * @param _merkleTreeManager Address authorized in the mint policy to update this group's score Merkle root.
+     * @param _merkleTreeManager Address whose Merkle tree registry namespace is used for this group's score proof verification.
      * @param _name Human-readable group name used for Hub registration and related router/treasury names.
      * @param _symbol Group token symbol used for Hub registration.
      * @param _metadataDigest Initial metadata digest registered for the group and treasury hierarchy.
@@ -155,6 +158,8 @@ contract ScoreGroup {
         }
 
         METADATA_MANAGER = _metadataManager;
+
+        MERKLE_TREE_MANAGER = _merkleTreeManager;
 
         MINT_ROUTER = new ScoreGroupMintRouter(_mintRouterAdmin, address(this), _name);
 
@@ -176,7 +181,12 @@ contract ScoreGroup {
         STABLE_ERC20 = LIFT_ERC20.ensureERC20(address(this), uint8(1));
 
         emit ScoreGroupInitialized(
-            _metadataManager, address(MINT_ROUTER), address(SCORE_TREASURY), STABLE_ERC20, DEMURRAGE_ERC20
+            _metadataManager,
+            _merkleTreeManager,
+            address(MINT_ROUTER),
+            address(SCORE_TREASURY),
+            STABLE_ERC20,
+            DEMURRAGE_ERC20
         );
     }
 
@@ -287,7 +297,6 @@ contract ScoreGroup {
         assembly {
             let pointer := mload(0x40)
             mstore(0x40, add(pointer, 0x44))
-            mstore(pointer, 0x44)
             mstore(pointer, 0x5624b25b553c9d7e83c58cdf3a427b0c81460372fe0d5da8900473788d506425)
             mstore(add(pointer, 0x20), 0xc7ffdc5c00000000000000000000000000000000000000000000000000000000)
             mstore(add(pointer, 0x40), 0x0000000100000000000000000000000000000000000000000000000000000000)
