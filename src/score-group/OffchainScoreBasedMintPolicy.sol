@@ -2,46 +2,30 @@
 pragma solidity ^0.8.28;
 
 import {IHub} from "src/score-group/interfaces/IHub.sol";
+import {IMerkleTreeRegistry} from "src/score-group/interfaces/IMerkleTreeRegistry.sol";
 import {IScoreTreasury} from "src/score-group/interfaces/IScoreTreasury.sol";
-import {SMT} from "src/score-group/libraries/SparseMerkleTree.sol";
 import {Demurrage} from "src/score-group/Demurrage.sol";
 
 /**
  * @title OffchainScoreBasedMintPolicy
  * @notice Mint policy for Circles groups whose personal issuance limits are derived from off-chain scores.
  * @dev This policy is intended to be installed as a Circles Hub v2 group mint policy. Each initialized
- *      group has an independently configured Merkle tree manager, router, score root history, historical
- *      collateral supply accounting, and personal mint accounting.
+ *      group has an independently configured Merkle tree manager, router, historical collateral supply
+ *      accounting, and personal mint accounting.
  *
- *      Personal issuance mints are approved when the minter proves a score in the group's current score
- *      Merkle root, or in the previous root during a short block-based grace period. The requested mint
- *      amount may not exceed `score / MAX_SCORE` of the minter's previously snapshotted personal issuance.
+ *      Personal issuance mints are approved when the minter proves a score through the configured
+ *      `MERKLE_TREE_REGISTRY` namespace for the group. The registry may accept proofs against the current
+ *      root, or against the previous root during its configured grace period. The requested mint amount may
+ *      not exceed `score / MAX_SCORE` of the minter's previously snapshotted personal issuance.
  *
  *      Router or migration mints are approved against collateral capacity. Capacity is computed as the
  *      demurrage-adjusted historical collateral supply plus demurrage-adjusted personal mints for the same
  *      group and collateral, minus the group's current treasury balance for that collateral.
  *
- *      This contract inherits demurrage calculation helpers from `Demurrage` and uses the Sparse Merkle
- *      Tree library for score proof verification.
+ *      This contract inherits demurrage calculation helpers from `Demurrage` and delegates score proof
+ *      verification to `MERKLE_TREE_REGISTRY`.
  */
 contract OffchainScoreBasedMintPolicy is Demurrage {
-    /// @dev Adds Sparse Merkle Tree proof verification helpers to score root values.
-    using SMT for bytes32;
-
-    /**
-     * @notice Score root state for a group.
-     * @dev The previous root is retained so proofs against the prior score tree remain valid for a short
-     *      grace period after an update.
-     * @param currentRoot Active Sparse Merkle Tree root used for score verification.
-     * @param previousRoot Sparse Merkle Tree root that was active immediately before `currentRoot`.
-     * @param updateBlockNumber Block number at which `currentRoot` was written.
-     */
-    struct MerkleRoot {
-        bytes32 currentRoot;
-        bytes32 previousRoot;
-        uint256 updateBlockNumber;
-    }
-
     // =================================================
     //                       ERRORS
     // =================================================
@@ -58,9 +42,6 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     /// @notice Reverts when a required address argument is the zero address.
     error ZeroAddress();
 
-    /// @notice Reverts when the caller is not the configured Merkle tree manager for the group.
-    error NotMerkleTreeManager();
-
     /// @notice Reverts when personal mint collateral is not exactly the minter's personal token ID.
     error InvalidCollateralForPersonalIssuanceMint();
 
@@ -73,7 +54,7 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     /// @notice Reverts when the minter still has currently claimable issuance after snapshotting.
     error NotAtomicMint();
 
-    /// @notice Reverts when the provided score is not proven in the applicable group score Merkle root.
+    /// @notice Reverts when the provided score is not proven through the configured Merkle tree registry namespace.
     error InvalidScore();
 
     /// @notice Reverts when a personal mint amount exceeds the score-adjusted issuance limit.
@@ -92,21 +73,10 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     /**
      * @notice Emitted when a group initializes its mint policy configuration.
      * @param group Group address being initialized.
-     * @param merkleTreeManager Address allowed to update the group's score Merkle root.
+     * @param merkleTreeManager Address whose registry root namespace is used for score proof verification.
      * @param pathMintRouter Router address allowed to perform router or migration mints for the group.
      */
     event GroupInitialized(address indexed group, address indexed merkleTreeManager, address pathMintRouter);
-
-    /**
-     * @notice Emitted when a group's score Merkle root is updated.
-     * @param group Group whose Merkle root was updated.
-     * @param newMerkleRoot New Sparse Merkle Tree root committing minter scores.
-     * @param previousRoot Sparse Merkle Tree root that was active immediately before the update.
-     * @param updateBlockNumber Block number at which the root update was recorded.
-     */
-    event MerkleRootUpdated(
-        address indexed group, bytes32 newMerkleRoot, bytes32 previousRoot, uint256 updateBlockNumber
-    );
 
     /**
      * @notice Emitted when historical supply is snapshotted for a group and collateral token.
@@ -158,6 +128,14 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     IHub public constant HUB = IHub(address(0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8));
 
     /**
+     * @notice Merkle tree registry used to verify score proofs for configured group managers.
+     * @dev Root storage, previous-root grace-period handling, and Sparse Merkle Tree proof verification
+     *      are delegated to this registry.
+     */
+    IMerkleTreeRegistry public constant MERKLE_TREE_REGISTRY =
+        IMerkleTreeRegistry(address(0xB4bfedaD42a14c30Bd9C1FdBf3e11916Fc719E6C));
+
+    /**
      * @notice Maximum score used for score-based issuance limits.
      * @dev Scores above this value are capped to this value before calculating the personal mint limit.
      */
@@ -168,14 +146,9 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     // =================================================
 
     /**
-     * @notice Score Merkle root state per group.
-     * @dev Public getter returns the current root, previous root, and update block number for `group`.
-     */
-    mapping(address group => MerkleRoot merkleRoot) public merkleRoots;
-
-    /**
-     * @notice Address allowed to update each group's score Merkle root.
-     * @dev A group can set this value only once through `initializeGroup`.
+     * @notice Merkle tree registry namespace used for each group's score proof verification.
+     * @dev A group can set this value only once through `initializeGroup`. The configured address is passed
+     *      to `MERKLE_TREE_REGISTRY` when verifying score proofs.
      */
     mapping(address group => address merkleRootManager) public merkleTreeManagers;
 
@@ -235,7 +208,7 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
      * @notice Initializes mint policy configuration for the calling group.
      * @dev The caller must be a group whose Hub mint policy is this contract. Initialization is one-time:
      *      after `merkleTreeManagers[group]` is set, this function reverts for that group.
-     * @param merkleTreeManager Address allowed to update the group's score Merkle root.
+     * @param merkleTreeManager Address whose registry root namespace is used for score proof verification.
      * @param pathMintRouter Address allowed to perform router or migration mints for the group.
      */
     function initializeGroup(address merkleTreeManager, address pathMintRouter) external {
@@ -246,21 +219,6 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
         merkleTreeManagers[group] = merkleTreeManager;
         pathMintRouters[group] = pathMintRouter;
         emit GroupInitialized(group, merkleTreeManager, pathMintRouter);
-    }
-
-    /**
-     * @notice Updates the score Merkle root for a group.
-     * @dev Only the configured Merkle tree manager for `group` may update the root. The existing current
-     *      root is retained as `previousRoot`, allowing proofs against it for the grace period enforced in
-     *      `_validatePersonalIssuanceMint`.
-     * @param group Group whose Merkle root is updated.
-     * @param newMerkleRoot New Sparse Merkle Tree root committing user scores.
-     */
-    function updateMerkleRoot(address group, bytes32 newMerkleRoot) external {
-        if (merkleTreeManagers[group] != msg.sender) revert NotMerkleTreeManager();
-        bytes32 previousRoot = merkleRoots[group].currentRoot;
-        merkleRoots[group] = MerkleRoot(newMerkleRoot, previousRoot, block.number);
-        emit MerkleRootUpdated(group, newMerkleRoot, previousRoot, block.number);
     }
 
     /**
@@ -327,7 +285,7 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
             uint64 today = day(block.timestamp);
             uint256 mintedAmountOnToday = getMintedAmountOnToday(group, collateral[0]) + amounts[0];
             personalMints[group][collateral[0]] = DiscountedBalance(uint192(mintedAmountOnToday), today);
-            // store score for treasury consumation
+            // store score for treasury consumption
             bytes32 slot = keccak256(abi.encode(minter, block.timestamp));
             assembly {
                 tstore(slot, score)
@@ -479,9 +437,9 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     /**
      * @notice Validates a personal issuance mint against a score proof and snapshotted issuance.
      * @dev Reads the minter's persistent issuance snapshot, requires the minter's current Hub issuance to
-     *      be zero, verifies the score against the current group root or, during the two-block grace period,
-     *      the previous group root, caps the score at `MAX_SCORE`, and enforces the score-adjusted issuance
-     *      limit. On success, clears the minter's stored issuance snapshot.
+     *      be zero, verifies the score through `MERKLE_TREE_REGISTRY.verifyWithGracePeriod` using the group's
+     *      configured Merkle tree manager namespace, caps the score at `MAX_SCORE`, and enforces the
+     *      score-adjusted issuance limit. On success, clears the minter's stored issuance snapshot.
      * @param group Group for which the score proof is verified.
      * @param minter Address performing the personal issuance mint.
      * @param score Score claimed by the minter.
@@ -501,12 +459,9 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
         uint256 currentIssuance = _getHumanIssuance(minter);
         if (currentIssuance != 0) revert NotAtomicMint();
 
-        if (!merkleRoots[group].currentRoot.verify(uint160(minter), bytes32(score), proof)) {
-            if (
-                block.number > merkleRoots[group].updateBlockNumber + 2
-                    || !merkleRoots[group].previousRoot.verify(uint160(minter), bytes32(score), proof)
-            ) revert InvalidScore();
-        }
+        if (!MERKLE_TREE_REGISTRY.verifyWithGracePeriod(
+                merkleTreeManagers[group], uint160(minter), bytes32(score), proof
+            )) revert InvalidScore();
 
         if (score > MAX_SCORE) score = MAX_SCORE;
 
