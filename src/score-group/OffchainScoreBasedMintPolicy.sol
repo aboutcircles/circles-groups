@@ -42,6 +42,9 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
     /// @notice Reverts when a required address argument is the zero address.
     error ZeroAddress();
 
+    /// @notice Reverts when a mint operation provides more than one collateral token entry.
+    error SingleCollateralOnly();
+
     /// @notice Reverts when personal mint collateral is not exactly the minter's personal token ID.
     error InvalidCollateralForPersonalIssuanceMint();
 
@@ -256,7 +259,7 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
      *      snapshotted issuance multiplied by `score / MAX_SCORE`.
      *
      *      If `minter` is the configured router for `group`, the call is treated as a router or migration
-     *      mint. Each collateral amount is checked against the remaining collateral capacity derived from
+     *      mint. The single collateral amount is checked against the remaining collateral capacity derived from
      *      historical supply, personal mint activity, and the current treasury balance.
      * @param minter Address initiating the mint through the Hub.
      * @param group Group token being minted.
@@ -273,13 +276,15 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
         uint256[] calldata amounts,
         bytes calldata data
     ) external onlyHub returns (bool) {
+        if (collateral.length > 1) revert SingleCollateralOnly();
+
+        _ensureHistoricalSupplyInitialized(group, collateral[0]);
+
         if (minter != pathMintRouters[group]) {
             // personal mint branch
-            if (collateral.length > 1 || collateral[0] != uint256(uint160(minter))) {
+            if (collateral[0] != uint256(uint160(minter))) {
                 revert InvalidCollateralForPersonalIssuanceMint();
             }
-            _ensureHistoricalSupplyInitialized(group, collateral[0]);
-
             (uint256 score, bytes memory proof) = abi.decode(data, (uint256, bytes));
             _validatePersonalIssuanceMint(group, minter, score, proof, amounts[0]);
             uint64 today = day(block.timestamp);
@@ -294,36 +299,32 @@ contract OffchainScoreBasedMintPolicy is Demurrage {
         } else {
             // migration mint branch
             address treasury = HUB.treasuries(group);
-            for (uint256 i; i < collateral.length;) {
-                _ensureHistoricalSupplyInitialized(group, collateral[i]);
 
-                // check limits
-                uint256 historicalSupplyOnToday = getHistoricalSupplyOnToday(group, collateral[i]);
-                // personal minted
-                uint256 mintedAmountOnToday = getMintedAmountOnToday(group, collateral[i]);
-                uint256 maxLimit = historicalSupplyOnToday + mintedAmountOnToday;
+            // check limits
+            uint256 historicalSupplyOnToday = getHistoricalSupplyOnToday(group, collateral[0]);
+            // personal minted
+            uint256 mintedAmountOnToday = getMintedAmountOnToday(group, collateral[0]);
+            // Maximum demurrage-adjusted collateral balance the treasury may hold for this collateral.
+            // It consists of the historical collateral supply accepted at a perfect score plus personal
+            // mints backed by this collateral up to today.
+            uint256 maxTreasuryBalance = historicalSupplyOnToday + mintedAmountOnToday;
 
-                uint256 treasuryBalance;
-                try IScoreTreasury(treasury).balanceOfCollateral{gas: 100_000}(collateral[i]) returns (
-                    uint256 returnedBalance
-                ) {
-                    treasuryBalance = returnedBalance;
-                } catch {
-                    treasuryBalance = HUB.balanceOf(treasury, collateral[i]);
-                }
-
-                if (treasuryBalance > maxLimit) revert CollateralLimitReached();
-
-                uint256 currentLimit = maxLimit - treasuryBalance;
-
-                if (amounts[i] > currentLimit) revert AmountExceedsCollateralLimit();
-
-                emit RouterMinted(group, collateral[i], amounts[i], currentLimit - amounts[i]);
-
-                unchecked {
-                    ++i;
-                }
+            uint256 treasuryBalance;
+            try IScoreTreasury(treasury).balanceOfCollateral{gas: 100_000}(collateral[0]) returns (
+                uint256 returnedBalance
+            ) {
+                treasuryBalance = returnedBalance;
+            } catch {
+                treasuryBalance = HUB.balanceOf(treasury, collateral[0]);
             }
+
+            if (treasuryBalance > maxTreasuryBalance) revert CollateralLimitReached();
+
+            uint256 availableCollateralCapacity = maxTreasuryBalance - treasuryBalance;
+
+            if (amounts[0] > availableCollateralCapacity) revert AmountExceedsCollateralLimit();
+
+            emit RouterMinted(group, collateral[0], amounts[0], availableCollateralCapacity - amounts[0]);
         }
 
         return true;
