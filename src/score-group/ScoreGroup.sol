@@ -85,7 +85,7 @@ contract ScoreGroup {
     INameRegistry public constant NAME_REGISTRY = INameRegistry(address(0xA27566fD89162cC3D40Cb59c87AAaA49B85F3474));
 
     /// @notice Address of the score mint policy used when registering this group.
-    address public constant SCORE_MINT_POLICY = address(0x83e4C27Dcf0068678C603c392513E05F844b5666);
+    address public constant SCORE_MINT_POLICY = address(0x450D68272e43c4Cab7cbC7faA37893A50FAE9569);
 
     /// @notice The group's treasury contract, deployed during initialization.
     /// @dev Immutable once set in the constructor.

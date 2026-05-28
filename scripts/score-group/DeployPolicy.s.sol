@@ -6,7 +6,7 @@ import {OffchainScoreBasedMintPolicy} from "src/score-group/OffchainScoreBasedMi
 
 contract DeployPolicy is Script {
     address deployer = address(0x09F00445e068eb812c541F6538a2f60eAaf51a69);
-    OffchainScoreBasedMintPolicy public policy; // 0x83e4C27Dcf0068678C603c392513E05F844b5666
+    OffchainScoreBasedMintPolicy public policy; // 0x450D68272e43c4Cab7cbC7faA37893A50FAE9569
 
     function setUp() public {}
 
