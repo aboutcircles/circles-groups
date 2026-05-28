@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.28;
+pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {IHub} from "src/score-group/interfaces/IHub.sol";
 import {INameRegistry} from "src/score-group/interfaces/INameRegistry.sol";
 import {IOffchainScoreBasedMintPolicy} from "src/score-group/interfaces/IOffchainScoreBasedMintPolicy.sol";
@@ -17,13 +16,13 @@ import {IOffchainScoreBasedMintPolicy} from "src/score-group/interfaces/IOffchai
  *   configured mint policy in the same transaction.
  *
  * The treasury itself is an ERC1155 receiver and only accepts transfers initiated by the Hub. Before
- * forwarding collateral, it verifies that the group trusts each collateral avatar represented by the
+ * forwarding collateral, it verifies that the group trusts the collateral avatar represented by the
  * ERC1155 token id.
  *
  * The contract also exposes an aggregate collateral balance helper used by the mint policy to account
  * for collateral held across both sub-treasuries.
  */
-contract ScoreTreasury is ERC1155Holder {
+contract ScoreTreasury {
     // =================================================
     //                       ERRORS
     // =================================================
@@ -37,11 +36,6 @@ contract ScoreTreasury is ERC1155Holder {
      * @notice Thrown when a function is called by an account other than the Group.
      */
     error OnlyGroup();
-
-    /**
-     * @notice Thrown when a batch collateral transfer is received from an account other than the configured mint router.
-     */
-    error OnlyMintRouter();
 
     /**
      * @notice Thrown when a personal mint transfer cannot consume a non-zero score from the mint policy.
@@ -178,7 +172,7 @@ contract ScoreTreasury is ERC1155Holder {
     }
 
     // =================================================
-    //         ERC1155 RECEIVER OVERRIDDEN FUNCTIONS
+    //         ERC1155 RECEIVER FUNCTION
     // =================================================
 
     /**
@@ -201,15 +195,13 @@ contract ScoreTreasury is ERC1155Holder {
      * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
      */
     function onERC1155Received(address, address from, uint256 _id, uint256 _value, bytes memory)
-        public
-        virtual
-        override
+        external
         onlyHub
         returns (bytes4)
     {
-        uint256[] memory _ids = new uint256[](1);
-        _ids[0] = _id;
-        _verifyGroupTrusts(_ids);
+        if (!HUB.isTrusted(GROUP, address(uint160(_id)))) {
+            revert CollateralIsNotTrustedByGroup();
+        }
 
         address subTreasury;
         if (from == MINT_ROUTER) {
@@ -225,56 +217,6 @@ contract ScoreTreasury is ERC1155Holder {
 
         return this.onERC1155Received.selector;
     }
-
-    /**
-     * @notice Handles receipt of multiple ERC1155 collateral token ids from the Hub.
-     * @dev
-     * Only callable by the Hub and only accepts batch transfers whose `from` address is the configured
-     * mint router. Every received token id must represent collateral trusted by the group. All received
-     * collateral is forwarded to the high-score sub-treasury.
-     *
-     * @param from Address reported by the Hub as the source of the batch transfer.
-     * @param _ids ERC1155 token ids being received.
-     * @param _values Amounts received for each token id in `_ids`.
-     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
-     */
-    function onERC1155BatchReceived(
-        address,
-        address from,
-        uint256[] memory _ids,
-        uint256[] memory _values,
-        bytes memory
-    ) public virtual override onlyHub returns (bytes4) {
-        // limit to router
-        if (from != MINT_ROUTER) revert OnlyMintRouter();
-        _verifyGroupTrusts(_ids);
-        // transfer to high
-        HUB.safeBatchTransferFrom(address(this), HIGH_SCORE_SUB_TREASURY, _ids, _values, "");
-        return this.onERC1155BatchReceived.selector;
-    }
-
-    // =================================================
-    //                 INTERNAL FUNCTIONS
-    // =================================================
-
-    /**
-     * @notice Verifies that all supplied ERC1155 token ids correspond to collateral trusted by the group.
-     * @dev
-     * Each ERC1155 token id is interpreted as an avatar address by truncating to `address(uint160(id))`.
-     * Reverts with {CollateralIsNotTrustedByGroup} if the group does not trust any corresponding avatar.
-     *
-     * @param _ids ERC1155 token ids to validate as group-trusted collateral.
-     */
-    function _verifyGroupTrusts(uint256[] memory _ids) internal {
-        for (uint256 i; i < _ids.length;) {
-            if (!HUB.isTrusted(GROUP, address(uint160(_ids[i])))) {
-                revert CollateralIsNotTrustedByGroup();
-            }
-            unchecked {
-                ++i;
-            }
-        }
-    }
 }
 
 /**
@@ -288,7 +230,7 @@ contract ScoreTreasury is ERC1155Holder {
  * This keeps group-token balances from accumulating inside the sub-treasury after Hub flows that may
  * leave group id tokens alongside collateral.
  */
-contract ScoreSubTreasury is ERC1155Holder {
+contract ScoreSubTreasury {
     // =================================================
     //                       ERRORS
     // =================================================
@@ -402,7 +344,7 @@ contract ScoreSubTreasury is ERC1155Holder {
     }
 
     // =================================================
-    //         ERC1155 RECEIVER OVERRIDDEN FUNCTIONS
+    //         ERC1155 RECEIVER FUNCTIONS
     // =================================================
 
     /**
@@ -415,35 +357,12 @@ contract ScoreSubTreasury is ERC1155Holder {
      * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
      */
     function onERC1155Received(address, address from, uint256, uint256, bytes memory)
-        public
-        virtual
-        override
+        external
         onlyHub
         onlyTreasury(from)
         returns (bytes4)
     {
         burn();
         return this.onERC1155Received.selector;
-    }
-
-    /**
-     * @notice Handles receipt of a batch ERC1155 transfer from the parent treasury through the Hub.
-     * @dev
-     * Only callable by the Hub, and the transfer source reported by the Hub must be the parent treasury.
-     * After receiving the batch, the sub-treasury burns any group-token balance it holds.
-     *
-     * @param from Address reported by the Hub as the source of the batch transfer.
-     * @return A bytes4 constant equal to this function's selector, indicating successful receipt.
-     */
-    function onERC1155BatchReceived(address, address from, uint256[] memory, uint256[] memory, bytes memory)
-        public
-        virtual
-        override
-        onlyHub
-        onlyTreasury(from)
-        returns (bytes4)
-    {
-        burn();
-        return this.onERC1155BatchReceived.selector;
     }
 }
