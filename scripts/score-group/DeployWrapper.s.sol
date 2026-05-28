@@ -6,7 +6,7 @@ import {SinkGroupWrapperInflationary} from "src/score-group/SinkGroupWrapperInfl
 
 contract DeployWrapper is Script {
     address deployer = address(0x09F00445e068eb812c541F6538a2f60eAaf51a69);
-    SinkGroupWrapperInflationary public wrapper; // 0x1Ec7b88019463183AF1A7574aA73250619210410
+    SinkGroupWrapperInflationary public wrapper; // 0xD4cF9afd3aE777C24454b70dd28E32d1bd516F05
 
     function setUp() public {}
 

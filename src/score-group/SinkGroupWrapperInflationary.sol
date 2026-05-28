@@ -150,4 +150,57 @@ contract SinkGroupWrapperInflationary {
 
         return this.onERC1155Received.selector;
     }
+
+    /**
+     * @notice Receives multiple group ERC1155 token ids, wraps each into an inflationary ERC20, and forwards the ERC20s to the sender.
+     * @dev
+     * Only callable by the Hub. Each token id is interpreted as a group avatar address by truncating it to
+     * `address(uint160(_ids[i]))`, and each derived address must be recognized by the Hub as a group.
+     *
+     * For each received group token amount, the function calls `HUB.wrap(group, value, uint8(1))`.
+     * The wrapper type `1` corresponds to the inflationary ERC20 representation under the Hub's wrapping API.
+     * After each wrap, the contract transfers its full resulting balance of that inflationary ERC20 to `_from`.
+     *
+     * Requirements:
+     * - Caller must be the Hub.
+     * - `_from` must not be the zero address.
+     * - Each `_values[i]` must be non-zero.
+     * - Each `_ids[i]`, interpreted as an address, must correspond to a Hub group.
+     *
+     * Effects:
+     * - Wraps each received ERC1155 group token amount into its group's inflationary ERC20.
+     * - Transfers this contract's full balance of each resulting inflationary ERC20 to `_from`.
+     * - Emits {GroupWrapped} for each wrapped group token.
+     *
+     * @param _from Original source address of the ERC1155 batch transfer and recipient of the wrapped ERC20 balances.
+     * @param _ids ERC1155 token ids, each interpreted as a group address.
+     * @param _values Amounts of group ERC1155 tokens received and wrapped.
+     * @return The ERC1155 receiver selector confirming successful batch receipt.
+     */
+    function onERC1155BatchReceived(
+        address,
+        address _from,
+        uint256[] memory _ids,
+        uint256[] memory _values,
+        bytes memory
+    ) external onlyHub returns (bytes4) {
+        if (_from == address(0)) revert InvalidSource();
+        for (uint256 i; i < _ids.length;) {
+            uint256 value = _values[i];
+            if (value == 0) revert ReceivedZeroAmount();
+            address group = address(uint160(_ids[i]));
+            if (!HUB.isGroup(group)) revert OnlyGroup();
+
+            address erc20Inflationary = HUB.wrap(group, value, uint8(1));
+            uint256 balanceInflationary = IERC20(erc20Inflationary).balanceOf(address(this));
+            IERC20(erc20Inflationary).transfer(_from, balanceInflationary);
+
+            emit GroupWrapped(group, value, _from);
+
+            unchecked {
+                ++i;
+            }
+        }
+        return this.onERC1155BatchReceived.selector;
+    }
 }
