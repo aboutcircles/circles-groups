@@ -8,10 +8,10 @@ contract DeployGroup is Script {
     address deployer = address(0x09F00445e068eb812c541F6538a2f60eAaf51a69);
  
     address metadataManager = address(0x536b4EF99252a8019dCA1e068A37c28BEa2F2BB2);
-    address mintRouterAdmin = address(0xcC05dab6e530b5E846DDfdEd09874BF4ADDEE8eC);
+    address mintRouterAdmin = address(0x3C87d21Bb9d60eB99b490095BA2e18969aCA488e);
     address merkleTreeManager = address(0xd739ADdD4FBEe12A9157683247f28B864D8275B6);
 
-    ScoreGroup public group; // 0x7CadB2E92295F3E4fA65D3d4E7265E2e05d7a783  // router 0xA60Cd6ddbB4eBa93246D6f80ff4504476c8117D1 // treasury 0xbeE55b27EbC0855CffcB2DBE829f8e921Eb793b3 // low 0xe7Dc5Fae0b2d6f3392d45fCA03F58DC224c63e6F // high 0x4b767D106F4e552Ffdb7Ce6547eB0398E208fc96
+    ScoreGroup public group; // 0x93eD5A96347927ff6fF6b790F8Cf5258240c321f  // router 0xE171a76De6B645A28b3767f84B177a4f6659a3D7 // treasury 0xE445f8b377f7689D2987920D51B8bBa21B6241Ce // low 0xd9fa2f4A35899f7d1e5ADb79592fbf51DC0806a4 // high 0x516ADcF32be9576AefE2176C059d8abaB4f3C2D4
 
     function setUp() public {}
 
