@@ -41,21 +41,18 @@ contract MultiAffiliateGroupRegistry {
     /// @param affiliateGroup The offending group address.
     error AffiliateGroupNotExist(address affiliateGroup);
 
-    /// @notice Thrown when the caller is not a registered human avatar on the Hub.
-    /// @param caller The address that attempted the call.
-    error IsNotHuman(address caller);
+    /// @notice Address is not recognized as a human by the Hub.
+    error OnlyHuman();
 
     /// @notice Adds `affiliateGroupToAdd` to the caller's affiliate group list.
     /// @dev Caller must be a registered human avatar and `affiliateGroupToAdd` must be a registered group on the Hub.
-    ///      The group is prepended as the new head. Adding a group already present is a no-op (an event is still emitted).
+    ///      The group is prepended as the new head. Adding a group already present is a no-op (no state change, no event).
     /// @param affiliateGroupToAdd The Circles group to affiliate with the caller.
     function addAffiliateGroup(address affiliateGroupToAdd) external {
-        if (!hub.isHuman(msg.sender)) revert IsNotHuman(msg.sender);
+        if (!hub.isHuman(msg.sender)) revert OnlyHuman();
         if (!hub.isGroup(affiliateGroupToAdd)) revert AffiliateGroupNotExist(affiliateGroupToAdd);
-
+        if (affiliateGroupList[msg.sender][affiliateGroupToAdd] != address(0)) return; // group already exist
         if (affiliateGroupList[msg.sender][affiliateGroupToAdd] == address(0)) {
-            // if it is empty
-
             if (affiliateGroupList[msg.sender][SENTINEL] == address(0)) {
                 // empty list
                 affiliateGroupList[msg.sender][SENTINEL] = affiliateGroupToAdd;
