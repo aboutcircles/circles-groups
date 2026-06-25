@@ -22,6 +22,12 @@ contract MultiAffiliateGroupRegistry {
     /// @notice Sentinel node used as the head/tail boundary of each avatar's linked list.
     address constant SENTINEL = address(0x01);
 
+    /// @notice Account that deployed the registry and is allowed to seed it via {initialize}.
+    address public deployer;
+
+    /// @notice Whether seeding has been permanently locked. Once true, {initialize} reverts forever.
+    bool public isInitialized;
+
     /// @notice Per-avatar linked list of affiliate groups.
     /// @dev `affiliateGroupList[avatar][node]` returns the node that follows `node` in `avatar`'s list.
     ///      Read `affiliateGroupList[avatar][SENTINEL]` to get the head and walk until {SENTINEL} is reached.
@@ -43,6 +49,50 @@ contract MultiAffiliateGroupRegistry {
 
     /// @notice Address is not recognized as a human by the Hub.
     error OnlyHuman();
+
+    /// @notice Caller is not the {deployer}.
+    error SenderNotDeployer();
+
+    /// @notice The `avatars` and `affiliateGroup` arrays passed to {initialize} have different lengths.
+    error ArrayLengthMismatch();
+
+    /// @notice Seeding has already been locked via {lockInitialization}; {initialize} can no longer be called.
+    error AlreadyInitialized();
+
+    /// @dev Restricts a function to the {deployer}.
+    modifier onlyDeployer() {
+        if (msg.sender != deployer) revert SenderNotDeployer();
+        _;
+    }
+
+    /// @dev Records the deploying account as the {deployer}, the only account permitted to seed the registry.
+    constructor() {
+        deployer = msg.sender;
+    }
+
+    /// @notice Seeds the registry with initial avatar/affiliate-group pairs, in batches.
+    /// @dev Callable only by the {deployer} and only while seeding is unlocked (`isInitialized == false`).
+    ///      May be called repeatedly to seed across multiple transactions; each `avatars[i]` is set to a
+    ///      single-element list `[affiliateGroup[i]]`, overwriting any existing list for that avatar.
+    ///      Intended for one-time bulk seeding at deployment; call {lockInitialization} when done.
+    /// @param avatars The human avatars to seed; must be the same length as `affiliateGroup`.
+    /// @param affiliateGroup The affiliate group to assign to the avatar at the same index.
+    function initialize(address[] memory avatars, address[] memory affiliateGroup) external onlyDeployer {
+        if (avatars.length != affiliateGroup.length) revert ArrayLengthMismatch();
+        if (isInitialized) revert AlreadyInitialized();
+
+        for (uint256 i = 0; i < avatars.length; i++) {
+            affiliateGroupList[avatars[i]][SENTINEL] = affiliateGroup[i];
+            affiliateGroupList[avatars[i]][affiliateGroup[i]] = SENTINEL;
+            emit AffiliateGroupAdded(affiliateGroup[i], avatars[i]);
+        }
+    }
+
+    /// @notice Permanently disables {initialize}, ending the seeding phase.
+    /// @dev Callable only by the {deployer}. Irreversible: there is no function that unsets `isInitialized`.
+    function lockInitialization() external onlyDeployer {
+        isInitialized = true;
+    }
 
     /// @notice Adds `affiliateGroupToAdd` to the caller's affiliate group list.
     /// @dev Caller must be a registered human avatar and `affiliateGroupToAdd` must be a registered group on the Hub.

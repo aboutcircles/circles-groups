@@ -262,4 +262,57 @@ contract MultiAffiliateGroupRegistryTest is Test {
         expected[0] = backerGrp;
         _assertList(avatar, expected);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            SEED / INITIALIZE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Exercises the full seed/lock lifecycle: deployer seeds in multiple batches,
+    ///      non-deployer is rejected, and seeding is permanently disabled after lockInitialization().
+    function test_seedAndSetInitialized() public {
+        // --- batch 1 (deployer == address(this)) ---
+        address[] memory a1 = new address[](1);
+        address[] memory g1 = new address[](1);
+        a1[0] = avatar;
+        g1[0] = backerGrp;
+        registry.initialize(a1, g1);
+
+        address[] memory exp1 = new address[](1);
+        exp1[0] = backerGrp;
+        _assertList(avatar, exp1); // seeded as a one-element list
+
+        // --- batch 2 must still succeed before locking ---
+        address[] memory a2 = new address[](1);
+        address[] memory g2 = new address[](1);
+        a2[0] = fakeAvatar;
+        g2[0] = oicGrp;
+        registry.initialize(a2, g2);
+
+        address[] memory exp2 = new address[](1);
+        exp2[0] = oicGrp;
+        _assertList(fakeAvatar, exp2);
+
+        // --- non-deployer cannot seed or lock (onlyDeployer) ---
+        vm.startPrank(fakeAvatar);
+        vm.expectRevert(MultiAffiliateGroupRegistry.SenderNotDeployer.selector);
+        registry.initialize(a1, g1);
+        vm.expectRevert(MultiAffiliateGroupRegistry.SenderNotDeployer.selector);
+        registry.lockInitialization();
+        vm.stopPrank();
+
+        // --- length-mismatch guard ---
+        address[] memory bad = new address[](2);
+        vm.expectRevert(MultiAffiliateGroupRegistry.ArrayLengthMismatch.selector);
+        registry.initialize(bad, g1);
+
+        // --- lock seeding (deployer) ---
+        registry.lockInitialization();
+
+        // --- seeding is now permanently disabled ---
+        vm.expectRevert(MultiAffiliateGroupRegistry.AlreadyInitialized.selector);
+        registry.initialize(a1, g1);
+
+        // previously seeded state is untouched by the failed call
+        _assertList(avatar, exp1);
+    }
 }
