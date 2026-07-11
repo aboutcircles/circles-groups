@@ -4,3 +4,5 @@ ds-test/=lib/circles-contracts-v2/lib/forge-std/lib/ds-test/src/
 erc4626-tests/=lib/circles-contracts-v2/lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/circles-contracts-v2/lib/openzeppelin-contracts/
+abdk-libraries-solidity/=lib/circles-contracts-v2/lib/abdk-libraries-solidity/
+halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/

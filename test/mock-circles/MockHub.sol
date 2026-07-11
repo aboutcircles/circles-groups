@@ -65,7 +65,11 @@ contract MockHub is ERC1155, TypeDefinitions {
         treasuries[msg.sender] = address(standardTreasury);
     }
 
-    function registerOrganization(string calldata, /*_name*/ bytes32 /*_metadataDigest*/ ) public {
+    function registerOrganization(
+        string calldata,
+        /*_name*/
+        bytes32 /*_metadataDigest*/
+    ) public {
         require(registrations[msg.sender] == AvatarTypes.Unregistered, "organization address already registered");
         registrations[msg.sender] = AvatarTypes.Organization;
     }

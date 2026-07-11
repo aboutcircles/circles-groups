@@ -460,5 +460,4 @@ contract CirclesV2Setup is Test {
         _setUpNameRegistry();
         _setUpTreasury();
     }
-
 }
